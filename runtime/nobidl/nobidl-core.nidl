@@ -1,0 +1,25 @@
+package nobidl.core;
+
+extern type string;
+extern type binary;
+
+extern type int;
+extern type nat;
+
+extern type i8;
+extern type u8;
+extern type i16;
+extern type u16;
+extern type i32;
+extern type u32;
+extern type i64;
+extern type u64;
+
+extern type f32;
+extern type f64;
+
+extern type unit;
+
+extern type list[a];
+extern type option[a];
+

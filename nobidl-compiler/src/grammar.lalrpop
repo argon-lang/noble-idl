@@ -1,0 +1,211 @@
+use crate::ast;
+
+grammar;
+
+pub DefinitionFile: ast::DefinitionFile = {
+    <package: PackageSpecifier>
+    <imports: Import*>
+    <definitions: Definition*>
+    => ast::DefinitionFile {
+        package,
+        imports,
+        definitions,
+    },
+};
+
+Identifier: String = {
+    <s: r"[a-z]|[a-z][a-z0-9-]*[a-z0-9]"> => s.to_owned(),
+};
+
+QualName: ast::QualifiedName = {
+    <init: PackageName> "." <last: Identifier> => ast::QualifiedName(init, last),
+    <name: Identifier> => ast::QualifiedName(ast::PackageName(vec!()), name),
+};
+
+PackageName: ast::PackageName = {
+    <name: QualName> => {
+        let mut parts = name.0.0;
+        parts.push(name.1);
+        ast::PackageName(parts)
+    },
+};
+
+PackageSpecifier: ast::PackageName = {
+    "package" <name: PackageName> ";" => name,
+    => ast::PackageName(vec!()),
+};
+
+Import: ast::PackageName = {
+    "import" <name: PackageName> ";" => name,
+};
+
+Definition: ast::Definition = {
+    <rec: Record> => ast::Definition::Record(rec),
+    <e: Enum> => ast::Definition::Enum(e),
+    <et: ExternType> => ast::Definition::ExternType(et),
+    <iface: Interface> => ast::Definition::Interface(iface),
+};
+
+Record: ast::RecordDefinition = {
+    "record"
+    <name: Identifier>
+    <type_parameters: TypeParameters>
+    "{"
+    <fields: RecordField*>
+    "}"
+    => ast::RecordDefinition {
+        name,
+        type_parameters,
+        fields,
+    },
+};
+
+RecordField: ast::RecordField = {
+    <name: Identifier>
+    ":"
+    <field_type: TypeExpr>
+    ";"
+    => ast::RecordField {
+        name,
+        field_type,
+    },
+};
+
+Enum: ast::EnumDefinition = {
+    "enum"
+    <name: Identifier>
+    <type_parameters: TypeParameters>
+    "{"
+    <cases: EnumCases>
+    ","?
+    "}"
+    => ast::EnumDefinition {
+        name,
+        type_parameters,
+        cases,
+    },
+}
+
+EnumCases: Vec<ast::EnumCase> = {
+    <init: EnumCases> "," <last: EnumCase> => {
+        let mut init = init;
+        init.push(last);
+        init
+    },
+    <param: EnumCase> => vec!(param),
+};
+
+EnumCase: ast::EnumCase = {
+    <name: Identifier>
+    "{"
+    <fields: RecordField*>
+    "}"
+    => ast::EnumCase {
+        name,
+        fields,
+    },
+
+    <name: Identifier> => ast::EnumCase {
+        name,
+        fields: vec!(),
+    },
+};
+
+ExternType: ast::ExternTypeDefinition = {
+    "extern"
+    "type"
+    <name: Identifier>
+    <type_parameters: TypeParameters>
+    ";"
+    => ast::ExternTypeDefinition {
+        name,
+        type_parameters,
+    },
+};
+
+Interface: ast::InterfaceDefinition = {
+    "interface"
+    <name: Identifier>
+    <type_parameters: TypeParameters>
+    "{"
+    <methods: InterfaceMethod*>
+    "}"
+    => ast::InterfaceDefinition {
+        name,
+        type_parameters,
+        methods,
+    },
+};
+
+InterfaceMethod: ast::InterfaceMethod = {
+    <name: Identifier>
+    <type_parameters: TypeParameters>
+    "("
+    <parameters: MethodParameters>
+    ")"
+    ":"
+    <return_type: TypeExpr>
+    ";"
+    => ast::InterfaceMethod {
+        name,
+        type_parameters,
+        parameters,
+        return_type,
+    },
+};
+
+MethodParameters: Vec<ast::InterfaceMethodParameter> = {
+    => vec!(),
+    <params: MethodParametersNonEmpty> ","? => params,
+};
+
+MethodParametersNonEmpty: Vec<ast::InterfaceMethodParameter> = {
+    <init: MethodParametersNonEmpty> "," <last: MethodParameter> => {
+        let mut init = init;
+        init.push(last);
+        init
+    },
+    <param: MethodParameter> => vec!(param),
+};
+
+MethodParameter: ast::InterfaceMethodParameter = {
+    <name: Identifier>
+    ":"
+    <parameter_type: TypeExpr>
+    => ast::InterfaceMethodParameter {
+        name,
+        parameter_type,
+    },
+};
+
+TypeParameters: Vec<ast::TypeParameter> = {
+    "[" <params: TypeParameterList> ","? "]" => params,
+    => vec!(),
+};
+
+TypeParameterList: Vec<ast::TypeParameter> = {
+    <init: TypeParameterList> "," <last: TypeParameter> => {
+        let mut init = init;
+        init.push(last);
+        init
+    },
+    <param: TypeParameter> => vec!(param),
+};
+
+TypeParameter: ast::TypeParameter = {
+    <name: Identifier> => ast::TypeParameter::Type(name),
+};
+
+TypeExpr: ast::TypeExpr = {
+    <name: QualName> => ast::TypeExpr::Name(name),
+    <f: TypeExpr> "[" <args: TypeArgumentList> "]" => ast::TypeExpr::Apply(Box::new(f), args),
+};
+
+TypeArgumentList: Vec<ast::TypeExpr> = {
+    <init: TypeArgumentList> "," <last: TypeExpr> => {
+        let mut init = init;
+        init.push(last);
+        init
+    },
+    <param: TypeExpr> => vec!(param),
+};

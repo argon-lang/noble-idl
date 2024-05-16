@@ -1,0 +1,19 @@
+[package]
+name = "nobidl-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+lalrpop = "0.20.2"
+
+[dev-dependencies]
+tempfile = "3.10.1"
+
+[dependencies]
+lalrpop-util = { version = "0.20.2", features = ["unicode", "lexer"] }
+logos = "0.14.0"
+derive_more = "0.99.16"
+io-adapters = "0.3.0"
+itertools = "0.12.1"
+
+
