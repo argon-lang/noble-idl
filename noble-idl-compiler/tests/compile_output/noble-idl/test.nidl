@@ -1,6 +1,6 @@
-package nobidl.test;
+package nobleidl.test;
 
-import nobidl.core;
+import nobleidl.core;
 
 record string-int-pair {
     s: string;

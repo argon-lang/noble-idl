@@ -197,7 +197,7 @@ TypeParameter: ast::TypeParameter = {
 };
 
 TypeExpr: ast::TypeExpr = {
-    <name: QualName> => ast::TypeExpr::Name(name),
+    <name: QualName> => ast::TypeExpr::UnresolvedName(name),
     <f: TypeExpr> "[" <args: TypeArgumentList> "]" => ast::TypeExpr::Apply(Box::new(f), args),
 };
 

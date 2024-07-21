@@ -1,5 +1,5 @@
 [package]
-name = "nobidl-compiler"
+name = "noble-idl-compiler"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,8 @@ lalrpop = "0.20.2"
 
 [dev-dependencies]
 tempfile = "3.10.1"
+toml = "0.8.15"
+walkdir = "2.5.0"
 
 [dependencies]
 lalrpop-util = { version = "0.20.2", features = ["unicode", "lexer"] }
@@ -15,5 +17,11 @@ logos = "0.14.0"
 derive_more = "0.99.16"
 io-adapters = "0.3.0"
 itertools = "0.12.1"
+esexpr = "0.1.8"
+esexpr-binary = "0.1.8"
+esexpr-text = "0.1.8"
+noble-idl-api = { path = "../noble-idl-api" }
+clap = { version = "4.5.9", features = ["derive"] }
+clap_derive = "4.5.8"
 
 

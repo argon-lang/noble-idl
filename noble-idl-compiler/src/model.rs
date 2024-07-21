@@ -1,5 +1,7 @@
 use std::collections::{hash_map, HashMap, HashSet};
 
+use noble_idl_api::NobleIDLDefinitions;
+
 use crate::ast::*;
 
 #[derive(Debug)]
@@ -55,11 +57,22 @@ impl DefinitionInfo {
             Definition::Interface(iface) => check_interface(&scope, full_name, iface),
         }
     }
+
+    fn into_api(self) -> noble_idl_api::DefinitionInfo {
+        match self.def {
+            Definition::Record(r) => r.into_api(self.package),
+            Definition::Enum(e) => e.into_api(self.package),
+            Definition::ExternType(ext) => ext.into_api(self.package),
+            Definition::Interface(iface) => iface.into_api(self.package),
+        }
+    }
 }
 
 
 trait TypeScope {
-    fn lookup_type<'a>(&'a self, full_name: &mut QualifiedName) -> Result<TypeKind, CheckError>;
+    fn resolve_type(&self, name: QualifiedName) -> Result<TypeExpr, CheckError>;
+    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError>;
+    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError>;
 }
 
 
@@ -84,29 +97,31 @@ struct GlobalScope<'a> {
     types: &'a ModelTypes,
 }
 
-impl <'a> TypeScope for GlobalScope<'a> {
-    fn lookup_type<'b>(&'b self, full_name: &mut QualifiedName) -> Result<TypeKind, CheckError> {
+impl <'a> TypeScope for GlobalScope<'a> {    
+    fn resolve_type(&self, mut full_name: QualifiedName) -> Result<TypeExpr, CheckError> {
         if full_name.0.0.is_empty() {
-            let name = &full_name.1;
+            full_name.0 = self.package.clone();
 
-            let mut qual_name = QualifiedName(self.package.clone(), name.clone());
-
-            if let Some(k) = self.types.definitions.get(&qual_name) {
-                *full_name = qual_name;
-                return Ok(k.clone());
+            if self.types.definitions.contains_key(&full_name) {
+                return Ok(TypeExpr::DefinedType(full_name));
             }
 
-
             let mut check_import_package = |mut package| {
-                std::mem::swap(&mut package, &mut qual_name.0);
-                let res = self.types.definitions.get(&qual_name)?;
-                std::mem::swap(&mut package, &mut qual_name.0);
+                std::mem::swap(&mut package, &mut full_name.0);
+                let res = self.types.definitions.contains_key(&full_name);
+                std::mem::swap(&mut package, &mut full_name.0);
 
-                Some((package, res))
+                if res {
+                    Some(package)
+                }
+                else {
+                    None
+                }
             };
 
-            if let Some((_, res)) = check_import_package(PackageName(vec!())) {
-                return Ok(res.clone());
+            if let Some(package) = check_import_package(PackageName(vec!())) {
+                full_name.0 = package;
+                return Ok(TypeExpr::DefinedType(full_name));
             }
 
 
@@ -116,28 +131,45 @@ impl <'a> TypeScope for GlobalScope<'a> {
 
             if matching_defs.len() > 0 {
                 if matching_defs.len() == 1 {
-                    let (package, def) = matching_defs.remove(0);
-                    qual_name.0 = package;
-                    *full_name = qual_name;
-                    return Ok(def.clone());
+                    let package = matching_defs.swap_remove(0);
+                    full_name.0 = package;
+                    Ok(TypeExpr::DefinedType(full_name))
                 }
                 else {
-                    return Err(CheckError::TypeInMultiplePackages(
-                        name.clone(),
+                    Err(CheckError::TypeInMultiplePackages(
+                        full_name.1.clone(),
                         matching_defs.into_iter()
-                            .map(|(package, _)| package)
+                            .map(|package| package)
                             .collect(),
-                    ));
+                    ))
                 }
+            }
+            else {
+                full_name.0.0.clear();
+                Err(CheckError::UnknownType(full_name.clone()))
             }
         }
         else {
-            if let Some(k) = self.types.definitions.get(full_name) {
-                return Ok(k.clone());
+            if self.types.definitions.contains_key(&full_name) {
+                Ok(TypeExpr::DefinedType(full_name))
             }
-        };
-
-        Err(CheckError::UnknownType(full_name.clone()))
+            else {
+                Err(CheckError::UnknownType(full_name))
+            }
+        }
+    }
+    
+    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError> {
+        if let Some(k) = self.types.definitions.get(name) {
+            return Ok(k.clone());
+        }
+        else {
+            Err(CheckError::UnknownType(name.clone()))
+        }
+    }
+    
+    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError> {
+        Err(CheckError::UnknownType(QualifiedName(PackageName(Vec::new()), name.to_owned())))
     }
 }
 
@@ -146,21 +178,27 @@ struct TypeParameterScope<'a, ParentScope> {
     type_parameters: &'a [TypeParameter],
 }
 
-impl <'a, ParentScope: TypeScope> TypeScope for TypeParameterScope<'a, ParentScope> {
-    fn lookup_type<'b>(&'b self, full_name: &mut QualifiedName) -> Result<TypeKind, CheckError> {
-        (
-            if full_name.0.0.is_empty() {
-                let name = &full_name.1;
-                self.type_parameters.iter()
-                    .find(|p| p.name() == name)
-                    .map(get_type_parameter_kind)
-                    .map(Ok)
+impl <'a, ParentScope: TypeScope> TypeScope for TypeParameterScope<'a, ParentScope> {    
+    fn resolve_type(&self, name: QualifiedName) -> Result<TypeExpr, CheckError> {
+        if name.0.0.is_empty() {
+            if self.type_parameters.iter().any(|p| p.name() == name.1) {
+                return Ok(TypeExpr::TypeParameter(name.1));
             }
-            else {
-                None
-            }
-        )
-            .unwrap_or_else(|| self.parent_scope.lookup_type(full_name))        
+        }
+
+        self.parent_scope.resolve_type(name)
+    }
+    
+    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError> {
+        self.parent_scope.check_defined_type(name)
+    }
+    
+    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError> {
+        self.type_parameters.iter()
+            .find(|p| p.name() == name)
+            .map(get_type_parameter_kind)
+            .map(Ok)
+            .unwrap_or_else(|| self.parent_scope.check_type_parameter(name))
     }
 }
 
@@ -190,7 +228,7 @@ impl ModelBuilder {
         Ok(())
     }
 
-    pub(crate) fn check(self) -> Result<Model, CheckError> {
+    pub(crate) fn check<L>(self, language_options: L) -> Result<NobleIDLDefinitions<L>, CheckError> {
         let mut types = HashMap::new();
         let mut definitions = HashMap::new();
 
@@ -207,17 +245,13 @@ impl ModelBuilder {
             def.check(&model_types)?;
         }
 
-        let mut model_definitions: HashMap<PackageName, Vec<DefinitionInfo>> = HashMap::new();
-        for (name, def) in definitions {
-            if def.is_library {
-                continue;
-            }
+        let model_definitions = definitions.into_values()
+            .filter(|dfn| !dfn.is_library)
+            .map(DefinitionInfo::into_api)
+            .collect();
 
-            let items = model_definitions.entry(name.0).or_default();
-            items.push(def);
-        }
-
-        Ok(Model {
+        Ok(NobleIDLDefinitions {
+            language_options,
             definitions: model_definitions,
         })
     }
@@ -376,37 +410,75 @@ fn check_type<Scope: TypeScope>(scope: &Scope, t: &mut TypeExpr, expected_kind: 
     Ok(())
 }
 
+
 fn get_type_expr_kind<Scope: TypeScope>(scope: &Scope, t: &mut TypeExpr) -> Result<TypeKind, CheckError> {
+    let mut t2 = TypeExpr::InvalidType;
+    std::mem::swap(&mut t2, t);
+    match get_type_expr_kind_impl(scope, t2) {
+        TypeKindResult::Success(t2, k) => {
+            *t = t2;
+            Ok(k)
+        },
+        TypeKindResult::Failure(t2, e) => {
+            *t = t2;
+            Err(e)
+        },
+    }
+}
+
+
+enum TypeKindResult {
+    Success(TypeExpr, TypeKind),
+    Failure(TypeExpr, CheckError),
+}
+
+fn get_type_expr_kind_impl<Scope: TypeScope>(scope: &Scope, mut t: TypeExpr) -> TypeKindResult {
     match t {
-        TypeExpr::Name(name) => scope.lookup_type(name),
+        TypeExpr::InvalidType => panic!("Unexpected invalid type"),
+        
+        TypeExpr::UnresolvedName(name) => match scope.resolve_type(name) {
+            Ok(t) => get_type_expr_kind_impl(scope, t),
+            Err(e) => TypeKindResult::Failure(TypeExpr::InvalidType, e)
+        },
 
-        TypeExpr::Apply(f, args) => {
-            let arg_kinds = args.iter_mut().map(|arg| get_type_expr_kind(scope, arg)).collect::<Result<Vec<_>, _>>()?;
+        TypeExpr::DefinedType(ref mut name) => match scope.check_defined_type(name) {
+            Ok(k) => TypeKindResult::Success(t, k),
+            Err(e) => TypeKindResult::Failure(t, e),
+        },
 
-            let f_kind = get_type_expr_kind(scope, f)?;
+        TypeExpr::TypeParameter(ref mut name) => match scope.check_type_parameter(name) {
+            Ok(k) => TypeKindResult::Success(t, k),
+            Err(e) => TypeKindResult::Failure(t, e),
+        },
+
+        TypeExpr::Apply(ref mut f, ref mut args) => {
+            let arg_kinds = match args.iter_mut().map(|arg| get_type_expr_kind(scope, arg)).collect::<Result<Vec<_>, _>>() {
+                Ok(arg_kinds) => arg_kinds,
+                Err(err) => return TypeKindResult::Failure(t, err),
+            };
+
+            let f_kind = match get_type_expr_kind(scope, f) {
+                Ok(f_kind) => f_kind,
+                Err(err) => return TypeKindResult::Failure(t, err),
+            };
             match f_kind {
-                TypeKind::Star => return Err(CheckError::TypeParameterMismatch { expected: vec!(), actual: arg_kinds }),
+                TypeKind::Star => return TypeKindResult::Failure(t, CheckError::TypeParameterMismatch { expected: vec!(), actual: arg_kinds }),
                 TypeKind::Parameterized(params, res) => {
                     if params.len() != arg_kinds.len() {
-                        return Err(CheckError::TypeParameterMismatch { expected: params, actual: arg_kinds });
+                        return TypeKindResult::Failure(t, CheckError::TypeParameterMismatch { expected: params, actual: arg_kinds });
                     }
 
                     for (param, arg) in params.into_iter().zip(arg_kinds.into_iter()) {
                         if param != arg {
-                            return Err(CheckError::UnexpectedTypeKind { expected: param, actual: arg });
+                            return TypeKindResult::Failure(t, CheckError::UnexpectedTypeKind { expected: param, actual: arg });
                         }
                     }
 
-                    Ok(*res)
+                    TypeKindResult::Success(t, *res)
                 },
             }
         },
     }
 }
 
-
-
-pub(crate) struct Model {
-    pub definitions: HashMap<PackageName, Vec<DefinitionInfo>>,
-}
 

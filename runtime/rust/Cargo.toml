@@ -1,0 +1,11 @@
+[package]
+name = "noble-idl-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-bigint = "0.4.5"
+num-integer = "0.1.46"
+
+[package.metadata.noble-idl.package_mapping]
+"nobleidl.core" = ""

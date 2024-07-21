@@ -1,0 +1,9 @@
+[package]
+name = "noble-idl-compiler-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+noble-idl-api = { path = "../noble-idl-api" }
+noble-idl-compiler = { path = "../noble-idl-compiler" }
+noble-idl-rust-plugin = { path = "../noble-idl-rust-plugin" }

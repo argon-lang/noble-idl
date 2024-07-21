@@ -1,4 +1,4 @@
-package nobidl.core;
+package nobleidl.core;
 
 extern type string;
 extern type binary;
