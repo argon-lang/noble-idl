@@ -37,6 +37,9 @@ pub struct DefinitionInfo {
 
     #[keyword]
     pub definition: Definition,
+
+    #[keyword]
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone)]
@@ -84,6 +87,9 @@ pub struct RecordDefinition {
 pub struct RecordField {
     pub name: String,
     pub field_type: TypeExpr,
+
+    #[keyword]
+    pub annotations: Vec<Annotation>,
 }
 
 
@@ -98,6 +104,9 @@ pub struct EnumCase {
 
     #[vararg]
     pub fields: Vec<RecordField>,
+
+    #[keyword]
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq)]
@@ -119,15 +128,25 @@ pub struct InterfaceMethod {
 
     #[keyword]
     pub return_type: TypeExpr,
+
+    #[keyword]
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq)]
 pub struct InterfaceMethodParameter {
     pub name: String,
     pub parameter_type: TypeExpr,
+
+    #[keyword]
+    pub annotations: Vec<Annotation>,
 }
 
-
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub struct Annotation {
+    pub scope: String,
+    pub value: ESExpr,
+}
 
 
 

@@ -1,4 +1,4 @@
-pub use noble_idl_api::{PackageName, QualifiedName, TypeParameter};
+pub use noble_idl_api::{PackageName, QualifiedName, TypeParameter, Annotation};
 
 #[derive(Debug, PartialEq)]
 pub struct DefinitionFile {
@@ -31,6 +31,7 @@ pub struct RecordDefinition {
     pub name: String,
     pub type_parameters: Vec<TypeParameter>,
     pub fields: Vec<RecordField>,
+    pub annotations: Vec<Annotation>,
 }
 
 impl RecordDefinition {
@@ -41,6 +42,7 @@ impl RecordDefinition {
             definition: noble_idl_api::Definition::Record(noble_idl_api::RecordDefinition {
                 fields: self.fields.into_iter().map(RecordField::into_api).collect(),
             }),
+            annotations: self.annotations,
         }
     }
 }
@@ -49,6 +51,7 @@ impl RecordDefinition {
 pub struct RecordField {
     pub name: String,
     pub field_type: TypeExpr,
+    pub annotations: Vec<Annotation>,
 }
 
 impl RecordField {
@@ -56,6 +59,7 @@ impl RecordField {
         noble_idl_api::RecordField {
             name: self.name,
             field_type: self.field_type.into_api(),
+            annotations: self.annotations,
         }
     }
 }
@@ -66,6 +70,7 @@ pub struct EnumDefinition {
     pub name: String,
     pub type_parameters: Vec<TypeParameter>,
     pub cases: Vec<EnumCase>,
+    pub annotations: Vec<Annotation>,
 }
 
 impl EnumDefinition {
@@ -76,6 +81,7 @@ impl EnumDefinition {
             definition: noble_idl_api::Definition::Enum(noble_idl_api::EnumDefinition {
                 cases: self.cases.into_iter().map(EnumCase::into_api).collect(),
             }),
+            annotations: self.annotations,
         }
     }
 }
@@ -84,6 +90,7 @@ impl EnumDefinition {
 pub struct EnumCase {
     pub name: String,
     pub fields: Vec<RecordField>,
+    pub annotations: Vec<Annotation>,
 }
 
 impl EnumCase {
@@ -91,6 +98,7 @@ impl EnumCase {
         noble_idl_api::EnumCase {
             name: self.name,
             fields: self.fields.into_iter().map(RecordField::into_api).collect(),
+            annotations: self.annotations,
         }
     }
 }
@@ -99,6 +107,7 @@ impl EnumCase {
 pub struct ExternTypeDefinition {
     pub name: String,
     pub type_parameters: Vec<TypeParameter>,
+    pub annotations: Vec<Annotation>,
 }
 
 impl ExternTypeDefinition {
@@ -107,6 +116,7 @@ impl ExternTypeDefinition {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
             definition: noble_idl_api::Definition::ExternType,
+            annotations: self.annotations,
         }
     }
 }
@@ -117,6 +127,7 @@ pub struct InterfaceDefinition {
     pub name: String,
     pub type_parameters: Vec<TypeParameter>,
     pub methods: Vec<InterfaceMethod>,
+    pub annotations: Vec<Annotation>,
 }
 
 impl InterfaceDefinition {
@@ -127,6 +138,7 @@ impl InterfaceDefinition {
             definition: noble_idl_api::Definition::Interface(noble_idl_api::InterfaceDefinition {
                 methods: self.methods.into_iter().map(InterfaceMethod::into_api).collect(),
             }),
+            annotations: self.annotations,
         }
     }
 }
@@ -137,6 +149,7 @@ pub struct InterfaceMethod {
     pub type_parameters: Vec<TypeParameter>,
     pub parameters: Vec<InterfaceMethodParameter>,
     pub return_type: TypeExpr,
+    pub annotations: Vec<Annotation>,
 }
 
 impl InterfaceMethod {
@@ -146,6 +159,7 @@ impl InterfaceMethod {
             type_parameters: self.type_parameters,
             parameters: self.parameters.into_iter().map(InterfaceMethodParameter::into_api).collect(),
             return_type: self.return_type.into_api(),
+            annotations: self.annotations,
         }
     }
 }
@@ -154,6 +168,7 @@ impl InterfaceMethod {
 pub struct InterfaceMethodParameter {
     pub name: String,
     pub parameter_type: TypeExpr,
+    pub annotations: Vec<Annotation>,
 }
 
 impl InterfaceMethodParameter {
@@ -161,6 +176,7 @@ impl InterfaceMethodParameter {
         noble_idl_api::InterfaceMethodParameter {
             name: self.name,
             parameter_type: self.parameter_type.into_api(),
+            annotations: self.annotations,
         }
     }
 }

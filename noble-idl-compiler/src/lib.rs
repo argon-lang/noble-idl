@@ -3,16 +3,14 @@ use std::{ffi::OsString, path::{Path, PathBuf}};
 
 use derive_more::From;
 use esexpr::ESExpr;
-use lalrpop_util::{lalrpop_mod, lexer::Token, ParseError};
 
 pub mod ast;
 pub mod model;
+pub mod parser;
 
 use model::{CheckError, ModelBuilder};
 use noble_idl_api::{NobleIDLDefinitions, NobleIDLGenerationResult, NobleIDLPluginExecutor};
 use esexpr::ESExprCodec;
-
-lalrpop_mod!(grammar);
 
 
 #[derive(From, Debug)]
@@ -27,8 +25,8 @@ pub enum Error<PE> {
     PluginError(PE),
 }
 
-impl <'input, PE> From<ParseError<usize, Token<'input>, &str>> for Error<PE> {
-    fn from(value: ParseError<usize, Token<'input>, &str>) -> Self {
+impl <'input, PE> From<nom::Err<nom::error::Error<&str>>> for Error<PE> {
+    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
         Error::ParseError(format!("{:?}", value))
     }
 }
@@ -52,7 +50,7 @@ impl NobleIDLPluginExecutor for ProcessPlugin {
             .stdout(Stdio::piped())
             .spawn()?;
     
-        let mut stdin = child.stdin.take().unwrap();
+        let mut stdin: std::process::ChildStdin = child.stdin.take().unwrap();
     
         let model = model.encode_esexpr();
         
@@ -128,8 +126,7 @@ pub fn compile<P: NobleIDLPluginExecutor>(p: &P, options: &NobleIDLOptions<P::La
 fn load_file<PE>(model: &mut model::ModelBuilder, file: &Path, is_library: bool) -> Result<(), Error<PE>> {
 
     let source = std::fs::read_to_string(file)?;
-    let parser = grammar::DefinitionFileParser::new();
-    let def_file = parser.parse(&source)?;
+    let (_, def_file) = parser::definition_file(&source)?;
 
     for def in def_file.definitions {
         model.add_definition(model::DefinitionInfo {
