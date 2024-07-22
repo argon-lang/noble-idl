@@ -173,3 +173,48 @@ impl TypeParameter {
 
 
 
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprAnnRecord {
+    DeriveCodec,
+    Constructor(String),
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprAnnEnum {
+    DeriveCodec,
+    SimpleEnum,
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprAnnEnumCase {
+    Constructor(String),
+    InlineValue,
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprAnnRecordField {
+    Keyword {
+        #[keyword(required = false)]
+        name: Option<String>,
+
+        #[keyword]
+        #[default_value = true]
+        required: bool,
+
+        #[keyword(required = false)]
+        default_value: Option<ESExpr>,
+
+        #[keyword]
+        #[default_value = false]
+        dict: bool,
+
+        #[keyword]
+        #[default_value = false]
+        vararg: bool,
+    },
+}
+
+
+
+
+
