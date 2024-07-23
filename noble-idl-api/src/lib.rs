@@ -203,15 +203,10 @@ pub enum ESExprAnnRecordField {
 
         #[keyword(required = false)]
         default_value: Option<ESExpr>,
-
-        #[keyword]
-        #[default_value = false]
-        dict: bool,
-
-        #[keyword]
-        #[default_value = false]
-        vararg: bool,
     },
+
+    Dict,
+    Vararg,
 }
 
 

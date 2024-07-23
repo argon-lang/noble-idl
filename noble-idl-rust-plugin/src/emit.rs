@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use esexpr::ESExprCodec;
-use noble_idl_api::{Definition, DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, InterfaceMethodParameter, NobleIDLDefinitions, NobleIDLGenerationResult, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter};
+use noble_idl_api::{Definition, DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, InterfaceMethodParameter, NobleIDLDefinitions, NobleIDLGenerationResult, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter, Annotation};
 use syn::punctuated::Punctuated;
 
 use crate::RustLanguageOptions;
@@ -176,11 +176,44 @@ impl <'a> ModEmitter<'a> {
 
         let fields = self.emit_fields(&r.fields)?;
 
+        let mut derives = Vec::new();
+        let mut attrs = Vec::new();
+        self.process_record_ann(&dfn.annotations, &mut derives, &mut attrs)?;
+        let attrs = attrs.into_iter().collect::<TokenStream>();
+
         Ok(quote! {
+            #[derive(#(#derives),*)]
+            #attrs
             struct #rec_name #type_parameters {
                 #fields
             }
         })
+    }
+
+    fn process_record_ann(&self, ann: &[Annotation], derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+        derives.push(quote! { ::std::fmt::Debug });
+        derives.push(quote! { ::std::clone::Clone });
+        derives.push(quote! { ::std::cmp::PartialEq });
+        
+        for a in ann {
+            match a.scope.as_str() {
+                "esexpr" => {
+                    let record_ann = noble_idl_api::ESExprAnnRecord::decode_esexpr(a.value.clone())?;
+                    match record_ann {
+                        noble_idl_api::ESExprAnnRecord::DeriveCodec => {
+                            derives.push(quote! { ::esexpr::ESExprCodec });
+                        },
+                        noble_idl_api::ESExprAnnRecord::Constructor(name) => {
+                            attrs.push(quote! { #[constructor = #name] });
+                        },
+                    }
+                },
+
+                _ => {},
+            }
+        }
+
+        Ok(())
     }
 
     fn emit_enum(&self, dfn: &DefinitionInfo, e: &EnumDefinition) -> Result<TokenStream, EmitError> {
@@ -190,21 +223,82 @@ impl <'a> ModEmitter<'a> {
 
         let cases: TokenStream = e.cases.iter().map(|c| self.emit_enum_case(c)).collect::<Result<_, _>>()?;
 
+        let mut derives = Vec::new();
+        let mut attrs = Vec::new();
+        self.process_enum_ann(&dfn.annotations, &mut derives, &mut attrs)?;
+        let attrs = attrs.into_iter().collect::<TokenStream>();
+
         Ok(quote! {
+            #[derive(#(#derives),*)]
+            #attrs
             enum #enum_name #type_parameters {
                 #cases
             }
         })
     }
 
+    fn process_enum_ann(&self, ann: &[Annotation], derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+        derives.push(quote! { ::std::fmt::Debug });
+        derives.push(quote! { ::std::clone::Clone });
+        derives.push(quote! { ::std::cmp::PartialEq });
+        
+        for a in ann {
+            match a.scope.as_str() {
+                "esexpr" => {
+                    let record_ann = noble_idl_api::ESExprAnnEnum::decode_esexpr(a.value.clone())?;
+                    match record_ann {
+                        noble_idl_api::ESExprAnnEnum::DeriveCodec => {
+                            derives.push(quote! { ::esexpr::ESExprCodec });
+                        },
+                        noble_idl_api::ESExprAnnEnum::SimpleEnum => {
+                            attrs.push(quote! { #[simple_enum] });
+                        },
+                    }
+                },
+
+                _ => {},
+            }
+        }
+
+        Ok(())
+    }
+
     fn emit_enum_case(&self, c: &EnumCase) -> Result<TokenStream, EmitError> {
         let case_name = convert_id_pascal(&c.name);
         let fields = self.emit_fields(&c.fields)?;
+
+        let mut attrs = Vec::new();
+        self.process_enum_case_ann(&c.annotations, &mut attrs)?;
+        let attrs = attrs.into_iter().collect::<TokenStream>();
+
         Ok(quote! {
+            #attrs
             #case_name {
                 #fields
             },
         })
+    }
+
+    fn process_enum_case_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {        
+        for a in ann {
+            match a.scope.as_str() {
+                "esexpr" => {
+                    let record_ann = noble_idl_api::ESExprAnnEnumCase::decode_esexpr(a.value.clone())?;
+                    match record_ann {
+                        noble_idl_api::ESExprAnnEnumCase::InlineValue => {
+                            attrs.push(quote! { #[inline_value] });
+                        },
+                        noble_idl_api::ESExprAnnEnumCase::Constructor(name) => {
+                            attrs.push(quote! { #[constructor = #name] });
+                        },
+                    }
+                },
+
+                _ => {},
+            }
+        }
+
+        Ok(())
     }
 
     fn emit_interface(&self, dfn: &DefinitionInfo, i: &InterfaceDefinition) -> Result<TokenStream, EmitError> {
@@ -247,9 +341,55 @@ impl <'a> ModEmitter<'a> {
     fn emit_field(&self, field: &RecordField) -> Result<TokenStream, EmitError> {
         let field_name = convert_id_snake(&field.name);
         let field_type = self.emit_type_expr(&field.field_type)?;
+
+        let mut attrs = Vec::new();
+        self.process_field_ann(&field.annotations, &mut attrs)?;
+        let attrs = attrs.into_iter().collect::<TokenStream>();
+
         Ok(quote! {
+            #attrs
             #field_name: #field_type,
         })
+    }
+
+    fn process_field_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {        
+        for a in ann {
+            match a.scope.as_str() {
+                "esexpr" => {
+                    let record_ann = noble_idl_api::ESExprAnnRecordField::decode_esexpr(a.value.clone())?;
+                    match record_ann {
+                        noble_idl_api::ESExprAnnRecordField::Keyword { name, required, default_value } => {
+                            match (name, required) {
+                                (Some(name), true) => {
+                                    attrs.push(quote! { #[keyword = #name] });
+                                },
+                                (Some(name), false) => {
+                                    attrs.push(quote! { #[keyword(name = #name, required = false)] });
+                                },
+                                (None, false) => {
+                                    attrs.push(quote! { #[keyword(required = false)] });
+                                },
+                                (None, true) => {},
+                            }
+
+                            if let Some(_) = default_value {
+                                todo!();
+                            }
+                        },
+                        noble_idl_api::ESExprAnnRecordField::Dict => {
+                            attrs.push(quote! { #[dict] });
+                        },
+                        noble_idl_api::ESExprAnnRecordField::Vararg => {
+                            attrs.push(quote! { #[vararg] });
+                        },
+                    }
+                },
+
+                _ => {},
+            }
+        }
+
+        Ok(())
     }
 
     fn emit_method(&self, m: &InterfaceMethod) -> Result<TokenStream, EmitError> {

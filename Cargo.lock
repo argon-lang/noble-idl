@@ -378,6 +378,7 @@ dependencies = [
 name = "noble-idl-runtime"
 version = "0.1.0"
 dependencies = [
+ "esexpr",
  "num-bigint",
  "num-integer",
 ]

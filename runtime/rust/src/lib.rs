@@ -1,4 +1,6 @@
+use std::collections::{HashMap, HashSet};
 
+use esexpr::{ESExpr, ESExprCodec, ESExprTag};
 
 pub type String = std::string::String;
 
@@ -21,9 +23,10 @@ pub type Unit = ();
 
 pub type List<A> = Vec<A>;
 pub type Option<A> = std::option::Option<A>;
+pub type Dict<A> = HashMap<String, A>;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Binary(pub Vec<u8>);
 
 impl From<Binary> for Vec<u8> {
@@ -35,6 +38,26 @@ impl From<Binary> for Vec<u8> {
 impl From<Vec<u8>> for Binary {
     fn from(value: Vec<u8>) -> Self {
         Binary(value)
+    }
+}
+
+impl ESExprCodec for Binary {
+    fn tags() -> HashSet<ESExprTag> {
+        HashSet::from([ ESExprTag::Binary ])
+    }
+
+    fn encode_esexpr(self) -> ESExpr {
+        ESExpr::Binary(self.0)
+    }
+
+    fn decode_esexpr(expr: ESExpr) -> Result<Self, esexpr::DecodeError> {
+        match expr {
+            ESExpr::Binary(b) => Ok(Binary(b)),
+            _  => Err(esexpr::DecodeError(esexpr::DecodeErrorType::UnexpectedExpr {
+                expected_tags: Self::tags(),
+                actual_tag: expr.tag()
+            }, esexpr::DecodeErrorPath::Current))
+        }
     }
 }
 
