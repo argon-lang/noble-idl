@@ -29,6 +29,7 @@ pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<N
     let mut emitter = ModEmitter {
         model: request.model,
         pkg_mapping,
+		current_crate: &request.language_options.crate_name,
 
         output_dir: PathBuf::from(&request.language_options.output_dir),
         output_files: Vec::new(),
@@ -77,6 +78,7 @@ struct RustModule<'a> {
 struct ModEmitter<'a> {
     model: NobleIDLModel,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
+	current_crate: &'a str,
 
     output_dir: PathBuf,
     output_files: Vec<String>,
@@ -106,22 +108,22 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn build_package_path(&self, package_name: &PackageName) -> PathBuf {
+    fn build_package_path(&self, package_name: &PackageName) -> Result<PathBuf, EmitError> {
+
+
         let mut p = self.output_dir.clone();
-        let mut pkg_iter = package_name.0.iter();
 
-        if let Some(last_seg) = pkg_iter.next_back() {
-            for seg in pkg_iter {
-                p.push(seg.replace("-", "_"));
-            }
+		let crate_name = self.current_crate.replace("-", "_");
 
-            p.push(last_seg.replace("-", "_") + ".rs");
-        }
-        else {
-            p.push("_root_.rs");
-        }
+		let rust_module = self.get_rust_module(package_name)?;
+		if rust_module.module.is_empty() {
+			p.push(format!("{}.rs", crate_name));
+		}
+		else {
+			p.push(format!("{}::{}.rs", crate_name, rust_module.module));
+		}
 
-        p
+        Ok(p)
     }
 
     fn get_rust_module(&self, package_name: &PackageName) -> Result<&RustModule, EmitError> {
@@ -129,7 +131,7 @@ impl <'a> ModEmitter<'a> {
     }
 
     fn emit_module(&self, package_name: &PackageName, definitions: &[&DefinitionInfo]) -> Result<PathBuf, EmitError>  {
-        let p = self.build_package_path(package_name);
+        let p = self.build_package_path(package_name)?;
 
         if let Some(parent) = p.parent() {
             std::fs::create_dir_all(parent)?;
@@ -167,7 +169,7 @@ impl <'a> ModEmitter<'a> {
 
         let type_parameters = self.emit_type_parameters(&dfn.type_parameters);
 
-        let fields = self.emit_fields(&r.fields)?;
+        let fields = self.emit_fields(true, &r.fields)?;
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
@@ -177,7 +179,7 @@ impl <'a> ModEmitter<'a> {
         Ok(quote! {
             #[derive(#(#derives),*)]
             #attrs
-            struct #rec_name #type_parameters {
+            pub struct #rec_name #type_parameters {
                 #fields
             }
         })
@@ -187,7 +189,7 @@ impl <'a> ModEmitter<'a> {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
-        
+
         for a in ann {
             match a.scope.as_str() {
                 "esexpr" => {
@@ -224,7 +226,7 @@ impl <'a> ModEmitter<'a> {
         Ok(quote! {
             #[derive(#(#derives),*)]
             #attrs
-            enum #enum_name #type_parameters {
+            pub enum #enum_name #type_parameters {
                 #cases
             }
         })
@@ -234,7 +236,7 @@ impl <'a> ModEmitter<'a> {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
-        
+
         for a in ann {
             match a.scope.as_str() {
                 "esexpr" => {
@@ -258,7 +260,7 @@ impl <'a> ModEmitter<'a> {
 
     fn emit_enum_case(&self, c: &EnumCase) -> Result<TokenStream, EmitError> {
         let case_name = convert_id_pascal(&c.name);
-        let fields = self.emit_fields(&c.fields)?;
+        let fields = self.emit_fields(false, &c.fields)?;
 
         let mut attrs = Vec::new();
         self.process_enum_case_ann(&c.annotations, &mut attrs)?;
@@ -272,7 +274,7 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_enum_case_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {        
+    fn process_enum_case_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         for a in ann {
             match a.scope.as_str() {
                 "esexpr" => {
@@ -302,7 +304,7 @@ impl <'a> ModEmitter<'a> {
         let methods: TokenStream = i.methods.iter().map(|m| self.emit_method(m)).collect::<Result<_, _>>()?;
 
         Ok(quote! {
-            trait #if_name #type_parameters {
+            pub trait #if_name #type_parameters {
                 #methods
             }
         })
@@ -327,11 +329,11 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn emit_fields(&self, fields: &[RecordField]) -> Result<TokenStream, EmitError> {
-        fields.iter().map(|f| self.emit_field(f)).collect()
+    fn emit_fields(&self, use_pub: bool, fields: &[RecordField]) -> Result<TokenStream, EmitError> {
+        fields.iter().map(|f| self.emit_field(use_pub, f)).collect()
     }
 
-    fn emit_field(&self, field: &RecordField) -> Result<TokenStream, EmitError> {
+    fn emit_field(&self, use_pub: bool, field: &RecordField) -> Result<TokenStream, EmitError> {
         let field_name = convert_id_snake(&field.name);
         let field_type = self.emit_type_expr(&field.field_type)?;
 
@@ -339,13 +341,15 @@ impl <'a> ModEmitter<'a> {
         self.process_field_ann(&field.annotations, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
+		let pub_kw = if use_pub { quote! { pub } } else { quote!{} };
+
         Ok(quote! {
             #attrs
-            #field_name: #field_type,
+            #pub_kw #field_name: #field_type,
         })
     }
 
-    fn process_field_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {        
+    fn process_field_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
         for a in ann {
             match a.scope.as_str() {
                 "esexpr" => {
@@ -413,7 +417,7 @@ impl <'a> ModEmitter<'a> {
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
         Ok(match t {
             TypeExpr::DefinedType(name) => {
-                
+
                 let rust_mod = self.get_rust_module(name.package_name())?;
                 let mut segments = Punctuated::new();
 
@@ -421,14 +425,14 @@ impl <'a> ModEmitter<'a> {
                     ident: idstr(rust_mod.crate_name.as_ref().map(String::as_str).unwrap_or("crate")),
                     arguments: syn::PathArguments::None,
                 });
-                
+
                 if !rust_mod.module.is_empty() {
                     for mod_part in rust_mod.module.split("::") {
                         segments.push(syn::PathSegment {
                             ident: idstr(mod_part),
                             arguments: syn::PathArguments::None,
                         });
-                    }    
+                    }
                 }
 
                 segments.push(syn::PathSegment {
@@ -470,7 +474,7 @@ impl <'a> ModEmitter<'a> {
             },
         })
     }
-    
+
 }
 
 
@@ -503,7 +507,7 @@ fn get_package_mapping<'a>(options: &'a RustLanguageOptions) -> HashMap<PackageN
             let idl_pkg_name = PackageName::from_str(&idl_pkg);
 
             let crate_name = if is_root_crate { None } else { Some(crate_name.as_str().replace("-", "_")) };
-    
+
             pkg_mapping.insert(idl_pkg_name, RustModule {
                 crate_name,
                 module: rust_pkg

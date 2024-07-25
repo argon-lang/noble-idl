@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+    "examples/rust",
     "noble-idl-api",
     "noble-idl-compiler",
     "noble-idl-compiler-rust",

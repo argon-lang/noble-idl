@@ -1,0 +1,15 @@
+[package]
+name = "noble-idl-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+esexpr = "0.1.11"
+noble-idl-runtime = { path = "../../runtime/rust" }
+
+[build-dependencies]
+noble-idl-compiler-rust = { path = "../../noble-idl-compiler-rust" }
+
+
+[package.metadata.noble-idl.package_mapping]
+"nobleidl.example" = ""

@@ -61,3 +61,10 @@ impl ESExprCodec for Binary {
     }
 }
 
+#[macro_export]
+macro_rules! include_noble_idl {
+	() => {
+		include!(concat!(env!("OUT_DIR"), "/noble_idl/", module_path!(), ".rs"));
+	}
+}
+

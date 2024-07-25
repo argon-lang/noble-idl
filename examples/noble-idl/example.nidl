@@ -1,0 +1,117 @@
+package nobleidl.example;
+
+import nobleidl.core;
+
+@esexpr:(derive-codec)
+@esexpr:(constructor "si-pair")
+record string-int-pair {
+    s: string;
+    @esexpr:(keyword name: "int-value")
+    i: int;
+}
+
+record pair[a, b] {
+    x: a;
+    y: b;
+}
+
+record scalar-builtins {
+    a: string;
+    b: binary;
+    c: int;
+    d: nat;
+    e: i8;
+    f: u8;
+    g: i16;
+    h: u16;
+    i: i32;
+    j: u32;
+    k: i64;
+    l: u64;
+    m: f32;
+    n: f64;
+    o: unit;
+}
+
+record list-builtins {
+    a: list[string];
+    b: list[binary];
+    c: list[int];
+    d: list[nat];
+    e: list[i8];
+    f: list[u8];
+    g: list[i16];
+    h: list[u16];
+    i: list[i32];
+    j: list[u32];
+    k: list[i64];
+    l: list[u64];
+    m: list[f32];
+    n: list[f64];
+    o: list[unit];
+}
+
+record option-builtins {
+    a: option[string];
+    b: option[binary];
+    c: option[int];
+    d: option[nat];
+    e: option[i8];
+    f: option[u8];
+    g: option[i16];
+    h: option[u16];
+    i: option[i32];
+    j: option[u32];
+    k: option[i64];
+    l: option[u64];
+    m: option[f32];
+    n: option[f64];
+    o: option[unit];
+}
+
+@esexpr:(derive-codec)
+enum string-or-int {
+    @esexpr:(constructor "str-value")
+    a {
+        @esexpr:(keyword name: "str")
+        s: string;
+    },
+    @esexpr:(inline-value)
+    b {
+        i: int;
+    },
+}
+
+
+@esexpr:(derive-codec)
+record many-values {
+    @esexpr:(vararg)
+    args: list[int];
+
+    @esexpr:(dict)
+    kwargs: dict[int];
+}
+
+enum either[a, b] {
+    left { value: a; },
+    right { value: b; },
+}
+
+extern type my-extern;
+
+record extern-user {
+    e: my-extern;
+}
+
+extern type my-extern2[a];
+
+interface do-something {
+    to-str(i: int): string;
+    run(n: int): unit;
+}
+
+interface function[a, b] {
+    apply(x: a): b;
+}
+
+

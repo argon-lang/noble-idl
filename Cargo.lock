@@ -375,6 +375,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "noble-idl-example"
+version = "0.1.0"
+dependencies = [
+ "esexpr",
+ "noble-idl-compiler-rust",
+ "noble-idl-runtime",
+]
+
+[[package]]
 name = "noble-idl-runtime"
 version = "0.1.0"
 dependencies = [
