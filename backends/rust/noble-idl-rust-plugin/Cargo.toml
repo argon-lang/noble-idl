@@ -8,7 +8,7 @@ derive_more = "0.99.18"
 esexpr = "0.1.11"
 esexpr-binary = "0.1.11"
 itertools = "0.13.0"
-noble-idl-api = { path = "../noble-idl-api" }
+noble-idl-api = { path = "../../../noble-idl-api" }
 prettyplease = "0.2.20"
 proc-macro2 = "1.0.86"
 quote = "1.0.36"
