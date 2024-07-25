@@ -3,8 +3,12 @@
 .scala-build/
 .vscode/
 target/
+node_modules/
 
 
 /runtime/rust/**/*.nidl
+/runtime/js/**/*.nidl
 
+/backends/js/lib
+/runtime/js/lib
 

@@ -1,6 +1,6 @@
 use std::collections::{hash_map, HashMap, HashSet};
 
-use noble_idl_api::NobleIDLDefinitions;
+use noble_idl_api::NobleIDLModel;
 
 use crate::ast::*;
 
@@ -228,7 +228,7 @@ impl ModelBuilder {
         Ok(())
     }
 
-    pub(crate) fn check<L>(self, language_options: L) -> Result<NobleIDLDefinitions<L>, CheckError> {
+    pub(crate) fn check(self) -> Result<NobleIDLModel, CheckError> {
         let mut types = HashMap::new();
         let mut definitions = HashMap::new();
 
@@ -250,8 +250,7 @@ impl ModelBuilder {
             .map(DefinitionInfo::into_api)
             .collect();
 
-        Ok(NobleIDLDefinitions {
-            language_options,
+        Ok(NobleIDLModel {
             definitions: model_definitions,
         })
     }

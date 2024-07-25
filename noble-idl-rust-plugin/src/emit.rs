@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use esexpr::ESExprCodec;
-use noble_idl_api::{Definition, DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, InterfaceMethodParameter, NobleIDLDefinitions, NobleIDLGenerationResult, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter, Annotation};
+use noble_idl_api::{Annotation, Definition, DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, InterfaceMethodParameter, NobleIDLGenerationRequest, NobleIDLGenerationResult, NobleIDLModel, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter};
 use syn::punctuated::Punctuated;
 
 use crate::RustLanguageOptions;
@@ -23,21 +23,14 @@ pub enum EmitError {
     InvalidFileName,
 }
 
-pub fn emit(definitions: NobleIDLDefinitions<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
-    let mut def_groups = HashMap::new();
-
-    for def in &definitions.definitions {
-        let items = def_groups.entry(&def.name.0).or_insert_with(Vec::new);
-        items.push(def);
-    }
-
-    let pkg_mapping = get_package_mapping(&definitions.language_options);
+pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
+    let pkg_mapping = get_package_mapping(&request.language_options);
 
     let mut emitter = ModEmitter {
-        definitions: definitions.definitions,
+        model: request.model,
         pkg_mapping,
 
-        output_dir: PathBuf::from(&definitions.language_options.output_dir),
+        output_dir: PathBuf::from(&request.language_options.output_dir),
         output_files: Vec::new(),
     };
 
@@ -82,7 +75,7 @@ struct RustModule<'a> {
 }
 
 struct ModEmitter<'a> {
-    definitions: Vec<DefinitionInfo>,
+    model: NobleIDLModel,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
 
     output_dir: PathBuf,
@@ -92,7 +85,7 @@ struct ModEmitter<'a> {
 impl <'a> ModEmitter<'a> {
     fn emit_modules(&mut self) -> Result<(), EmitError> {
         let mut package_groups = HashMap::new();
-        for dfn in &self.definitions {
+        for dfn in &self.model.definitions {
             let dfns = package_groups.entry(dfn.name.package_name())
                 .or_insert_with(|| Vec::new());
 

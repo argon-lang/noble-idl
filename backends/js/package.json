@@ -1,0 +1,27 @@
+{
+  "name": "@argon-lang/noble-idl-compiler-js",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "scripts": {
+    "build-wasm": "cd .. && cross-env RUSTFLAGS=\"-C target-feature=+multivalue\" cargo build -p noble-idl-compiler --target=wasm32-unknown-unknown --release",
+    "codegen": "npm run build-wasm && node generate-wasm-module.js",
+    "build": "npm run codegen && tsc --project .",
+    "test": "npm run build && vitest run --root lib"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "cross-env": "^7.0.3",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@argon-lang/esexpr": "^0.1.5",
+    "typescript": "^5.5.4"
+  }
+}

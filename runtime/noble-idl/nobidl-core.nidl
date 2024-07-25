@@ -22,4 +22,5 @@ extern type unit;
 
 extern type list[a];
 extern type option[a];
+extern type dict[a];
 

@@ -6,28 +6,58 @@ pub trait NobleIDLPluginExecutor {
     type LanguageOptions: Clone + Debug;
     type Error: Debug;
 
-    fn generate(&self, model: NobleIDLDefinitions<Self::LanguageOptions>) -> Result<NobleIDLGenerationResult, Self::Error>;
+    fn generate(&self, request: NobleIDLGenerationRequest<Self::LanguageOptions>) -> Result<NobleIDLGenerationResult, Self::Error>;
 }
 
 
-#[derive(ESExprCodec, Debug, PartialEq)]
-pub struct NobleIDLDefinitions<L> {
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
+pub struct NobleIDLGenerationRequest<L> {
     #[keyword]
     pub language_options: L,
 
     #[keyword]
-    pub definitions: Vec<DefinitionInfo>,
+    pub model: NobleIDLModel,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+
+
+#[derive(ESExprCodec, Debug, Clone, PartialEq)]
 pub struct NobleIDLGenerationResult {
     #[keyword]
     pub generated_files: Vec<String>,
 }
 
 
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
+#[constructor = "options"]
+pub struct NobleIDLCompileModelOptions {
+    #[keyword]
+    pub library_files: Vec<String>,
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+    #[keyword]
+    pub files: Vec<String>,
+}
+
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
+pub enum NobleIDLCompileModelResult {
+    Success(NobleIDLModel),
+    Failure {
+        #[vararg]
+        errors: Vec<String>,
+    },
+}
+
+
+
+
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
+pub struct NobleIDLModel {
+    #[keyword]
+    pub definitions: Vec<DefinitionInfo>,
+}
+
+
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct DefinitionInfo {
     #[keyword]
     pub name: QualifiedName,
@@ -69,21 +99,27 @@ impl QualifiedName {
     }
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub enum Definition {
+    #[inline_value]
     Record(RecordDefinition),
+
+    #[inline_value]
     Enum(EnumDefinition),
+    
     ExternType,
+
+    #[inline_value]
     Interface(InterfaceDefinition),
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct RecordDefinition {
     #[vararg]
     pub fields: Vec<RecordField>,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct RecordField {
     pub name: String,
     pub field_type: TypeExpr,
@@ -93,12 +129,13 @@ pub struct RecordField {
 }
 
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct EnumDefinition {
+    #[vararg]
     pub cases: Vec<EnumCase>,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct EnumCase {
     pub name: String,
 
@@ -109,13 +146,13 @@ pub struct EnumCase {
     pub annotations: Vec<Annotation>,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct InterfaceDefinition {
     #[vararg]
     pub methods: Vec<InterfaceMethod>,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct InterfaceMethod {
     #[keyword]
     pub name: String,
@@ -133,7 +170,7 @@ pub struct InterfaceMethod {
     pub annotations: Vec<Annotation>,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq)]
+#[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct InterfaceMethodParameter {
     pub name: String,
     pub parameter_type: TypeExpr,
