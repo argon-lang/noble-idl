@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
-        "outDir": "lib",
-        "rootDir": "src",
+        "outDir": "out",
+        "rootDirs": [ "src", "src-gen" ],
+        "rootDir": ".",
 
         "allowUnreachableCode": false,
         "allowUnusedLabels": false,
@@ -35,5 +36,5 @@
 
     },
 
-    "include": ["src/**/*"]
+    "include": ["src/**/*", "src-gen/**/*"]
 }

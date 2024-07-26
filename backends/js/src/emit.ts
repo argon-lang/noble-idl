@@ -1,6 +1,7 @@
 import type { DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, NobleIDLGenerationRequest, NobleIDLGenerationResult, NobleIDLModel, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter } from "./api.js";
 
 import * as path from "node:path";
+import * as posixPath from "node:path/posix";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as ts from "typescript";
@@ -12,11 +13,11 @@ export interface JSLanguageOptions {
     // The directory where files will be written.
     outputDir: string,
 
-    packageOptions: Map<string, PackageOptions>,
+    packageOptions: ReadonlyMap<string, PackageOptions>,
 }
 
 export interface PackageOptions {
-    packageMapping: Map<string, string>,
+    packageMapping: ReadonlyMap<string, string>,
 }
 
 
@@ -51,7 +52,7 @@ class ModEmitter {
     readonly #outputDir: string;
     readonly #outputFiles: string[];
 
-    
+
     async emitModules(): Promise<void> {
         const packageGroups = new Map<string, DefinitionInfo[]>();
 
@@ -62,7 +63,7 @@ class ModEmitter {
                 items = [];
                 packageGroups.set(pkgName, items);
             }
-    
+
             items.push(def);
         }
 
@@ -81,7 +82,7 @@ class ModEmitter {
         };
     }
 
-    #buildPackagePath(packageName: PackageName): string {
+	#getPackagePathPart(packageName: PackageName): string {
         const packageNameStr = getPackageNameStr(packageName);
         const mappedPackage = this.#pkgMapping.get(packageNameStr);
         if(mappedPackage === undefined) {
@@ -89,38 +90,45 @@ class ModEmitter {
         }
 
         if(mappedPackage.path === "") {
-            return path.join(this.#outputDir, "index.ts");
+            return "index";
         }
         else if(mappedPackage.path.match(/^_*index$/)) {
-            return path.join(this.#outputDir, "_" + mappedPackage.path + ".ts");
+            return "_" + mappedPackage.path;
         }
         else {
-            return path.join(this.#outputDir, mappedPackage.path + ".ts");
+            return mappedPackage.path;
         }
+	}
+
+    #buildPackagePath(packageName: PackageName): string {
+		const part = this.#getPackagePathPart(packageName);
+		return path.join(this.#outputDir, part + ".ts");
     }
 
     #getExternPath(packageName: PackageName): string {
-        if(packageName.parts.length === 0) {
-            return "./index.extern.js";
-        }
-        else {
-            const part = packageName.parts[packageName.parts.length - 1]!;
-            return `./${part}.extern.js`;
-        }
+		const packagePath = this.#getPackagePathPart(packageName);
+		return "./" + posixPath.basename(packagePath) + ".extern.js";
     }
 
-    #getImportPath(packageName: PackageName): string {
+    #getImportPath(currentPackage: PackageName, packageName: PackageName): string {
         const packageNameStr = getPackageNameStr(packageName);
         const mappedPackage = this.#pkgMapping.get(packageNameStr);
         if(mappedPackage === undefined) {
             throw new Error("Unmapped package: " + packageNameStr);
         }
 
-        if(mappedPackage.path === "") {
+		if(mappedPackage.isCurrentPackage) {
+			const fromPath = this.#getPackagePathPart(currentPackage) + ".js";
+			const toPath = this.#getPackagePathPart(packageName) + ".js";
+
+			if(fromPath === toPath) {
+				return "./" + posixPath.basename(toPath);
+			}
+
+			return "./" + posixPath.relative(fromPath, toPath);
+		}
+        else if(mappedPackage.path === "") {
             return mappedPackage.packageName;
-        }
-        else if(mappedPackage.path.match(/^_*index$/)) {
-            return mappedPackage.packageName + "/_" + mappedPackage.path + ".js";
         }
         else {
             return mappedPackage.packageName + "/" + mappedPackage.path + ".js";
@@ -142,7 +150,7 @@ class ModEmitter {
         );
 
         const printer = ts.createPrinter();
-        
+
         const file = await fs.open(p, "w");
         try {
             for(const def of definitions) {
@@ -175,7 +183,7 @@ class ModEmitter {
             convertIdPascal(def.name.name),
             this.#emitTypeParameters(def.typeParameters),
             undefined,
-            r.fields.map(field => this.#emitField(field)),
+            r.fields.map(field => this.#emitField(def.name.package, field)),
         );
 
         return [ recIface ];
@@ -186,13 +194,13 @@ class ModEmitter {
             [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
             convertIdPascal(def.name.name),
             this.#emitTypeParameters(def.typeParameters),
-            ts.factory.createUnionTypeNode(e.cases.map(c => this.#emitEnumCase(c))),
+            ts.factory.createUnionTypeNode(e.cases.map(c => this.#emitEnumCase(def.name.package, c))),
         );
 
         return [ enumType ];
     }
 
-    #emitEnumCase(c: EnumCase): ts.TypeNode {
+    #emitEnumCase(currentPackage: PackageName, c: EnumCase): ts.TypeNode {
         return ts.factory.createTypeLiteralNode([
             ts.factory.createPropertySignature(
                 undefined,
@@ -201,7 +209,7 @@ class ModEmitter {
                 ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name)),
             ),
 
-            ...c.fields.map(field => this.#emitField(field)),
+            ...c.fields.map(field => this.#emitField(currentPackage, field)),
         ]);
     }
 
@@ -246,7 +254,7 @@ class ModEmitter {
             convertIdPascal(def.name.name),
             this.#emitTypeParameters(def.typeParameters),
             undefined,
-            i.methods.map(m => this.#emitMethod(m)),
+            i.methods.map(m => this.#emitMethod(def.name.package, m)),
         );
 
         return [ iface ];
@@ -264,16 +272,16 @@ class ModEmitter {
         ));
     }
 
-    #emitField(field: RecordField): ts.TypeElement {
+    #emitField(currentPackage: PackageName, field: RecordField): ts.TypeElement {
         return ts.factory.createPropertySignature(
             undefined,
             convertIdCamel(field.name),
             undefined,
-            this.#emitTypeExpr(field.fieldType),
+            this.#emitTypeExpr(currentPackage, field.fieldType),
         );
     }
 
-    #emitMethod(method: InterfaceMethod): ts.TypeElement {
+    #emitMethod(currentPackage: PackageName, method: InterfaceMethod): ts.TypeElement {
         return ts.factory.createMethodSignature(
             undefined,
             convertIdCamel(method.name),
@@ -284,34 +292,34 @@ class ModEmitter {
                 undefined,
                 convertIdCamel(p.name),
                 undefined,
-                this.#emitTypeExpr(p.parameterType),
+                this.#emitTypeExpr(currentPackage, p.parameterType),
             )),
-            this.#emitTypeExpr(method.returnType),
+            this.#emitTypeExpr(currentPackage, method.returnType),
         );
     }
 
-    #emitTypeExpr(t: TypeExpr): ts.TypeNode {
-        return this.#emitTypeExprImpl(t, []);
+    #emitTypeExpr(currentPackage: PackageName, t: TypeExpr): ts.TypeNode {
+        return this.#emitTypeExprImpl(currentPackage, t, []);
     }
 
-    #emitTypeExprImpl(t: TypeExpr, args: readonly TypeExpr[]): ts.TypeNode {
+    #emitTypeExprImpl(currentPackage: PackageName, t: TypeExpr, args: readonly TypeExpr[]): ts.TypeNode {
         switch(t.$type) {
             case "defined-type":
                 return ts.factory.createImportTypeNode(
-                    ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(this.#getImportPath(t.name.package))),
+                    ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(this.#getImportPath(currentPackage, t.name.package))),
                     undefined,
                     ts.factory.createIdentifier(convertIdPascal(t.name.name)),
-                    args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+                    args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(currentPackage, arg)),
                 );
 
             case "type-parameter":
                 return ts.factory.createTypeReferenceNode(
                     ts.factory.createIdentifier(convertIdPascal(t.name)),
-                    args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+                    args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(currentPackage, arg)),
                 );
 
             case "apply":
-                return this.#emitTypeExprImpl(t.baseType, [...args, ...t.args])
+                return this.#emitTypeExprImpl(currentPackage, t.baseType, [...args, ...t.args])
         }
     }
 
@@ -321,6 +329,7 @@ class ModEmitter {
 
 
 interface JSModule {
+	isCurrentPackage: boolean;
     packageName: string;
     path: string;
 }
@@ -349,9 +358,12 @@ function getPackageNameStr(name: PackageName): string {
 function getPackageMapping(options: JSLanguageOptions): Map<string, JSModule> {
     let pkgMapping = new Map<string, JSModule>();
 
-    for(const [packageName, packageOptions] of options.packageOptions) {
+	for(const [packageName, packageOptions] of options.packageOptions) {
+		const isCurrentPackage = options.packageName == packageName;
+
         for(const [idlPackage, jsPath] of packageOptions.packageMapping) {
             pkgMapping.set(idlPackage, {
+				isCurrentPackage,
                 packageName: packageName,
                 path: jsPath,
             });

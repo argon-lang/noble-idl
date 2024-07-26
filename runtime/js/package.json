@@ -9,19 +9,24 @@
     "./binary_format": "./lib/binary_format.js"
   },
   "scripts": {
-    "build": "tsc --project .",
+    "prebuild": "cpy --cwd=../noble-idl/ nobleidl-core.nidl ../js/src/",
+    "build": "npm run prebuild && tsc --project .",
     "test": "npm run build && vitest run --root lib"
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^20.12.12",
+    "cpy-cli": "^5.0.0",
     "typescript": "^5.5.4",
     "vitest": "^1.6.0"
   },
-  "noble_idl": {
-    "package_mapping": {
-      "nobleidl.core": "."
+  "NobleIDL": {
+    "inputFiles": [
+      "src/nobleidl-core.nidl"
+    ],
+    "packageMapping": {
+      "nobleidl.core": ""
     }
   }
 }

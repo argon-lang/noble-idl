@@ -8,4 +8,9 @@ node_modules/
 
 /backends/js/lib
 /runtime/js/lib
+/runtime/js/src/*.nidl
+/runtime/js/*.tgz
+/examples/js/lib/
+/examples/js/out/
+/examples/js/src-gen/
 

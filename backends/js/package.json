@@ -7,6 +7,7 @@
   "exports": {
     ".": "./lib/index.js"
   },
+  "bin": "./lib/main.js",
   "scripts": {
     "build-wasm": "cd .. && cross-env RUSTFLAGS=\"-C target-feature=+multivalue\" cargo build -p noble-idl-compiler --target=wasm32-unknown-unknown --release",
     "codegen": "npm run build-wasm && node generate-wasm-module.js",
@@ -17,11 +18,13 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^20.12.12",
+    "@types/validate-npm-package-name": "^4.0.2",
     "cross-env": "^7.0.3",
     "vitest": "^1.6.0"
   },
   "dependencies": {
     "@argon-lang/esexpr": "^0.1.5",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "validate-npm-package-name": "^5.0.1"
   }
 }
