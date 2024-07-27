@@ -1,10 +1,11 @@
-import { ESExprAnnExternType, type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIDLGenerationRequest, type NobleIDLGenerationResult, type NobleIDLModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ESExprAnnRecord } from "./api.js";
+import { ESExprAnnExternType, type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIDLGenerationRequest, type NobleIDLGenerationResult, type NobleIDLModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ESExprAnnRecord, Annotation, ESExprAnnEnum, ESExprAnnRecordField, ESExprAnnEnumCase } from "./api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as ts from "typescript";
+import type { ESExprCodec } from "@argon-lang/esexpr";
 
 export interface JSLanguageOptions {
     // The name of the NPM package (in package.json)
@@ -156,6 +157,23 @@ class ModEmitter {
 
         const file = await fs.open(p, "w");
         try {
+			if(this.metadata.needsESExprImport) {
+				const node = ts.factory.createImportDeclaration(
+					undefined,
+					ts.factory.createImportClause(
+						false,
+						undefined,
+						ts.factory.createNamespaceImport(
+							ts.factory.createIdentifier("$esexpr"),
+						),
+					),
+					ts.factory.createStringLiteral("@argon-lang/esexpr"),
+				);
+
+				await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
+				await file.write(os.EOL);
+			}
+
 			for(const [pkg, refContext] of this.metadata.referencedPackages) {
 				const node = ts.factory.createImportDeclaration(
 					undefined,
@@ -255,6 +273,7 @@ class ModEmitter {
             case "enum":
 				nodes = this.#emitEnum(def, def.definition.enum);
 				break;
+
             case "extern-type":
 				nodes = [];
 				break;
@@ -285,35 +304,140 @@ class ModEmitter {
     }
 
     #emitRecord(def: DefinitionInfo, r: RecordDefinition): ts.Node[] {
-        const recIface = ts.factory.createInterfaceDeclaration(
+		const nodes: ts.Node[] = [];
+
+        nodes.push(ts.factory.createInterfaceDeclaration(
             [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
             convertIdPascal(def.name.name),
             this.#emitTypeParameters(def.typeParameters),
             undefined,
             r.fields.map(field => this.#emitField(field)),
-        );
+        ));
 
-        return [ recIface ];
+		const deriveCodec = getESExprAnn(def.annotations, ESExprAnnRecord.codec, "derive-codec");
+		if(deriveCodec !== null) {
+			const recordConstructor = getESExprAnn(def.annotations, ESExprAnnRecord.codec, "constructor");
+
+			const codecExpr = ts.factory.createCallExpression(
+				ts.factory.createPropertyAccessExpression(
+					ts.factory.createIdentifier("$esexpr"),
+					"recordCodec",
+				),
+				[
+					this.#emitTypeExpr(this.#defAsType(def)),
+				],
+				[
+					ts.factory.createStringLiteral(recordConstructor?.name ?? def.name.name),
+					this.#emitFieldCodecs(r.fields),
+				],
+			)
+
+			nodes.push(ts.factory.createModuleDeclaration(
+				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
+				ts.factory.createModuleBlock([
+					this.#emitCodecDecl(def, codecExpr),
+				]),
+				ts.NodeFlags.Namespace,
+			))
+		}
+
+        return nodes;
     }
 
     #emitEnum(def: DefinitionInfo, e: EnumDefinition): ts.Node[] {
-        const enumType = ts.factory.createTypeAliasDeclaration(
+		const nodes: ts.Node[] = [];
+
+        nodes.push(ts.factory.createTypeAliasDeclaration(
             [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
             convertIdPascal(def.name.name),
             this.#emitTypeParameters(def.typeParameters),
             ts.factory.createUnionTypeNode(e.cases.map(c => this.#emitEnumCase(c))),
-        );
+        ));
 
-        return [ enumType ];
+		const deriveCodec = getESExprAnn(def.annotations, ESExprAnnRecord.codec, "derive-codec");
+		if(deriveCodec !== null) {
+			if(getESExprAnn(def.annotations, ESExprAnnEnum.codec, "simple-enum") !== null) {
+				console.log(def);
+				throw new Error("Not implemented");
+			}
+
+			const codecExpr = ts.factory.createCallExpression(
+				ts.factory.createPropertyAccessExpression(
+					ts.factory.createIdentifier("$esexpr"),
+					"enumCodec",
+				),
+				[
+					this.#emitTypeExpr(this.#defAsType(def)),
+				],
+				[
+					ts.factory.createObjectLiteralExpression(
+						e.cases.map(c => {
+							const caseConstructor = getESExprAnn(c.annotations, ESExprAnnEnumCase.codec, "constructor");
+
+							let caseCodec: ts.Expression;
+
+							if(getESExprAnn(c.annotations, ESExprAnnEnumCase.codec, "inline-value") !== null) {
+								const field = c.fields[0];
+								if(field === undefined || c.fields.length !== 1) {
+									throw new Error("Inline value must have a single field");
+								}
+
+								caseCodec = ts.factory.createCallExpression(
+									ts.factory.createPropertyAccessExpression(
+										ts.factory.createIdentifier("$esexpr"),
+										"inlineCaseCodec",
+									),
+									undefined,
+									[
+										ts.factory.createStringLiteral(field.name),
+										this.#emitCodecExpr(field.fieldType),
+									],
+								);
+							}
+							else {
+								caseCodec = ts.factory.createCallExpression(
+									ts.factory.createPropertyAccessExpression(
+										ts.factory.createIdentifier("$esexpr"),
+										"caseCodec",
+									),
+									undefined,
+									[ this.#emitFieldCodecs(c.fields) ],
+								);
+							}
+
+							return ts.factory.createPropertyAssignment(
+								ts.factory.createStringLiteral(caseConstructor?.name ?? c.name),
+								caseCodec,
+							);
+						}),
+						true,
+					),
+				],
+			)
+
+			nodes.push(ts.factory.createModuleDeclaration(
+				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
+				ts.factory.createModuleBlock([
+					this.#emitCodecDecl(def, codecExpr),
+				]),
+				ts.NodeFlags.Namespace,
+			))
+		}
+
+        return nodes;
     }
 
     #emitEnumCase(c: EnumCase): ts.TypeNode {
+		const caseConstructor = getESExprAnn(c.annotations, ESExprAnnEnumCase.codec, "constructor");
+
         return ts.factory.createTypeLiteralNode([
             ts.factory.createPropertySignature(
                 undefined,
                 "$type",
                 undefined,
-                ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name)),
+                ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(caseConstructor?.name ?? c.name)),
             ),
 
             ...c.fields.map(field => this.#emitField(field)),
@@ -352,6 +476,99 @@ class ModEmitter {
             this.#emitTypeExpr(field.fieldType),
         );
     }
+
+	#emitFieldCodecs(fields: readonly RecordField[]): ts.Expression {
+		return ts.factory.createObjectLiteralExpression(
+			fields.map(f => {
+
+				const getSingleTypeArg = () => {
+					const t = f.fieldType;
+					if(t.$type !== "apply" || t.args[0] === undefined || t.args.length !== 1) {
+						throw new Error("Expected a single type argument");
+					}
+
+					return t.args[0];
+				};
+
+				const fieldCodec: ts.Expression = (() => {
+					if(getESExprAnn(f.annotations, ESExprAnnRecordField.codec, "vararg") !== null) {
+						return ts.factory.createCallExpression(
+							ts.factory.createPropertyAccessExpression(
+								ts.factory.createIdentifier("$esexpr"),
+								"varargFieldCodec",
+							),
+							undefined,
+							[ this.#emitCodecExpr(getSingleTypeArg()) ],
+						);
+					}
+
+					if(getESExprAnn(f.annotations, ESExprAnnRecordField.codec, "dict") !== null) {
+						return ts.factory.createCallExpression(
+							ts.factory.createPropertyAccessExpression(
+								ts.factory.createIdentifier("$esexpr"),
+								"dictFieldCodec",
+							),
+							undefined,
+							[ this.#emitCodecExpr(getSingleTypeArg()) ],
+						);
+					}
+
+					const keyword = getESExprAnn(f.annotations, ESExprAnnRecordField.codec, "keyword")
+					if(keyword !== null) {
+						const keywordName = keyword.name ?? f.name;
+
+						if(keyword.defaultValue !== undefined) {
+							throw new Error("Not implemented");
+						}
+						else if(!keyword.required) {
+							return ts.factory.createCallExpression(
+								ts.factory.createPropertyAccessExpression(
+									ts.factory.createIdentifier("$esexpr"),
+									"optionalKeywordFieldCodec",
+								),
+								undefined,
+								[
+									ts.factory.createStringLiteral(keywordName),
+									this.#emitCodecExpr(getSingleTypeArg()),
+								],
+							);
+						}
+						else {
+							return ts.factory.createCallExpression(
+								ts.factory.createPropertyAccessExpression(
+									ts.factory.createIdentifier("$esexpr"),
+									"keywordFieldCodec",
+								),
+								undefined,
+								[
+									ts.factory.createStringLiteral(keywordName),
+									this.#emitCodecExpr(f.fieldType),
+								],
+							);
+						}
+					}
+
+					return ts.factory.createCallExpression(
+						ts.factory.createPropertyAccessExpression(
+							ts.factory.createIdentifier("$esexpr"),
+							"positionalFieldCodec",
+						),
+						undefined,
+						[
+							this.#emitCodecExpr(f.fieldType),
+						],
+					);
+				})();
+
+
+				return ts.factory.createPropertyAssignment(
+					ts.factory.createStringLiteral(f.name),
+					fieldCodec,
+				);
+			}),
+			true,
+		);
+	}
 
     #emitMethod(method: InterfaceMethod): ts.TypeElement {
         return ts.factory.createMethodSignature(
@@ -414,6 +631,151 @@ class ModEmitter {
 
 
 
+
+	#emitCodecDecl(def: DefinitionInfo, codecExpr: ts.Expression): ts.Statement {
+		const cachedCodec = ts.factory.createCallExpression(
+			ts.factory.createPropertyAccessExpression(
+				ts.factory.createIdentifier("$esexpr"),
+				"lazyCodec",
+			),
+			undefined,
+			[
+				ts.factory.createArrowFunction(
+					undefined,
+					undefined,
+					[],
+					undefined,
+					ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+					codecExpr,
+				)
+			],
+		)
+
+		if(def.typeParameters.length === 0) {
+			return ts.factory.createVariableStatement(
+				[
+					ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
+				],
+				ts.factory.createVariableDeclarationList(
+					[
+						ts.factory.createVariableDeclaration(
+							"codec",
+							undefined,
+							ts.factory.createTypeReferenceNode(
+								ts.factory.createQualifiedName(
+									ts.factory.createIdentifier("$esexpr"),
+									"ESExprCodec"
+								),
+								[
+									this.#emitTypeExpr(this.#defAsType(def)),
+								]
+							),
+							cachedCodec,
+						)
+					],
+					ts.NodeFlags.Const
+				)
+			);
+		}
+		else {
+			return ts.factory.createFunctionDeclaration(
+				[
+					ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
+					ts.factory.createModifier(ts.SyntaxKind.ConstKeyword),
+				],
+				undefined,
+				"codec",
+				this.#emitTypeParameters(def.typeParameters),
+				def.typeParameters.map(tp => ts.factory.createParameterDeclaration(
+					undefined,
+					undefined,
+					convertIdCamel(tp.name) + "Codec",
+					undefined,
+					ts.factory.createTypeReferenceNode(
+						ts.factory.createQualifiedName(
+							ts.factory.createIdentifier("$esexpr"),
+							"ESExprCodec"
+						),
+						[
+							this.#emitTypeExpr({ $type: "type-parameter", name: tp.name }),
+						]
+					),
+					undefined,
+				)),
+				ts.factory.createTypeReferenceNode(
+					ts.factory.createQualifiedName(
+						ts.factory.createIdentifier("$esexpr"),
+						"ESExprCodec"
+					),
+					[
+						this.#emitTypeExpr(this.#defAsType(def)),
+					]
+				),
+				ts.factory.createBlock([
+					ts.factory.createReturnStatement(cachedCodec),
+				]),
+			)
+		}
+	}
+
+	#emitCodecExpr(t: TypeExpr): ts.Expression {
+		switch(t.$type) {
+            case "defined-type":
+			{
+				let typeModule: ts.Expression;
+
+				if(PackageName.isSamePackage(this.currentPackage, t.name.package)) {
+					if(this.metadata.shadowedTypes.has(t.name.name)) {
+						typeModule = ts.factory.createIdentifier(getUnshadowedName(t.name.name));
+					}
+					else {
+						typeModule = ts.factory.createIdentifier(convertIdPascal(t.name.name));
+					}
+				}
+				else {
+					typeModule = ts.factory.createPropertyAccessExpression(
+						ts.factory.createIdentifier(getPackageIdStr(t.name.package)),
+						convertIdPascal(t.name.name)
+					);
+				}
+
+				return ts.factory.createPropertyAccessExpression(typeModule, "codec");
+			}
+
+            case "type-parameter":
+                return ts.factory.createIdentifier(convertIdCamel(t.name) + "Codec");
+
+            case "apply":
+                return ts.factory.createCallExpression(
+					this.#emitCodecExpr(t.baseType),
+					t.args.map(a => this.#emitTypeExpr(a)),
+					t.args.map(a => this.#emitCodecExpr(a)),
+				);
+		}
+	}
+
+	#defAsType(def: DefinitionInfo): TypeExpr {
+		const baseType: TypeExpr = {
+			$type: "defined-type",
+			name: def.name,
+		};
+
+		if(def.typeParameters.length === 0) {
+			return baseType;
+		}
+		else {
+			return {
+				$type: "apply",
+				baseType,
+				args: def.typeParameters.map(tp => ({
+					$type: "type-parameter",
+					name: tp.name,
+				}))
+			}
+		}
+	}
+
+
 }
 
 
@@ -435,6 +797,7 @@ interface ModuleMetadata {
 	referencedPackages: Map<string, ReferencedPackageInfo>;
 	externTypes: Map<string, ExternTypeInfo>;
 	shadowedTypes: Set<string>;
+	needsESExprImport: boolean,
 }
 
 class ModuleScanner {
@@ -448,6 +811,7 @@ class ModuleScanner {
 		referencedPackages: new Map(),
 		externTypes: new Map(),
 		shadowedTypes: new Set(),
+		needsESExprImport: false,
 	};
 
 
@@ -496,28 +860,14 @@ class ModuleScanner {
     }
 
     #scanRecord(def: DefinitionInfo, r: RecordDefinition): void {
-		let isTypeOnly = true;
-		for(const ann of def.annotations) {
-			if(ann.scope !== "esexpr") {
-				continue;
-			}
-
-			const decodedAnnRes = ESExprAnnRecord.codec.decode(ann.value)
-			if(!decodedAnnRes.success) {
-				throw new Error("Invalid extern type annotation");
-			}
-
-			const decodedAnn = decodedAnnRes.value;
-
-			if(decodedAnn.$type === "derive-codec") {
-				isTypeOnly = true;
-			}
-		}
+		const hasESExpr = getESExprAnn(def.annotations, ESExprAnnRecord.codec, "derive-codec") !== null;
 
 		const refContext: TypeReferenceContext = {
-			isTypeOnly,
+			isTypeOnly: !hasESExpr,
 			typeParameters: this.#buildTypeParameters(def.typeParameters),
 		};
+
+		this.metadata.needsESExprImport ||= hasESExpr;
 
 
 		for(const f of r.fields) {
@@ -526,26 +876,10 @@ class ModuleScanner {
     }
 
     #scanEnum(def: DefinitionInfo, e: EnumDefinition): void {
-		let isTypeOnly = true;
-		for(const ann of def.annotations) {
-			if(ann.scope !== "esexpr") {
-				continue;
-			}
-
-			const decodedAnnRes = ESExprAnnExternType.codec.decode(ann.value)
-			if(!decodedAnnRes.success) {
-				throw new Error("Invalid extern type annotation");
-			}
-
-			const decodedAnn = decodedAnnRes.value;
-
-			if(decodedAnn.$type === "derive-codec") {
-				isTypeOnly = true;
-			}
-		}
+		let hasESExpr = getESExprAnn(def.annotations, ESExprAnnEnum.codec, "derive-codec") !== null;
 
 		const refContext: TypeReferenceContext = {
-			isTypeOnly,
+			isTypeOnly: !hasESExpr,
 			typeParameters: this.#buildTypeParameters(def.typeParameters),
 		};
 
@@ -558,27 +892,11 @@ class ModuleScanner {
     }
 
 	#scanExtern(def: DefinitionInfo): void {
-		let isTypeOnly = true;
-		for(const ann of def.annotations) {
-			if(ann.scope !== "esexpr") {
-				continue;
-			}
-
-			const decodedAnnRes = ESExprAnnExternType.codec.decode(ann.value)
-			if(!decodedAnnRes.success) {
-				throw new Error("Invalid extern type annotation");
-			}
-
-			const decodedAnn = decodedAnnRes.value;
-
-			if(decodedAnn.$type === "derive-codec") {
-				isTypeOnly = true;
-			}
-		}
+		let hasESExpr = getESExprAnn(def.annotations, ESExprAnnExternType.codec, "derive-codec") !== null;
 
 		this.metadata.externTypes.set(def.name.name, {
 			isReferencedInModule: false,
-			isTypeOnly,
+			isTypeOnly: !hasESExpr,
 		});
 	}
 
@@ -712,4 +1030,26 @@ function getPackageMapping(options: JSLanguageOptions): Map<string, JSModule> {
 
     return pkgMapping;
 }
+
+
+function getESExprAnn<A extends { readonly $type: string }, Name extends A["$type"]>(annotations: readonly Annotation[], codec: ESExprCodec<A>, name: Name): (A & { readonly $type: Name }) | null {
+	for(const ann of annotations) {
+		if(ann.scope !== "esexpr") {
+			continue;
+		}
+
+		const valueRes = codec.decode(ann.value);
+		if(!valueRes.success) {
+			throw new Error("Invalid ESExpr annotation");
+		}
+
+		const value = valueRes.value;
+		if(value.$type === name) {
+			return value as A & { readonly $type: Name };
+		}
+	}
+
+	return null;
+}
+
 

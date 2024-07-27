@@ -1,26 +1,63 @@
 package nobleidl.core;
 
+@esexpr:(derive-codec)
 extern type string;
+
+@esexpr:(derive-codec)
 extern type binary;
 
+@esexpr:(derive-codec)
 extern type int;
+
+@esexpr:(derive-codec)
 extern type nat;
 
+
+
+
+@esexpr:(derive-codec)
 extern type i8;
+
+@esexpr:(derive-codec)
 extern type u8;
+
+@esexpr:(derive-codec)
 extern type i16;
+
+@esexpr:(derive-codec)
 extern type u16;
+
+@esexpr:(derive-codec)
 extern type i32;
+
+@esexpr:(derive-codec)
 extern type u32;
+
+@esexpr:(derive-codec)
 extern type i64;
+
+@esexpr:(derive-codec)
 extern type u64;
 
+
+@esexpr:(derive-codec)
 extern type f32;
+
+@esexpr:(derive-codec)
 extern type f64;
+
 
 extern type unit;
 
+@esexpr:(derive-codec)
 extern type list[a];
+
+@esexpr:(derive-codec)
 extern type option[a];
+
+
+extern type optional-field[a];
+
+@esexpr:(derive-codec)
 extern type dict[a];
 

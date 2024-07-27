@@ -1,5 +1,5 @@
 import * as esexpr from "@argon-lang/esexpr";
-import type { ESExpr, ESExprCodec } from "@argon-lang/esexpr";
+import { ESExpr, type ESExprCodec } from "@argon-lang/esexpr";
 
 
 export interface NobleIDLGenerationRequest<L> {
@@ -361,6 +361,29 @@ export namespace ESExprAnnEnumCase {
 			name: esexpr.positionalFieldCodec(esexpr.strCodec),
 		}),
 		"inline-value": esexpr.caseCodec({}),
+	});
+}
+
+export type ESExprAnnRecordField =
+	| {
+		readonly $type: "keyword",
+		readonly name?: string | undefined,
+		readonly required: boolean,
+		readonly defaultValue?: ESExpr | undefined,
+	}
+	| { readonly $type: "dict" }
+	| { readonly $type: "vararg" }
+;
+
+export namespace ESExprAnnRecordField {
+	export const codec: ESExprCodec<ESExprAnnRecordField> = esexpr.enumCodec({
+		keyword: esexpr.caseCodec({
+			name: esexpr.optionalKeywordFieldCodec("name", esexpr.strCodec),
+			required: esexpr.defaultKeywordFieldCodec("required", () => true, esexpr.boolCodec),
+			defaultValue: esexpr.optionalKeywordFieldCodec("default-value", ESExpr.codec),
+		}),
+		dict: esexpr.caseCodec({}),
+		vararg: esexpr.caseCodec({}),
 	});
 }
 
