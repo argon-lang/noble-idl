@@ -7,7 +7,6 @@ import validateNpmModulePath from "validate-npm-package-name";
 
 
 export async function loadCompilerOptions(packageDir: string, outputDir: string): Promise<JavaScriptIDLCompilerOptions> {
-	console.log("loadCompilerOptions");
 	const packageJsonOptions = await loadOptionsFromFile(path.join(packageDir, "package.json"));
 	if(packageJsonOptions === null) {
 		throw new Error("Could not load NobleIDL options from package.json");
@@ -24,8 +23,6 @@ export async function loadCompilerOptions(packageDir: string, outputDir: string)
 
 	const loadOptionsLib = async (dir: string) => {
 		const packageJsonOptions = await loadOptionsFromFile(path.join(dir, "package.json"));
-		console.log(dir);
-		console.log(packageJsonOptions);
 		if(packageJsonOptions === null) {
 			return;
 		}
@@ -76,9 +73,6 @@ export async function loadCompilerOptions(packageDir: string, outputDir: string)
 		inputFiles: packageJsonOptions.inputFiles.map(inputFile => path.join(packageDir, inputFile)),
 		libraryFiles,
 	};
-
-	console.log("loadCompilerOptions done");
-	console.log(res);
 
 	return res;
 }

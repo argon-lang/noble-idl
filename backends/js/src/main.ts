@@ -27,6 +27,4 @@ if(outputDir === undefined) {
 }
 
 const compilerOptions = await loadCompilerOptions(packageDir, outputDir);
-console.log("compiler options");
-console.log(compilerOptions);
 await compile(compilerOptions);

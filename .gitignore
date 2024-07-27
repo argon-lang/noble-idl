@@ -13,4 +13,5 @@ node_modules/
 /examples/js/lib/
 /examples/js/out/
 /examples/js/src-gen/
+/examples/js/src/*.nidl
 

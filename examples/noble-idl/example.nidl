@@ -115,3 +115,11 @@ interface function[a, b] {
 }
 
 
+record shadowed-type {}
+
+record shadowing-container[shadowed-type] {
+    a: shadowed-type;
+    b: nobleidl.example.shadowed-type;
+}
+
+

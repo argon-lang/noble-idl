@@ -93,7 +93,7 @@ impl QualifiedName {
     pub fn package_name(&self) -> &PackageName {
         &self.0
     }
-    
+
     pub fn name(&self) -> &str {
         &self.1
     }
@@ -106,7 +106,7 @@ pub enum Definition {
 
     #[inline_value]
     Enum(EnumDefinition),
-    
+
     ExternType,
 
     #[inline_value]
@@ -247,6 +247,10 @@ pub enum ESExprAnnRecordField {
 }
 
 
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprAnnExternType {
+    DeriveCodec,
+}
 
 
 

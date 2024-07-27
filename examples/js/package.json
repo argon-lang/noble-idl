@@ -9,7 +9,7 @@
     ".": "./lib/index.js"
   },
   "scripts": {
-    "codegen": "noble-idl-compiler-js --output-dir src-gen",
+    "codegen": "cpy --cwd=../noble-idl/ example.nidl ../js/src/ && noble-idl-compiler-js --output-dir src-gen",
     "build": "npm run codegen && tsc --project . && cd out/src-gen && cpy . ../../lib/ && cd ../src && cpy . ../../lib/",
     "test": "npm run build && vitest run --root lib"
   },

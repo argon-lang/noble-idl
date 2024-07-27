@@ -111,6 +111,20 @@ export namespace PackageName {
             parts: esexpr.varargFieldCodec(esexpr.strCodec),
         },
     );
+
+	export function isSamePackage(a: PackageName, b: PackageName): boolean {
+		if(a.parts.length !== b.parts.length) {
+			return false;
+		}
+
+		for(let i = 0; i < a.parts.length; ++i) {
+			if(a.parts[i] !== b.parts[i]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 }
 
 export interface QualifiedName {
@@ -281,7 +295,7 @@ export type TypeExpr =
 ;
 
 export namespace TypeExpr {
-    export const codec: ESExprCodec<TypeExpr> = esexpr.lazyCodec(() => esexpr.enumCodec<TypeExpr>({
+    export const codec: ESExprCodec<TypeExpr> = esexpr.lazyCodec(() => esexpr.enumCodec({
         "defined-type": esexpr.caseCodec({
             name: esexpr.positionalFieldCodec(QualifiedName.codec),
         }),
@@ -307,5 +321,57 @@ export namespace TypeParameter {
     });
 }
 
+
+
+
+export type ESExprAnnRecord =
+	| { readonly $type: "derive-codec" }
+	| { readonly $type: "constructor", readonly name: string }
+;
+
+export namespace ESExprAnnRecord {
+	export const codec: ESExprCodec<ESExprAnnRecord> = esexpr.enumCodec({
+		"derive-codec": esexpr.caseCodec({}),
+		constructor: esexpr.caseCodec({
+			name: esexpr.positionalFieldCodec(esexpr.strCodec),
+		}),
+	});
+}
+
+export type ESExprAnnEnum =
+	| { readonly $type: "derive-codec" }
+	| { readonly $type: "simple-enum" }
+;
+
+export namespace ESExprAnnEnum {
+	export const codec: ESExprCodec<ESExprAnnEnum> = esexpr.enumCodec({
+		"derive-codec": esexpr.caseCodec({}),
+		"simple-enum": esexpr.caseCodec({}),
+	});
+}
+
+export type ESExprAnnEnumCase =
+	| { readonly $type: "constructor", readonly name: string }
+	| { readonly $type: "inline-value" }
+;
+
+export namespace ESExprAnnEnumCase {
+	export const codec: ESExprCodec<ESExprAnnEnumCase> = esexpr.enumCodec({
+		constructor: esexpr.caseCodec({
+			name: esexpr.positionalFieldCodec(esexpr.strCodec),
+		}),
+		"inline-value": esexpr.caseCodec({}),
+	});
+}
+
+export type ESExprAnnExternType =
+	| { readonly $type: "derive-codec" }
+;
+
+export namespace ESExprAnnExternType {
+	export const codec: ESExprCodec<ESExprAnnExternType> = esexpr.enumCodec({
+		"derive-codec": esexpr.caseCodec({}),
+	});
+}
 
 
