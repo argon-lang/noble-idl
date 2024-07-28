@@ -103,6 +103,10 @@ export namespace List {
 	export function codec<A>(aCodec: ESExprCodec<A>): ESExprCodec<readonly A[]> {
 		return esexpr.listCodec(aCodec);
 	}
+
+	export function varargCodec<A>(aCodec: ESExprCodec<A>): esexpr.RepeatedValuesCodec<List<A>> {
+		return esexpr.arrayRepeatedValuesCodec(aCodec);
+	}
 }
 
 export type Option<A> = { readonly value: A } | null;
@@ -113,6 +117,16 @@ export namespace Option {
 }
 
 export type OptionalField<A> = A | undefined;
+export namespace OptionalField {
+	export function optionalCodec<A>(aCodec: ESExprCodec<A>): esexpr.OptionalValueCodec<OptionalField<A>> {
+		return esexpr.undefinedOptionalCodec(aCodec);
+	}
+}
 
 export type Dict<A> = ReadonlyMap<string, A>;
+export namespace Dict {
+	export function dictCodec<A>(aCodec: ESExprCodec<A>): esexpr.MappedValueCodec<Dict<A>> {
+		return esexpr.mapMappedValueCodec(aCodec);
+	}
+}
 

@@ -480,16 +480,6 @@ class ModEmitter {
 	#emitFieldCodecs(fields: readonly RecordField[]): ts.Expression {
 		return ts.factory.createObjectLiteralExpression(
 			fields.map(f => {
-
-				const getSingleTypeArg = () => {
-					const t = f.fieldType;
-					if(t.$type !== "apply" || t.args[0] === undefined || t.args.length !== 1) {
-						throw new Error("Expected a single type argument");
-					}
-
-					return t.args[0];
-				};
-
 				const fieldCodec: ts.Expression = (() => {
 					if(getESExprAnn(f.annotations, ESExprAnnRecordField.codec, "vararg") !== null) {
 						return ts.factory.createCallExpression(
@@ -498,7 +488,7 @@ class ModEmitter {
 								"varargFieldCodec",
 							),
 							undefined,
-							[ this.#emitCodecExpr(getSingleTypeArg()) ],
+							[ this.#emitCodecExprImpl(f.fieldType, "varargCodec") ],
 						);
 					}
 
@@ -509,7 +499,7 @@ class ModEmitter {
 								"dictFieldCodec",
 							),
 							undefined,
-							[ this.#emitCodecExpr(getSingleTypeArg()) ],
+							[ this.#emitCodecExprImpl(f.fieldType, "dictCodec") ],
 						);
 					}
 
@@ -529,7 +519,7 @@ class ModEmitter {
 								undefined,
 								[
 									ts.factory.createStringLiteral(keywordName),
-									this.#emitCodecExpr(getSingleTypeArg()),
+									this.#emitCodecExprImpl(f.fieldType, "optionalCodec"),
 								],
 							);
 						}
@@ -719,6 +709,10 @@ class ModEmitter {
 	}
 
 	#emitCodecExpr(t: TypeExpr): ts.Expression {
+		return this.#emitCodecExprImpl(t, "codec");
+	}
+
+	#emitCodecExprImpl(t: TypeExpr, codecMethod: string): ts.Expression {
 		switch(t.$type) {
             case "defined-type":
 			{
@@ -739,7 +733,7 @@ class ModEmitter {
 					);
 				}
 
-				return ts.factory.createPropertyAccessExpression(typeModule, "codec");
+				return ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
 			}
 
             case "type-parameter":
@@ -747,7 +741,7 @@ class ModEmitter {
 
             case "apply":
                 return ts.factory.createCallExpression(
-					this.#emitCodecExpr(t.baseType),
+					this.#emitCodecExprImpl(t.baseType, codecMethod),
 					t.args.map(a => this.#emitTypeExpr(a)),
 					t.args.map(a => this.#emitCodecExpr(a)),
 				);

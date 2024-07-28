@@ -61,7 +61,7 @@ export namespace NobleIDLCompileModelResult {
             model: esexpr.positionalFieldCodec(NobleIDLModel.codec),
         }),
         failure: esexpr.caseCodec({
-            errors: esexpr.varargFieldCodec(esexpr.strCodec),
+            errors: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(esexpr.strCodec)),
         }),
     }));
 }
@@ -108,7 +108,7 @@ export namespace PackageName {
     export const codec: ESExprCodec<PackageName> = esexpr.recordCodec(
         "package-name",
         {
-            parts: esexpr.varargFieldCodec(esexpr.strCodec),
+            parts: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(esexpr.strCodec)),
         },
     );
 
@@ -166,7 +166,7 @@ export namespace RecordDefinition {
     export const codec: ESExprCodec<RecordDefinition> = esexpr.lazyCodec(() => esexpr.recordCodec(
         "record-definition",
         {
-            fields: esexpr.varargFieldCodec(RecordField.codec),
+            fields: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(RecordField.codec)),
         },
     ));
 }
@@ -197,7 +197,7 @@ export namespace EnumDefinition {
     export const codec: ESExprCodec<EnumDefinition> = esexpr.lazyCodec(() => esexpr.recordCodec(
         "enum-definition",
         {
-            cases: esexpr.varargFieldCodec(EnumCase.codec),
+            cases: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(EnumCase.codec)),
         },
     ));
 }
@@ -214,7 +214,7 @@ export namespace EnumCase {
         "enum-case",
         {
             name: esexpr.positionalFieldCodec(esexpr.strCodec),
-            fields: esexpr.varargFieldCodec(RecordField.codec),
+            fields: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(RecordField.codec)),
             annotations: esexpr.keywordFieldCodec("annotations", esexpr.listCodec(Annotation.codec)),
         },
     ))
@@ -228,7 +228,7 @@ export namespace InterfaceDefinition {
     export const codec: ESExprCodec<InterfaceDefinition> = esexpr.lazyCodec(() => esexpr.recordCodec(
         "interface-definition",
         {
-            methods: esexpr.varargFieldCodec(InterfaceMethod.codec),
+            methods: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(InterfaceMethod.codec)),
         },
     ));
 }
@@ -378,9 +378,9 @@ export type ESExprAnnRecordField =
 export namespace ESExprAnnRecordField {
 	export const codec: ESExprCodec<ESExprAnnRecordField> = esexpr.enumCodec({
 		keyword: esexpr.caseCodec({
-			name: esexpr.optionalKeywordFieldCodec("name", esexpr.strCodec),
+			name: esexpr.optionalKeywordFieldCodec("name", esexpr.undefinedOptionalCodec(esexpr.strCodec)),
 			required: esexpr.defaultKeywordFieldCodec("required", () => true, esexpr.boolCodec),
-			defaultValue: esexpr.optionalKeywordFieldCodec("default-value", ESExpr.codec),
+			defaultValue: esexpr.optionalKeywordFieldCodec("default-value", esexpr.undefinedOptionalCodec(ESExpr.codec)),
 		}),
 		dict: esexpr.caseCodec({}),
 		vararg: esexpr.caseCodec({}),
@@ -425,14 +425,14 @@ export namespace ESExprAnnExternTypeLiterals {
 	export const codec: ESExprCodec<ESExprAnnExternTypeLiterals> = esexpr.lazyCodec(() => esexpr.recordCodec("literals", {
 		allowBool: esexpr.defaultKeywordFieldCodec("allow-bool", () => false, esexpr.boolCodec),
 		allowInt: esexpr.defaultKeywordFieldCodec("allow-int", () => false, esexpr.boolCodec),
-		minInt: esexpr.optionalKeywordFieldCodec("min-int", esexpr.intCodec),
-		maxInt: esexpr.optionalKeywordFieldCodec("max-int", esexpr.intCodec),
+		minInt: esexpr.optionalKeywordFieldCodec("min-int", esexpr.undefinedOptionalCodec(esexpr.intCodec)),
+		maxInt: esexpr.optionalKeywordFieldCodec("max-int", esexpr.undefinedOptionalCodec(esexpr.intCodec)),
 		allowStr: esexpr.defaultKeywordFieldCodec("allow-str", () => false, esexpr.boolCodec),
 		allowBinary: esexpr.defaultKeywordFieldCodec("allow-binary", () => false, esexpr.boolCodec),
 		allowFloat32: esexpr.defaultKeywordFieldCodec("allow-float32", () => false, esexpr.boolCodec),
 		allowFloat64: esexpr.defaultKeywordFieldCodec("allow-float64", () => false, esexpr.boolCodec),
 		allowNull: esexpr.defaultKeywordFieldCodec("allow-binary", () => false, esexpr.boolCodec),
-		buildLiteralFrom: esexpr.optionalKeywordFieldCodec("build-literal-from", QualifiedName.codec),
+		buildLiteralFrom: esexpr.optionalKeywordFieldCodec("build-literal-from", esexpr.undefinedOptionalCodec(QualifiedName.codec)),
 	}));
 }
 
