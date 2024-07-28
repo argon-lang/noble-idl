@@ -1,4 +1,5 @@
 use esexpr::*;
+use num_bigint::BigInt;
 
 use core::fmt::Debug;
 
@@ -250,7 +251,51 @@ pub enum ESExprAnnRecordField {
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum ESExprAnnExternType {
     DeriveCodec,
+	AllowOptional,
+	AllowVararg,
+	AllowDict,
+	#[inline_value]
+	Literals(ESExprAnnExternTypeLiterals),
 }
 
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+#[constructor = "literals"]
+pub struct ESExprAnnExternTypeLiterals {
+	#[keyword]
+	#[default_value = false]
+	pub allow_bool: bool,
 
+	#[keyword]
+	#[default_value = false]
+	pub allow_int: bool,
+
+	#[keyword(required = false)]
+	pub min_int: Option<BigInt>,
+
+	#[keyword(required = false)]
+	pub max_int: Option<BigInt>,
+
+	#[keyword]
+	#[default_value = false]
+	pub allow_str: bool,
+
+	#[keyword]
+	#[default_value = false]
+	pub allow_binary: bool,
+
+	#[keyword]
+	#[default_value = false]
+	pub allow_float32: bool,
+
+	#[keyword]
+	#[default_value = false]
+	pub allow_float64: bool,
+
+	#[keyword]
+	#[default_value = false]
+	pub allow_null: bool,
+
+	#[keyword(required = false)]
+	pub build_literal_from: Option<QualifiedName>,
+}
 

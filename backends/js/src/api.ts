@@ -389,12 +389,50 @@ export namespace ESExprAnnRecordField {
 
 export type ESExprAnnExternType =
 	| { readonly $type: "derive-codec" }
+	| { readonly $type: "allow-optional" }
+	| { readonly $type: "allow-vararg" }
+	| { readonly $type: "allow-dict" }
+	| {
+		readonly $type: "literals"
+		readonly literals: ESExprAnnExternTypeLiterals,
+	}
 ;
 
 export namespace ESExprAnnExternType {
-	export const codec: ESExprCodec<ESExprAnnExternType> = esexpr.enumCodec({
+	export const codec: ESExprCodec<ESExprAnnExternType> = esexpr.lazyCodec(() => esexpr.enumCodec({
 		"derive-codec": esexpr.caseCodec({}),
-	});
+		"allow-optional": esexpr.caseCodec({}),
+		"allow-vararg": esexpr.caseCodec({}),
+		"allow-dict": esexpr.caseCodec({}),
+		literals: esexpr.inlineCaseCodec("literals", ESExprAnnExternTypeLiterals.codec),
+	}));
 }
 
+export interface ESExprAnnExternTypeLiterals {
+	readonly allowBool: boolean,
+	readonly allowInt: boolean,
+	readonly minInt?: bigint | undefined,
+	readonly maxInt?: bigint | undefined,
+	readonly allowStr: boolean,
+	readonly allowBinary: boolean,
+	readonly allowFloat32: boolean,
+	readonly allowFloat64: boolean,
+	readonly allowNull: boolean,
+	readonly buildLiteralFrom?: QualifiedName | undefined,
+}
+
+export namespace ESExprAnnExternTypeLiterals {
+	export const codec: ESExprCodec<ESExprAnnExternTypeLiterals> = esexpr.lazyCodec(() => esexpr.recordCodec("literals", {
+		allowBool: esexpr.defaultKeywordFieldCodec("allow-bool", () => false, esexpr.boolCodec),
+		allowInt: esexpr.defaultKeywordFieldCodec("allow-int", () => false, esexpr.boolCodec),
+		minInt: esexpr.optionalKeywordFieldCodec("min-int", esexpr.intCodec),
+		maxInt: esexpr.optionalKeywordFieldCodec("max-int", esexpr.intCodec),
+		allowStr: esexpr.defaultKeywordFieldCodec("allow-str", () => false, esexpr.boolCodec),
+		allowBinary: esexpr.defaultKeywordFieldCodec("allow-binary", () => false, esexpr.boolCodec),
+		allowFloat32: esexpr.defaultKeywordFieldCodec("allow-float32", () => false, esexpr.boolCodec),
+		allowFloat64: esexpr.defaultKeywordFieldCodec("allow-float64", () => false, esexpr.boolCodec),
+		allowNull: esexpr.defaultKeywordFieldCodec("allow-binary", () => false, esexpr.boolCodec),
+		buildLiteralFrom: esexpr.optionalKeywordFieldCodec("build-literal-from", QualifiedName.codec),
+	}));
+}
 
