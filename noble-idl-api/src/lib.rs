@@ -253,9 +253,9 @@ pub enum ESExprAnnRecordField {
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum ESExprAnnExternType {
     DeriveCodec,
-	AllowOptional,
-	AllowVararg,
-	AllowDict,
+	AllowOptional(TypeExpr),
+	AllowVararg(TypeExpr),
+	AllowDict(TypeExpr),
 	#[inline_value]
 	Literals(ESExprAnnExternTypeLiterals),
 }

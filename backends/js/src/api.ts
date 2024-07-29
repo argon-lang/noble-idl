@@ -387,9 +387,9 @@ export namespace ESExprAnnRecordField {
 
 export type ESExprAnnExternType =
 	| { readonly $type: "derive-codec" }
-	| { readonly $type: "allow-optional" }
-	| { readonly $type: "allow-vararg" }
-	| { readonly $type: "allow-dict" }
+	| { readonly $type: "allow-optional", readonly elementType: TypeExpr }
+	| { readonly $type: "allow-vararg", readonly elementType: TypeExpr }
+	| { readonly $type: "allow-dict", readonly elementType: TypeExpr }
 	| {
 		readonly $type: "literals"
 		readonly literals: ESExprAnnExternTypeLiterals,
@@ -398,10 +398,18 @@ export type ESExprAnnExternType =
 
 export namespace ESExprAnnExternType {
 	export const codec: ESExprCodec<ESExprAnnExternType> = esexpr.lazyCodec(() => esexpr.enumCodec({
-		"derive-codec": esexpr.caseCodec({}),
-		"allow-optional": esexpr.caseCodec({}),
-		"allow-vararg": esexpr.caseCodec({}),
-		"allow-dict": esexpr.caseCodec({}),
+		"derive-codec": esexpr.caseCodec({
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
+		}),
+		"allow-optional": esexpr.caseCodec({
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
+		}),
+		"allow-vararg": esexpr.caseCodec({
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
+		}),
+		"allow-dict": esexpr.caseCodec({
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
+		}),
 		literals: esexpr.inlineCaseCodec("literals", ESExprAnnExternTypeLiterals.codec),
 	}));
 }

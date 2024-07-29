@@ -4,7 +4,7 @@ use itertools::Itertools;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use esexpr::{ESExpr, ESExprCodec};
+use esexpr::ESExprCodec;
 use noble_idl_api::*;
 use syn::punctuated::Punctuated;
 

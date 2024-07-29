@@ -64,17 +64,17 @@ extern type f64;
 extern type unit;
 
 @esexpr:(derive-codec)
-@esexpr:(allow-vararg)
+@esexpr:(allow-vararg (type-parameter "a"))
 extern type list[a];
 
 @esexpr:(derive-codec)
 extern type option[a];
 
 
-@esexpr:(allow-optional)
+@esexpr:(allow-optional (type-parameter "a"))
 extern type optional-field[a];
 
 @esexpr:(derive-codec)
-@esexpr:(allow-dict)
+@esexpr:(allow-dict (type-parameter "a"))
 extern type dict[a];
 

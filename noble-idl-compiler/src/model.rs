@@ -39,6 +39,7 @@ pub enum CheckError {
 	ESExprInvalidOptionalFieldType(QualifiedName, Option<String>, String),
 	ESExprInvalidDictFieldType(QualifiedName, Option<String>, String),
 	ESExprInvalidVarargFieldType(QualifiedName, Option<String>, String),
+	ESExprInvalidElementType(QualifiedName),
 }
 
 
@@ -878,26 +879,41 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 					has_derive_codec = true;
 				},
-				api::ESExprAnnExternType::AllowOptional => {
+				api::ESExprAnnExternType::AllowOptional(element_type) => {
 					if has_allow_optional {
 						return Err(CheckError::DuplicateESExprAnnotation(self.definition_name.clone(), vec![], "allow-optional".to_owned()));
 					}
 
 					has_allow_optional = true;
+
+
+					if !self.check_type(&element_type) {
+						return Err(CheckError::ESExprInvalidElementType(self.definition_name.clone()));
+					}
 				},
-				api::ESExprAnnExternType::AllowVararg => {
+				api::ESExprAnnExternType::AllowVararg(element_type) => {
 					if has_allow_vararg {
 						return Err(CheckError::DuplicateESExprAnnotation(self.definition_name.clone(), vec![], "allow-vararg".to_owned()));
 					}
 
 					has_allow_vararg = true;
+
+
+					if !self.check_type(&element_type) {
+						return Err(CheckError::ESExprInvalidElementType(self.definition_name.clone()));
+					}
 				},
-				api::ESExprAnnExternType::AllowDict => {
+				api::ESExprAnnExternType::AllowDict(element_type) => {
 					if has_allow_dict {
 						return Err(CheckError::DuplicateESExprAnnotation(self.definition_name.clone(), vec![], "allow-dict".to_owned()));
 					}
 
 					has_allow_dict = true;
+
+
+					if !self.check_type(&element_type) {
+						return Err(CheckError::ESExprInvalidElementType(self.definition_name.clone()));
+					}
 				},
 				api::ESExprAnnExternType::Literals(literals) => {
 					if has_literals {
@@ -1035,7 +1051,7 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 		Ok(())
 	}
 
-	fn check_type(&mut self, t: &'a api::TypeExpr) -> bool {
+	fn check_type(&mut self, t: &api::TypeExpr) -> bool {
 		match t {
 			api::TypeExpr::DefinedType(name, args) =>
 				self.def_has_esexpr_codec(name) && args.iter().all(|arg| self.check_type(arg)),
@@ -1179,6 +1195,11 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 	fn check_field_values(&mut self, fields: &[api::RecordField], mapping: &HashMap<String, api::TypeExpr>, mut args: Vec<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> bool {
 		for field in fields {
 
+			let mut field_type = field.field_type.clone();
+			if !substitute_type(&mut field_type, &mapping) {
+				return false;
+			}
+
 			let is_vararg = field.annotations.iter()
 				.filter(|ann| ann.scope == "esexpr")
 				.filter_map(|ann| api::ESExprAnnRecordField::decode_esexpr(ann.value.clone()).ok())
@@ -1189,13 +1210,18 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 
 			if is_vararg {
-				let Some(mut field_type) = self.get_single_type_arg(field.field_type.clone()) else { return false; };
-				if !substitute_type(&mut field_type, &mapping) {
+				let Some(mut element_type) = self.get_vararg_element_type(&field_type) else {
+					return false;
+				};
+
+				let Some((_, _, field_type_mapping)) = self.get_type_info(field_type.clone()) else { return false; };
+				if !substitute_type(&mut element_type, &field_type_mapping) {
 					return false;
 				}
 
+
 				for arg in args.drain(..) {
-					if !self.check_value(field_type.clone(), arg) {
+					if !self.check_value(element_type.clone(), arg) {
 						return false;
 					}
 				}
@@ -1213,13 +1239,17 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 
 			if is_dict {
-				let Some(mut field_type) = self.get_single_type_arg(field.field_type.clone()) else { return false; };
-				if !substitute_type(&mut field_type, &mapping) {
+				let Some(mut element_type) = self.get_dict_element_type(&field_type) else {
+					return false;
+				};
+
+				let Some((_, _, field_type_mapping)) = self.get_type_info(field_type.clone()) else { return false; };
+				if !substitute_type(&mut element_type, &field_type_mapping) {
 					return false;
 				}
 
 				for (_, arg) in kwargs.drain() {
-					if !self.check_value(field_type.clone(), arg) {
+					if !self.check_value(element_type.clone(), arg) {
 						return false;
 					}
 				}
@@ -1265,12 +1295,16 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 						}
 						else {
 							if let Some(value) = value {
-								let Some(mut field_type) = self.get_single_type_arg(field.field_type.clone()) else { return false; };
-								if !substitute_type(&mut field_type, &mapping) {
+								let Some(mut element_type) = self.get_vararg_element_type(&field_type) else {
+									return false;
+								};
+
+								let Some((_, _, field_type_mapping)) = self.get_type_info(field_type.clone()) else { return false; };
+								if !substitute_type(&mut element_type, &field_type_mapping) {
 									return false;
 								}
 
-								if !self.check_value(field_type, value) {
+								if !self.check_value(element_type, value) {
 									return false;
 								}
 							}
@@ -1286,12 +1320,6 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 				continue;
 			}
 
-
-			let mut field_type = field.field_type.clone();
-			if !substitute_type(&mut field_type, &mapping) {
-				return false;
-			}
-
 			if args.is_empty() {
 				return false;
 			}
@@ -1305,86 +1333,88 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 		args.is_empty() && kwargs.is_empty()
 	}
 
-	fn get_single_type_arg(&self, t: api::TypeExpr) -> Option<api::TypeExpr> {
-		let api::TypeExpr::DefinedType(_, mut args) = t else { return None; };
-
-		if args.len() != 1 {
-			return None;
-		}
-
-		args.pop()
-	}
-
-	fn check_optional_field_type(&self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
-		let is_optional_field_type = self.get_type_name(t)
+	fn get_optional_field_element_type(&self, t: &api::TypeExpr) -> Option<api::TypeExpr> {
+		self.get_type_name(t)
 			.and_then(|name| self.definitions.get(name))
 			.filter(|def| match &def.definition {
 				noble_idl_api::Definition::ExternType => true,
 				_ => false,
 			})
-			.map(|def|
+			.and_then(|def|
 				def.annotations.iter()
 					.filter(|ann| ann.scope == "esexpr")
 					.filter_map(|ann| api::ESExprAnnExternType::decode_esexpr(ann.value.clone()).ok())
-					.any(|ann| match ann {
-						api::ESExprAnnExternType::AllowOptional => true,
-						_ => false
+					.find_map(|ann| match ann {
+						api::ESExprAnnExternType::AllowOptional(element_type) => Some(element_type),
+						_ => None,
 					})
 			)
-			.unwrap_or(false);
+	}
 
-		if !is_optional_field_type {
-			return Err(CheckError::ESExprInvalidOptionalFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
+	fn check_optional_field_type(&mut self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
+		let element_type = self.get_optional_field_element_type(t)
+			.ok_or_else(|| CheckError::ESExprInvalidOptionalFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()))?;
+
+		if !self.check_type(&element_type) {
+			return Err(CheckError::ESExprMemberCodecMissing(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
 		}
 
 		Ok(())
 	}
 
-	fn check_dict_type(&self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
-		let is_optional_field_type = self.get_type_name(t)
+	fn get_dict_element_type(&self, t: &api::TypeExpr) -> Option<api::TypeExpr> {
+		self.get_type_name(t)
 			.and_then(|name| self.definitions.get(name))
 			.filter(|def| match &def.definition {
 				noble_idl_api::Definition::ExternType => true,
 				_ => false,
 			})
-			.map(|def|
+			.and_then(|def|
 				def.annotations.iter()
 					.filter(|ann| ann.scope == "esexpr")
 					.filter_map(|ann| api::ESExprAnnExternType::decode_esexpr(ann.value.clone()).ok())
-					.any(|ann| match ann {
-						api::ESExprAnnExternType::AllowDict => true,
-						_ => false
+					.find_map(|ann| match ann {
+						api::ESExprAnnExternType::AllowDict(element_type) => Some(element_type),
+						_ => None,
 					})
 			)
-			.unwrap_or(false);
+	}
 
-		if !is_optional_field_type {
-			return Err(CheckError::ESExprInvalidDictFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
+	fn check_dict_type(&mut self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
+		let element_type = self.get_dict_element_type(t)
+			.ok_or_else(|| CheckError::ESExprInvalidDictFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()))?;
+
+		if !self.check_type(&element_type) {
+			return Err(CheckError::ESExprMemberCodecMissing(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
 		}
 
 		Ok(())
 	}
 
-	fn check_vararg_type(&self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
-		let is_optional_field_type = self.get_type_name(t)
+	fn get_vararg_element_type(&self, t: &api::TypeExpr) -> Option<api::TypeExpr> {
+		self.get_type_name(t)
 			.and_then(|name| self.definitions.get(name))
 			.filter(|def| match &def.definition {
 				noble_idl_api::Definition::ExternType => true,
 				_ => false,
 			})
-			.map(|def|
+			.and_then(|def|
 				def.annotations.iter()
 					.filter(|ann| ann.scope == "esexpr")
 					.filter_map(|ann| api::ESExprAnnExternType::decode_esexpr(ann.value.clone()).ok())
-					.any(|ann| match ann {
-						api::ESExprAnnExternType::AllowVararg => true,
-						_ => false
+					.find_map(|ann| match ann {
+						api::ESExprAnnExternType::AllowVararg(element_type) => Some(element_type),
+						_ => None,
 					})
 			)
-			.unwrap_or(false);
+	}
 
-		if !is_optional_field_type {
-			return Err(CheckError::ESExprInvalidVarargFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
+	fn check_vararg_type(&mut self, t: &api::TypeExpr, case_name: Option<&str>, field_name: &str) -> Result<(), CheckError> {
+		let element_type = self.get_vararg_element_type(t)
+			.ok_or_else(|| CheckError::ESExprInvalidVarargFieldType(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()))?;
+
+		if !self.check_type(&element_type) {
+			return Err(CheckError::ESExprMemberCodecMissing(self.definition_name.clone(), case_name.map(str::to_owned), field_name.to_owned()));
 		}
 
 		Ok(())
