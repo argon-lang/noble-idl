@@ -46,6 +46,10 @@ class PackageEmitter {
         const packageGroups = new Map<string, DefinitionInfo[]>();
 
         for(const def of this.model.definitions) {
+			if(def.isLibrary) {
+				continue;
+			}
+
             const pkgName = getPackageNameStr(def.name.package);
             let items = packageGroups.get(pkgName);
             if(items === undefined) {
@@ -578,23 +582,19 @@ class ModEmitter {
     }
 
     #emitTypeExpr(t: TypeExpr): ts.TypeNode {
-        return this.#emitTypeExprImpl(t, []);
-    }
-
-    #emitTypeExprImpl(t: TypeExpr, args: readonly TypeExpr[]): ts.TypeNode {
         switch(t.$type) {
             case "defined-type":
 				if(PackageName.isSamePackage(this.currentPackage, t.name.package)) {
 					if(this.metadata.shadowedTypes.has(t.name.name)) {
 						return ts.factory.createTypeReferenceNode(
 							getUnshadowedName(t.name.name),
-							args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+							t.args.length === 0 ? undefined : t.args.map(arg => this.#emitTypeExpr(arg)),
 						);
 					}
 					else {
 						return ts.factory.createTypeReferenceNode(
 							convertIdPascal(t.name.name),
-							args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+							t.args.length === 0 ? undefined : t.args.map(arg => this.#emitTypeExpr(arg)),
 						);
 					}
 				}
@@ -604,18 +604,15 @@ class ModEmitter {
 							ts.factory.createIdentifier(getPackageIdStr(t.name.package)),
 							convertIdPascal(t.name.name)
 						),
-						args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+						t.args.length === 0 ? undefined : t.args.map(arg => this.#emitTypeExpr(arg)),
 					);
 				}
 
             case "type-parameter":
                 return ts.factory.createTypeReferenceNode(
                     ts.factory.createIdentifier(convertIdPascal(t.name)),
-                    args.length === 0 ? undefined : args.map(arg => this.#emitTypeExpr(arg)),
+                    undefined,
                 );
-
-            case "apply":
-                return this.#emitTypeExprImpl(t.baseType, [...args, ...t.args])
         }
     }
 
@@ -733,40 +730,34 @@ class ModEmitter {
 					);
 				}
 
-				return ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
+				const codecExpr = ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
+
+				if(t.args.length === 0) {
+					return codecExpr;
+				}
+				else {
+					return ts.factory.createCallExpression(
+						codecExpr,
+						t.args.map(a => this.#emitTypeExpr(a)),
+						t.args.map(a => this.#emitCodecExpr(a)),
+					);
+				}
 			}
 
             case "type-parameter":
                 return ts.factory.createIdentifier(convertIdCamel(t.name) + "Codec");
-
-            case "apply":
-                return ts.factory.createCallExpression(
-					this.#emitCodecExprImpl(t.baseType, codecMethod),
-					t.args.map(a => this.#emitTypeExpr(a)),
-					t.args.map(a => this.#emitCodecExpr(a)),
-				);
 		}
 	}
 
 	#defAsType(def: DefinitionInfo): TypeExpr {
-		const baseType: TypeExpr = {
+		return {
 			$type: "defined-type",
 			name: def.name,
+			args: def.typeParameters.map(tp => ({
+				$type: "type-parameter",
+				name: tp.name,
+			})),
 		};
-
-		if(def.typeParameters.length === 0) {
-			return baseType;
-		}
-		else {
-			return {
-				$type: "apply",
-				baseType,
-				args: def.typeParameters.map(tp => ({
-					$type: "type-parameter",
-					name: tp.name,
-				}))
-			}
-		}
 	}
 
 
@@ -937,16 +928,13 @@ class ModuleScanner {
 				else {
 					this.#addPackage(t.name.package, refContext);
 				}
-				break;
 
-			case "type-parameter":
-				break;
-
-			case "apply":
-				this.#scanType(t.baseType, refContext);
 				for(const arg of t.args) {
 					this.#scanType(arg, refContext);
 				}
+				break;
+
+			case "type-parameter":
 				break;
 		}
 	}

@@ -17,12 +17,7 @@ pub enum CheckError {
     DuplicateDefinition(QualifiedName),
     TypeInMultiplePackages(String, Vec<PackageName>),
 
-    UnexpectedTypeKind {
-        expected: TypeKind,
-        actual: TypeKind,
-    },
-
-    TypeParameterMismatch { expected: Vec<TypeKind>, actual: Vec<TypeKind>, },
+    TypeParameterMismatch { expected: usize, actual: usize, },
 
 
 	InvalidESExprAnnotation(QualifiedName),
@@ -61,35 +56,31 @@ impl DefinitionInfo {
 
     fn into_api(self) -> noble_idl_api::DefinitionInfo {
         match self.def {
-            Definition::Record(r) => r.into_api(self.package),
-            Definition::Enum(e) => e.into_api(self.package),
-            Definition::ExternType(ext) => ext.into_api(self.package),
-            Definition::Interface(iface) => iface.into_api(self.package),
+            Definition::Record(r) => r.into_api(self.package, self.is_library),
+            Definition::Enum(e) => e.into_api(self.package, self.is_library),
+            Definition::ExternType(ext) => ext.into_api(self.package, self.is_library),
+            Definition::Interface(iface) => iface.into_api(self.package, self.is_library),
         }
     }
 }
 
 
 trait TypeScope {
-    fn resolve_type(&self, name: QualifiedName) -> Result<TypeExpr, CheckError>;
-    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError>;
-    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError>;
+    fn resolve_type(&self, name: QualifiedName, args: Vec<TypeExpr>) -> Result<TypeExpr, CheckError>;
 }
 
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TypeKind {
-    Star,
-    Parameterized(Vec<TypeKind>, Box<TypeKind>),
-}
 
 struct DefinitionEntry {
     def: DefinitionInfo,
-    kind: TypeKind,
+    metadata: TypeMetadata,
+}
+
+struct TypeMetadata {
+	parameter_count: usize,
 }
 
 struct ModelTypes {
-    definitions: HashMap<QualifiedName, TypeKind>,
+    definitions: HashMap<QualifiedName, TypeMetadata>,
 }
 
 
@@ -101,30 +92,41 @@ struct GlobalScope<'a> {
 }
 
 impl <'a> TypeScope for GlobalScope<'a> {
-    fn resolve_type(&self, mut full_name: QualifiedName) -> Result<TypeExpr, CheckError> {
+    fn resolve_type(&self, mut full_name: QualifiedName, args: Vec<TypeExpr>) -> Result<TypeExpr, CheckError> {
         if full_name.0.0.is_empty() {
             full_name.0 = self.package.clone();
 
-            if self.types.definitions.contains_key(&full_name) {
-                return Ok(TypeExpr::DefinedType(full_name));
+            if let Some(metadata) = self.types.definitions.get(&full_name) {
+				let expected = metadata.parameter_count;
+				let actual = args.len();
+				if expected != actual {
+					return Err(CheckError::TypeParameterMismatch { expected, actual });
+				}
+
+                return Ok(TypeExpr::DefinedType(full_name, args));
             }
 
             let mut check_import_package = |mut package| {
                 std::mem::swap(&mut package, &mut full_name.0);
-                let res = self.types.definitions.contains_key(&full_name);
+
+				let res = self.types.definitions.get(&full_name).map(|metadata| {
+					let expected = metadata.parameter_count;
+					let actual = args.len();
+					if expected != actual {
+						return Err(CheckError::TypeParameterMismatch { expected, actual });
+					}
+
+					return Ok(());
+				});
+
                 std::mem::swap(&mut package, &mut full_name.0);
 
-                if res {
-                    Some(package)
-                }
-                else {
-                    None
-                }
+                res.map(|res| res.map(|_| package))
             };
 
             if let Some(package) = check_import_package(PackageName(vec!())) {
-                full_name.0 = package;
-                return Ok(TypeExpr::DefinedType(full_name));
+                full_name.0 = package?;
+                return Ok(TypeExpr::DefinedType(full_name, args));
             }
 
 
@@ -135,15 +137,15 @@ impl <'a> TypeScope for GlobalScope<'a> {
             if matching_defs.len() > 0 {
                 if matching_defs.len() == 1 {
                     let package = matching_defs.swap_remove(0);
-                    full_name.0 = package;
-                    Ok(TypeExpr::DefinedType(full_name))
+                    full_name.0 = package?;
+                    Ok(TypeExpr::DefinedType(full_name, args))
                 }
                 else {
                     Err(CheckError::TypeInMultiplePackages(
                         full_name.1.clone(),
                         matching_defs.into_iter()
                             .map(|package| package)
-                            .collect(),
+                            .collect::<Result<Vec<_>, _>>()?,
                     ))
                 }
             }
@@ -153,26 +155,19 @@ impl <'a> TypeScope for GlobalScope<'a> {
             }
         }
         else {
-            if self.types.definitions.contains_key(&full_name) {
-                Ok(TypeExpr::DefinedType(full_name))
+			if let Some(metadata) = self.types.definitions.get(&full_name) {
+				let expected = metadata.parameter_count;
+				let actual = args.len();
+				if expected != actual {
+					return Err(CheckError::TypeParameterMismatch { expected, actual });
+				}
+
+                return Ok(TypeExpr::DefinedType(full_name, args));
             }
             else {
                 Err(CheckError::UnknownType(full_name))
             }
         }
-    }
-
-    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError> {
-        if let Some(k) = self.types.definitions.get(name) {
-            return Ok(k.clone());
-        }
-        else {
-            Err(CheckError::UnknownType(name.clone()))
-        }
-    }
-
-    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError> {
-        Err(CheckError::UnknownType(QualifiedName(PackageName(Vec::new()), name.to_owned())))
     }
 }
 
@@ -183,26 +178,20 @@ struct TypeParameterScope<'a, ParentScope> {
 }
 
 impl <'a, ParentScope: TypeScope + Copy> TypeScope for TypeParameterScope<'a, ParentScope> {
-    fn resolve_type(&self, name: QualifiedName) -> Result<TypeExpr, CheckError> {
+    fn resolve_type(&self, name: QualifiedName, args: Vec<TypeExpr>) -> Result<TypeExpr, CheckError> {
         if name.0.0.is_empty() {
             if self.type_parameters.iter().any(|p| p.name() == name.1) {
+				let expected = 0;
+				let actual = args.len();
+				if expected != actual {
+					return Err(CheckError::TypeParameterMismatch { expected, actual });
+				}
+
                 return Ok(TypeExpr::TypeParameter(name.1));
             }
         }
 
-        self.parent_scope.resolve_type(name)
-    }
-
-    fn check_defined_type(&self, name: &QualifiedName) -> Result<TypeKind, CheckError> {
-        self.parent_scope.check_defined_type(name)
-    }
-
-    fn check_type_parameter(&self, name: &str) -> Result<TypeKind, CheckError> {
-        self.type_parameters.iter()
-            .find(|p| p.name() == name)
-            .map(get_type_parameter_kind)
-            .map(Ok)
-            .unwrap_or_else(|| self.parent_scope.check_type_parameter(name))
+        self.parent_scope.resolve_type(name, args)
     }
 }
 
@@ -224,8 +213,8 @@ impl ModelBuilder {
         match self.definitions.entry(name) {
             hash_map::Entry::Occupied(_) => return Err(CheckError::DuplicateDefinition(def.qualified_name())),
             hash_map::Entry::Vacant(ve) => {
-                let kind = get_type_def_kind(&def.def);
-                ve.insert(DefinitionEntry { def, kind })
+                let metadata = get_type_metadata(&def.def);
+                ve.insert(DefinitionEntry { def, metadata })
             },
         };
 
@@ -237,7 +226,7 @@ impl ModelBuilder {
         let mut definitions = HashMap::new();
 
         for (qual_name, entry) in self.definitions {
-            types.insert(qual_name.clone(), entry.kind);
+            types.insert(qual_name.clone(), entry.metadata);
             definitions.insert(qual_name, entry.def);
         }
 
@@ -263,11 +252,6 @@ impl ModelBuilder {
 			}
         }
 
-		let input_file_definitions = definitions.iter()
-			.filter(|(_, v)| !v.is_library)
-			.map(|(k, _)| k.clone())
-			.collect::<HashSet<_>>();
-
 
 		let definitions: HashMap<_, _> = definitions.into_iter()
 			.map(|(k, v)| (k, v.into_api()))
@@ -291,7 +275,6 @@ impl ModelBuilder {
         }
 
         let model_definitions = definitions.into_iter()
-            .filter(|(k, _)| input_file_definitions.contains(k))
             .map(|(_, v)| v)
             .collect();
 
@@ -301,30 +284,12 @@ impl ModelBuilder {
     }
 }
 
-fn get_type_def_kind(def: &Definition) -> TypeKind {
+fn get_type_metadata(def: &Definition) -> TypeMetadata {
     match def {
-        Definition::Record(rec) => get_params_type_kind(&rec.type_parameters),
-        Definition::Enum(e) => get_params_type_kind(&e.type_parameters),
-        Definition::ExternType(et) => get_params_type_kind(&et.type_parameters),
-        Definition::Interface(iface) => get_params_type_kind(&iface.type_parameters),
-    }
-}
-
-fn get_params_type_kind(type_parameters: &[TypeParameter]) -> TypeKind {
-    if type_parameters.is_empty() {
-        TypeKind::Star
-    }
-    else {
-        TypeKind::Parameterized(
-            type_parameters.iter().map(get_type_parameter_kind).collect(),
-            Box::new(TypeKind::Star),
-        )
-    }
-}
-
-fn get_type_parameter_kind(p: &TypeParameter) -> TypeKind {
-    match p {
-        TypeParameter::Type(_) => TypeKind::Star,
+        Definition::Record(rec) => TypeMetadata { parameter_count: rec.type_parameters.len() },
+        Definition::Enum(e) => TypeMetadata { parameter_count: e.type_parameters.len() },
+        Definition::ExternType(et) => TypeMetadata { parameter_count: et.type_parameters.len() },
+        Definition::Interface(iface) => TypeMetadata { parameter_count: iface.type_parameters.len() },
     }
 }
 
@@ -384,7 +349,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 				return Err(CheckError::DuplicateRecordField(self.definition_name.clone(), case_name.map(str::to_owned), name));
 			}
 
-			self.check_type(&mut field.field_type, TypeKind::Star)?;
+			self.check_type(&mut field.field_type)?;
 		}
 
 		Ok(())
@@ -426,10 +391,10 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 					return Err(CheckError::DuplicateMethodParameter(self.definition_name.clone(), method.name.clone(), name));
 				}
 
-				inner.check_type(&mut param.parameter_type, TypeKind::Star)?;
+				inner.check_type(&mut param.parameter_type)?;
 			}
 
-			inner.check_type(&mut method.return_type, TypeKind::Star)?;
+			inner.check_type(&mut method.return_type)?;
 		}
 
 		Ok(())
@@ -446,84 +411,46 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 		Ok(())
 	}
 
-	fn check_type(&self, t: &mut TypeExpr, expected_kind: TypeKind) -> Result<(), CheckError> {
-		let actual = self.get_type_expr_kind(t)?;
-		if actual != expected_kind {
-			return Err(CheckError::UnexpectedTypeKind { expected: expected_kind, actual })
-		}
-
-		Ok(())
-	}
-
-
-	fn get_type_expr_kind(&self, t: &mut TypeExpr) -> Result<TypeKind, CheckError> {
+	fn check_type(&self, t: &mut TypeExpr) -> Result<(), CheckError> {
 		let mut t2 = TypeExpr::InvalidType;
 		std::mem::swap(&mut t2, t);
-		match self.get_type_expr_kind_impl(t2) {
-			TypeKindResult::Success(t2, k) => {
+		match self.check_type_impl(t2) {
+			TypeResult::Success(t2) => {
 				*t = t2;
-				Ok(k)
+				Ok(())
 			},
-			TypeKindResult::Failure(t2, e) => {
+			TypeResult::Failure(t2, e) => {
 				*t = t2;
 				Err(e)
 			},
 		}
 	}
 
-	fn get_type_expr_kind_impl(&self, mut t: TypeExpr) -> TypeKindResult {
+	fn check_type_impl(&self, t: TypeExpr) -> TypeResult {
 		match t {
 			TypeExpr::InvalidType => panic!("Unexpected invalid type"),
 
-			TypeExpr::UnresolvedName(name) => match self.scope.resolve_type(name) {
-				Ok(t) => self.get_type_expr_kind_impl(t),
-				Err(e) => TypeKindResult::Failure(TypeExpr::InvalidType, e)
-			},
+			TypeExpr::UnresolvedName(name, mut args) => {
+				for arg in &mut args {
+					if let Some(e) = self.check_type(arg).err() {
+						return TypeResult::Failure(TypeExpr::UnresolvedName(name, args), e);
+					}
+				}
 
-			TypeExpr::DefinedType(ref mut name) => match self.scope.check_defined_type(name) {
-				Ok(k) => TypeKindResult::Success(t, k),
-				Err(e) => TypeKindResult::Failure(t, e),
-			},
-
-			TypeExpr::TypeParameter(ref mut name) => match self.scope.check_type_parameter(name) {
-				Ok(k) => TypeKindResult::Success(t, k),
-				Err(e) => TypeKindResult::Failure(t, e),
-			},
-
-			TypeExpr::Apply(ref mut f, ref mut args) => {
-				let arg_kinds = match args.iter_mut().map(|arg| self.get_type_expr_kind(arg)).collect::<Result<Vec<_>, _>>() {
-					Ok(arg_kinds) => arg_kinds,
-					Err(err) => return TypeKindResult::Failure(t, err),
-				};
-
-				let f_kind = match self.get_type_expr_kind(f) {
-					Ok(f_kind) => f_kind,
-					Err(err) => return TypeKindResult::Failure(t, err),
-				};
-				match f_kind {
-					TypeKind::Star => return TypeKindResult::Failure(t, CheckError::TypeParameterMismatch { expected: vec!(), actual: arg_kinds }),
-					TypeKind::Parameterized(params, res) => {
-						if params.len() != arg_kinds.len() {
-							return TypeKindResult::Failure(t, CheckError::TypeParameterMismatch { expected: params, actual: arg_kinds });
-						}
-
-						for (param, arg) in params.into_iter().zip(arg_kinds.into_iter()) {
-							if param != arg {
-								return TypeKindResult::Failure(t, CheckError::UnexpectedTypeKind { expected: param, actual: arg });
-							}
-						}
-
-						TypeKindResult::Success(t, *res)
-					},
+				match self.scope.resolve_type(name, args) {
+					Ok(t) => TypeResult::Success(t),
+					Err(e) => TypeResult::Failure(TypeExpr::InvalidType, e)
 				}
 			},
+
+			TypeExpr::DefinedType(..) | TypeExpr::TypeParameter(_) => TypeResult::Success(t),
 		}
 	}
 
 }
 
-enum TypeKindResult {
-    Success(TypeExpr, TypeKind),
+enum TypeResult {
+    Success(TypeExpr),
     Failure(TypeExpr, CheckError),
 }
 
@@ -696,9 +623,8 @@ impl <'a> TagScanner<'a> {
 
 	fn scan_type<'c>(&mut self, state: &mut ScanState<'c>, t: &'a api::TypeExpr) -> HashSet<ESExprTag> where 'a: 'c {
 		match t {
-			api::TypeExpr::DefinedType(name) => self.scan(state, name),
+			api::TypeExpr::DefinedType(name, _) => self.scan(state, name),
 			api::TypeExpr::TypeParameter(_) => HashSet::new(),
-			api::TypeExpr::Apply(t, _) => self.scan_type(state, t),
 		}
 	}
 
@@ -1111,10 +1037,9 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 	fn check_type(&mut self, t: &'a api::TypeExpr) -> bool {
 		match t {
-			api::TypeExpr::DefinedType(name) => self.def_has_esexpr_codec(name),
+			api::TypeExpr::DefinedType(name, args) =>
+				self.def_has_esexpr_codec(name) && args.iter().all(|arg| self.check_type(arg)),
 			api::TypeExpr::TypeParameter(_) => true,
-			api::TypeExpr::Apply(f, a) =>
-				self.check_type(f) && a.iter().all(|arg| self.check_type(arg)),
 		}
 	}
 
@@ -1231,15 +1156,7 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 							return false;
 						}
 
-						let from_type = if args.is_empty() {
-							api::TypeExpr::DefinedType(build_literal_from)
-						}
-						else {
-							api::TypeExpr::Apply(
-								Box::new(api::TypeExpr::DefinedType(build_literal_from)),
-								args,
-							)
-						};
+						let from_type = api::TypeExpr::DefinedType(build_literal_from, args);
 
 						self.check_value_impl(from_type, ctor, seen_types)
 					}
@@ -1389,7 +1306,7 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 	}
 
 	fn get_single_type_arg(&self, t: api::TypeExpr) -> Option<api::TypeExpr> {
-		let api::TypeExpr::Apply(_, mut args) = t else { return None; };
+		let api::TypeExpr::DefinedType(_, mut args) = t else { return None; };
 
 		if args.len() != 1 {
 			return None;
@@ -1475,26 +1392,20 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 	fn get_type_info(&self, t: api::TypeExpr) -> Option<(api::QualifiedName, Vec<api::TypeExpr>, HashMap<String, api::TypeExpr>)> {
 		match t {
-			api::TypeExpr::DefinedType(name) => Some((name, Vec::new(), HashMap::new())),
-			api::TypeExpr::TypeParameter(_) => None,
-			api::TypeExpr::Apply(f, a) => {
-				let (name, mut args, mut mapping) = self.get_type_info(*f)?;
-
-				args.extend(a.iter().cloned());
-
+			api::TypeExpr::DefinedType(name, args) => {
 				let def = self.definitions.get(&name)?;
-				mapping.extend(def.type_parameters.iter().map(|tp| tp.name().to_owned()).zip(a.iter().cloned()));
+				let type_params = def.type_parameters.iter().map(|tp| tp.name().to_owned()).zip(args.iter().cloned()).collect();
 
-				Some((name, args, mapping))
+				Some((name, args.clone(), type_params))
 			},
+			api::TypeExpr::TypeParameter(_) => None,
 		}
 	}
 
 	fn get_type_name<'c>(&self, t: &'c api::TypeExpr) -> Option<&'c api::QualifiedName> {
 		match t {
-			api::TypeExpr::DefinedType(name) => Some(name),
+			api::TypeExpr::DefinedType(name, _) => Some(name),
 			api::TypeExpr::TypeParameter(_) => None,
-			api::TypeExpr::Apply(f, _) => self.get_type_name(f),
 		}
 	}
 
@@ -1505,14 +1416,11 @@ impl <'a, 'b> ESExprChecker<'a, 'b> {
 
 fn substitute_type(t: &mut api::TypeExpr, mapping: &HashMap<String, api::TypeExpr>) -> bool {
 	match t {
-		api::TypeExpr::DefinedType(_) => true,
+		api::TypeExpr::DefinedType(_, args) => args.iter_mut().all(|arg| substitute_type(arg, mapping)),
 		api::TypeExpr::TypeParameter(name) => {
 			let Some(mapped_type) = mapping.get(name.as_str()) else { return false; };
 			*t = (*mapped_type).clone();
 			true
-		},
-		api::TypeExpr::Apply(f, a) => {
-			substitute_type(f, mapping) && a.iter_mut().all(|arg| substitute_type(arg, mapping))
 		},
 	}
 }

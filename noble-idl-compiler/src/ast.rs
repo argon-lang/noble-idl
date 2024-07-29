@@ -35,7 +35,7 @@ pub struct RecordDefinition {
 }
 
 impl RecordDefinition {
-    pub fn into_api(self, package: PackageName) -> noble_idl_api::DefinitionInfo {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
         noble_idl_api::DefinitionInfo {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
@@ -43,6 +43,7 @@ impl RecordDefinition {
                 fields: self.fields.into_iter().map(RecordField::into_api).collect(),
             }),
             annotations: self.annotations,
+			is_library,
         }
     }
 }
@@ -74,7 +75,7 @@ pub struct EnumDefinition {
 }
 
 impl EnumDefinition {
-    pub fn into_api(self, package: PackageName) -> noble_idl_api::DefinitionInfo {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
         noble_idl_api::DefinitionInfo {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
@@ -82,6 +83,7 @@ impl EnumDefinition {
                 cases: self.cases.into_iter().map(EnumCase::into_api).collect(),
             }),
             annotations: self.annotations,
+			is_library,
         }
     }
 }
@@ -111,12 +113,13 @@ pub struct ExternTypeDefinition {
 }
 
 impl ExternTypeDefinition {
-    pub fn into_api(self, package: PackageName) -> noble_idl_api::DefinitionInfo {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
         noble_idl_api::DefinitionInfo {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
             definition: noble_idl_api::Definition::ExternType,
             annotations: self.annotations,
+			is_library,
         }
     }
 }
@@ -131,7 +134,7 @@ pub struct InterfaceDefinition {
 }
 
 impl InterfaceDefinition {
-    pub fn into_api(self, package: PackageName) -> noble_idl_api::DefinitionInfo {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
         noble_idl_api::DefinitionInfo {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
@@ -139,6 +142,7 @@ impl InterfaceDefinition {
                 methods: self.methods.into_iter().map(InterfaceMethod::into_api).collect(),
             }),
             annotations: self.annotations,
+			is_library,
         }
     }
 }
@@ -184,21 +188,19 @@ impl InterfaceMethodParameter {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypeExpr {
     InvalidType,
-    UnresolvedName(QualifiedName),
+    UnresolvedName(QualifiedName, Vec<TypeExpr>),
 
-    DefinedType(QualifiedName),
+    DefinedType(QualifiedName, Vec<TypeExpr>),
     TypeParameter(String),
-    Apply(Box<TypeExpr>, Vec<TypeExpr>)
 }
 
 impl TypeExpr {
     pub fn into_api(self) -> noble_idl_api::TypeExpr {
         match self {
             TypeExpr::InvalidType => panic!("An invalid type should have been replaced."),
-            TypeExpr::UnresolvedName(_) => panic!("An unresolved name should have been replaced."),
-            TypeExpr::DefinedType(name) => noble_idl_api::TypeExpr::DefinedType(name),
+            TypeExpr::UnresolvedName(..) => panic!("An unresolved name should have been replaced."),
+            TypeExpr::DefinedType(name, args) => noble_idl_api::TypeExpr::DefinedType(name, args.into_iter().map(TypeExpr::into_api).collect()),
             TypeExpr::TypeParameter(name) => noble_idl_api::TypeExpr::TypeParameter(name),
-            TypeExpr::Apply(f, args) => noble_idl_api::TypeExpr::Apply(Box::new(f.into_api()), args.into_iter().map(TypeExpr::into_api).collect()),
         }
     }
 }

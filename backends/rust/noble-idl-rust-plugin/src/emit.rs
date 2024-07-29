@@ -4,8 +4,8 @@ use itertools::Itertools;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use esexpr::ESExprCodec;
-use noble_idl_api::{Annotation, Definition, DefinitionInfo, EnumCase, EnumDefinition, InterfaceDefinition, InterfaceMethod, InterfaceMethodParameter, NobleIDLGenerationRequest, NobleIDLGenerationResult, NobleIDLModel, PackageName, RecordDefinition, RecordField, TypeExpr, TypeParameter};
+use esexpr::{ESExpr, ESExprCodec};
+use noble_idl_api::*;
 use syn::punctuated::Punctuated;
 
 use crate::RustLanguageOptions;
@@ -20,14 +20,20 @@ pub enum EmitError {
     ProtocolDecodeError(esexpr::DecodeError),
     ProtocolGenerateError(esexpr_binary::GeneratorError),
     RustParseError(syn::Error),
+	InvalidLiteralForType(TypeExpr),
     InvalidFileName,
 }
 
 pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
     let pkg_mapping = get_package_mapping(&request.language_options);
 
+	let definitions = request.model.definitions
+		.into_iter()
+		.map(|dfn| (dfn.name.clone(), dfn))
+		.collect::<HashMap<_, _>>();
+
     let mut emitter = ModEmitter {
-        model: request.model,
+        definitions,
         pkg_mapping,
 		current_crate: &request.language_options.crate_name,
 
@@ -76,7 +82,7 @@ struct RustModule<'a> {
 }
 
 struct ModEmitter<'a> {
-    model: NobleIDLModel,
+	definitions: HashMap<QualifiedName, DefinitionInfo>,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
 	current_crate: &'a str,
 
@@ -87,7 +93,11 @@ struct ModEmitter<'a> {
 impl <'a> ModEmitter<'a> {
     fn emit_modules(&mut self) -> Result<(), EmitError> {
         let mut package_groups = HashMap::new();
-        for dfn in &self.model.definitions {
+        for dfn in self.definitions.values() {
+			if dfn.is_library {
+				continue;
+			}
+
             let dfns = package_groups.entry(dfn.name.package_name())
                 .or_insert_with(|| Vec::new());
 
@@ -416,7 +426,7 @@ impl <'a> ModEmitter<'a> {
 
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
         Ok(match t {
-            TypeExpr::DefinedType(name) => {
+            TypeExpr::DefinedType(name, args) => {
 
                 let rust_mod = self.get_rust_module(name.package_name())?;
                 let mut segments = Punctuated::new();
@@ -435,9 +445,26 @@ impl <'a> ModEmitter<'a> {
                     }
                 }
 
+				let arguments =
+					if args.is_empty() {
+						syn::PathArguments::None
+					}
+					else {
+						let args = args.iter()
+							.map(|a| Ok(syn::GenericArgument::Type(self.emit_type_expr(a)?)))
+							.collect::<Result<Punctuated<_, _>, EmitError>>()?;
+
+						syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+							colon2_token: None,
+							lt_token: Default::default(),
+							args,
+							gt_token: Default::default(),
+						})
+					};
+
                 segments.push(syn::PathSegment {
                     ident: convert_id_pascal(name.name()),
-                    arguments: syn::PathArguments::None,
+                    arguments,
                 });
 
                 syn::Type::Path(syn::TypePath {
@@ -454,24 +481,6 @@ impl <'a> ModEmitter<'a> {
                     qself: None,
                     path: syn::Path::from(convert_id_pascal(&name)),
                 }),
-
-            TypeExpr::Apply(f, type_args) => {
-                if let syn::Type::Path(mut type_path) = self.emit_type_expr(f)? {
-                    let args = type_args.iter()
-                        .map(|a| Ok(syn::GenericArgument::Type(self.emit_type_expr(a)?)))
-                        .collect::<Result<Punctuated<_, _>, EmitError>>()?;
-                    let segment = type_path.path.segments.last_mut().unwrap();
-                    segment.arguments = syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-                        colon2_token: None,
-                        lt_token: Default::default(),
-                        args,
-                        gt_token: Default::default(),
-                    });
-                    syn::Type::Path(type_path)
-                } else {
-                    panic!("Expected a TypePath in Apply")
-                }
-            },
         })
     }
 

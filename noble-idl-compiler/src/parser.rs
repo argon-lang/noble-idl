@@ -7,9 +7,9 @@ use nom::{
     branch::alt,
     character::complete::{alphanumeric1, multispace0},
     bytes::complete::tag,
-    combinator::{eof, flat_map, map, not, opt},
-    multi::{fold_many0, many0, separated_list1},
-    sequence::{delimited, preceded, terminated, tuple},
+    combinator::{eof, map, not, opt},
+    multi::{many0, separated_list1},
+    sequence::{delimited, pair, preceded, terminated, tuple},
 };
 
 fn sym(s: &'static str) -> impl Fn(&str) -> IResult<&str, &str> {
@@ -277,20 +277,14 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
 }
 
 
-enum TypeSuffix {
-    TypeArguments(Vec<ast::TypeExpr>),
-}
-
 fn type_expr(input: &str) -> IResult<&str, ast::TypeExpr> {
-    flat_map(
-        map(qual_name, ast::TypeExpr::UnresolvedName),
-        |base_expr| fold_many0(
-            map(type_argument_list, TypeSuffix::TypeArguments),
-            move || base_expr.clone(),
-            |base_expr, suffix| match suffix {
-                TypeSuffix::TypeArguments(args) => ast::TypeExpr::Apply(Box::new(base_expr), args),
-            }),
-    )(input)
+	map(
+		pair(
+			qual_name,
+			opt(type_argument_list),
+		),
+		|(name, args)| ast::TypeExpr::UnresolvedName(name, args.unwrap_or_default())
+	)(input)
 }
 
 fn type_argument_list(input: &str) -> IResult<&str, Vec<ast::TypeExpr>> {

@@ -71,6 +71,9 @@ pub struct DefinitionInfo {
 
     #[keyword]
     pub annotations: Vec<Annotation>,
+
+	#[keyword]
+	pub is_library: bool,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone)]
@@ -191,9 +194,8 @@ pub struct Annotation {
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum TypeExpr {
-    DefinedType(QualifiedName),
+    DefinedType(QualifiedName, Vec<TypeExpr>),
     TypeParameter(String),
-    Apply(Box<TypeExpr>, Vec<TypeExpr>)
 }
 
 #[derive(ESExprCodec, Debug, Clone, PartialEq)]

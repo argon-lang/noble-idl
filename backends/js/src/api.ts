@@ -85,6 +85,7 @@ export interface DefinitionInfo {
     readonly typeParameters: readonly TypeParameter[],
     readonly definition: Definition,
     readonly annotations: readonly Annotation[],
+	readonly isLibrary: boolean,
 }
 
 export namespace DefinitionInfo {
@@ -95,6 +96,7 @@ export namespace DefinitionInfo {
             typeParameters: esexpr.keywordFieldCodec("type-parameters", esexpr.listCodec(TypeParameter.codec)),
             definition: esexpr.keywordFieldCodec("definition", Definition.codec),
             annotations: esexpr.keywordFieldCodec("annotations", esexpr.listCodec(Annotation.codec)),
+			isLibrary: esexpr.keywordFieldCodec("is-library", esexpr.boolCodec),
         },
     ));
 }
@@ -289,22 +291,18 @@ export namespace Annotation {
 }
 
 export type TypeExpr =
-    | { readonly $type: "defined-type", readonly name: QualifiedName }
+    | { readonly $type: "defined-type", readonly name: QualifiedName, readonly args: readonly TypeExpr[] }
     | { readonly $type: "type-parameter", readonly name: string }
-    | { readonly $type: "apply", readonly baseType: TypeExpr, readonly args: readonly TypeExpr[] }
 ;
 
 export namespace TypeExpr {
     export const codec: ESExprCodec<TypeExpr> = esexpr.lazyCodec(() => esexpr.enumCodec({
         "defined-type": esexpr.caseCodec({
             name: esexpr.positionalFieldCodec(QualifiedName.codec),
+            args: esexpr.positionalFieldCodec(esexpr.listCodec(TypeExpr.codec)),
         }),
         "type-parameter": esexpr.caseCodec({
             name: esexpr.positionalFieldCodec(esexpr.strCodec),
-        }),
-        apply: esexpr.caseCodec({
-            baseType: esexpr.positionalFieldCodec(TypeExpr.codec),
-            args: esexpr.positionalFieldCodec(esexpr.listCodec(TypeExpr.codec)),
         }),
     }))
 }
