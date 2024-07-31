@@ -19,6 +19,7 @@ esexpr = "0.1.11"
 esexpr-binary = "0.1.11"
 esexpr-text = "0.1.11"
 noble-idl-api = { path = "../noble-idl-api" }
+noble-idl-runtime = { path = "../runtime/rust" }
 clap = { version = "4.5.9", features = ["derive"] }
 clap_derive = "4.5.8"
 nom = "7.1.3"

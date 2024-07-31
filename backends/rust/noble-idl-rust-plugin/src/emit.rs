@@ -1,12 +1,13 @@
 use std::{collections::HashMap, io::{Read, Write}, path::PathBuf};
 use esexpr_binary::FixedStringPool;
 use itertools::Itertools;
+use num_bigint::{BigInt, BigUint, Sign};
 use proc_macro2::TokenStream;
 use quote::quote;
 
 use esexpr::ESExprCodec;
 use noble_idl_api::*;
-use syn::punctuated::Punctuated;
+use syn::{parse_quote, punctuated::Punctuated};
 
 use crate::RustLanguageOptions;
 
@@ -169,7 +170,7 @@ impl <'a> ModEmitter<'a> {
         match &dfn.definition {
             Definition::Record(r) => self.emit_record(dfn, r),
             Definition::Enum(e) => self.emit_enum(dfn, e),
-            Definition::ExternType => Ok(quote! {}),
+            Definition::ExternType(_) => Ok(quote! {}),
             Definition::Interface(i) => self.emit_interface(dfn, i),
         }
     }
@@ -183,7 +184,7 @@ impl <'a> ModEmitter<'a> {
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
-        self.process_record_ann(&dfn.annotations, &mut derives, &mut attrs)?;
+        self.process_record_ann(r, &mut derives, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
         Ok(quote! {
@@ -195,28 +196,17 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_record_ann(&self, ann: &[Annotation], derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+    fn process_record_ann(&self, r: &RecordDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
 
-        for a in ann {
-            match a.scope.as_str() {
-                "esexpr" => {
-                    let record_ann = noble_idl_api::ESExprAnnRecord::decode_esexpr(a.value.clone())?;
-                    match record_ann {
-                        noble_idl_api::ESExprAnnRecord::DeriveCodec => {
-                            derives.push(quote! { ::esexpr::ESExprCodec });
-                        },
-                        noble_idl_api::ESExprAnnRecord::Constructor(name) => {
-                            attrs.push(quote! { #[constructor = #name] });
-                        },
-                    }
-                },
+		if let Some(esexpr_options) = &r.esexpr_options {
+			derives.push(quote! { ::esexpr::ESExprCodec });
 
-                _ => {},
-            }
-        }
+			let name = &esexpr_options.constructor;
+			attrs.push(quote! { #[constructor = #name] });
+		}
 
         Ok(())
     }
@@ -230,7 +220,7 @@ impl <'a> ModEmitter<'a> {
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
-        self.process_enum_ann(&dfn.annotations, &mut derives, &mut attrs)?;
+        self.process_enum_ann(e, &mut derives, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
         Ok(quote! {
@@ -242,28 +232,18 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_enum_ann(&self, ann: &[Annotation], derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+    fn process_enum_ann(&self, e: &EnumDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
 
-        for a in ann {
-            match a.scope.as_str() {
-                "esexpr" => {
-                    let record_ann = noble_idl_api::ESExprAnnEnum::decode_esexpr(a.value.clone())?;
-                    match record_ann {
-                        noble_idl_api::ESExprAnnEnum::DeriveCodec => {
-                            derives.push(quote! { ::esexpr::ESExprCodec });
-                        },
-                        noble_idl_api::ESExprAnnEnum::SimpleEnum => {
-                            attrs.push(quote! { #[simple_enum] });
-                        },
-                    }
-                },
+		if let Some(esexpr_options) = &e.esexpr_options {
+			derives.push(quote! { ::esexpr::ESExprCodec });
 
-                _ => {},
-            }
-        }
+			if esexpr_options.simple_enum {
+				attrs.push(quote! { #[simple_enum] });
+			}
+		}
 
         Ok(())
     }
@@ -273,7 +253,7 @@ impl <'a> ModEmitter<'a> {
         let fields = self.emit_fields(false, &c.fields)?;
 
         let mut attrs = Vec::new();
-        self.process_enum_case_ann(&c.annotations, &mut attrs)?;
+        self.process_enum_case_ann(c, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
         Ok(quote! {
@@ -284,24 +264,13 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_enum_case_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
-        for a in ann {
-            match a.scope.as_str() {
-                "esexpr" => {
-                    let record_ann = noble_idl_api::ESExprAnnEnumCase::decode_esexpr(a.value.clone())?;
-                    match record_ann {
-                        noble_idl_api::ESExprAnnEnumCase::InlineValue => {
-                            attrs.push(quote! { #[inline_value] });
-                        },
-                        noble_idl_api::ESExprAnnEnumCase::Constructor(name) => {
-                            attrs.push(quote! { #[constructor = #name] });
-                        },
-                    }
-                },
-
-                _ => {},
-            }
-        }
+    fn process_enum_case_ann(&self, c: &EnumCase, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
+		if let Some(esexpr_options) = &c.esexpr_options {
+			match &esexpr_options.case_type {
+				ESExprEnumCaseType::Constructor(name) => attrs.push(quote! { #[constructor = #name] }),
+				ESExprEnumCaseType::InlineValue => attrs.push(quote! { #[inline_value] }),
+			}
+		}
 
         Ok(())
     }
@@ -348,7 +317,7 @@ impl <'a> ModEmitter<'a> {
         let field_type = self.emit_type_expr(&field.field_type)?;
 
         let mut attrs = Vec::new();
-        self.process_field_ann(&field.annotations, &mut attrs)?;
+        self.process_field_ann(field, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
 		let pub_kw = if use_pub { quote! { pub } } else { quote!{} };
@@ -359,42 +328,27 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_field_ann(&self, ann: &[Annotation], attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
-        for a in ann {
-            match a.scope.as_str() {
-                "esexpr" => {
-                    let record_ann = noble_idl_api::ESExprAnnRecordField::decode_esexpr(a.value.clone())?;
-                    match record_ann {
-                        noble_idl_api::ESExprAnnRecordField::Keyword { name, required, default_value } => {
-                            match (name, required) {
-                                (Some(name), true) => {
-                                    attrs.push(quote! { #[keyword = #name] });
-                                },
-                                (Some(name), false) => {
-                                    attrs.push(quote! { #[keyword(name = #name, required = false)] });
-                                },
-                                (None, false) => {
-                                    attrs.push(quote! { #[keyword(required = false)] });
-                                },
-                                (None, true) => {},
-                            }
+    fn process_field_ann(&self, field: &RecordField, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
+		if let Some(esexpr_options) = &field.esexpr_options {
+			match &esexpr_options.kind {
+				ESExprRecordFieldKind::Positional => {},
+				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Required) => {
+					attrs.push(quote! { #[keyword = #name] });
+				},
+				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::DefaultValue(default_value)) => {
+					attrs.push(quote! { #[keyword = #name] });
 
-                            if let Some(_) = default_value {
-                                todo!();
-                            }
-                        },
-                        noble_idl_api::ESExprAnnRecordField::Dict => {
-                            attrs.push(quote! { #[dict] });
-                        },
-                        noble_idl_api::ESExprAnnRecordField::Vararg => {
-                            attrs.push(quote! { #[vararg] });
-                        },
-                    }
-                },
+					let value = self.emit_value(default_value)?;
+					attrs.push(quote! { #[default_value = #value] });
+				},
+				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Optional(_)) => {
+					attrs.push(quote! { #[keyword(name = #name, required = false)] });
 
-                _ => {},
-            }
-        }
+				},
+				ESExprRecordFieldKind::Dict(_) => attrs.push(quote! { #[dict] }),
+				ESExprRecordFieldKind::Vararg(_) => attrs.push(quote! { #[vararg] }),
+			}
+		}
 
         Ok(())
     }
@@ -425,6 +379,15 @@ impl <'a> ModEmitter<'a> {
     }
 
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
+		let path = self.get_type_path(t)?;
+
+        Ok(syn::Type::Path(syn::TypePath {
+			qself: None,
+			path,
+		}))
+    }
+
+	fn get_type_path(&self, t: &TypeExpr) -> Result<syn::Path, EmitError> {
         Ok(match t {
             TypeExpr::DefinedType(name, args) => {
 
@@ -467,22 +430,217 @@ impl <'a> ModEmitter<'a> {
                     arguments,
                 });
 
-                syn::Type::Path(syn::TypePath {
-                    qself: None,
-                    path: syn::Path {
-                        leading_colon: if rust_mod.crate_name.is_some() { Some(Default::default()) } else { None },
-                        segments,
-                    },
-                })
+                syn::Path {
+					leading_colon: if rust_mod.crate_name.is_some() { Some(Default::default()) } else { None },
+					segments,
+				}
             },
 
             TypeExpr::TypeParameter(name) =>
-                syn::Type::Path(syn::TypePath {
-                    qself: None,
-                    path: syn::Path::from(convert_id_pascal(&name)),
-                }),
+				syn::Path::from(convert_id_pascal(&name)),
         })
-    }
+	}
+
+
+	fn emit_value(&self, value: &ESExprDecodedValue) -> Result<syn::Expr, EmitError> {
+		match value {
+			ESExprDecodedValue::Record(t, field_values) => self.emit_record_value(t, field_values),
+			ESExprDecodedValue::Enum(t, case_name, field_values) => self.emit_enum_value(t, case_name, field_values),
+			ESExprDecodedValue::Optional { optional_type, value } => self.emit_optional_value(optional_type, value.as_deref()),
+			ESExprDecodedValue::Vararg { vararg_type, values } => self.emit_vararg_value(vararg_type, values),
+			ESExprDecodedValue::Dict { dict_type, values } => self.emit_dict_value(dict_type, values),
+			ESExprDecodedValue::BuildFrom(built_type, value) => self.emit_build_from(built_type, &**value),
+			ESExprDecodedValue::FromBool(t, value) => self.emit_literal_primitive::<bool>(t, *value),
+			ESExprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
+			ESExprDecodedValue::FromStr(t, value) => self.emit_literal_primitive::<&str>(t, value),
+			ESExprDecodedValue::FromBinary(t, value) => self.emit_literal_binary(t, &value.0),
+			ESExprDecodedValue::FromFloat32(t, value) => self.emit_literal_primitive::<f32>(t, *value),
+			ESExprDecodedValue::FromFloat64(t, value) => self.emit_literal_primitive::<f64>(t, *value),
+			ESExprDecodedValue::FromNull(t) => self.emit_literal_null(t),
+		}
+	}
+
+	fn emit_record_value(&self, t: &TypeExpr, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+		Ok(syn::Expr::Struct(syn::ExprStruct {
+			attrs: vec![],
+			qself: None,
+			path: self.get_type_path(t)?,
+			brace_token: syn::token::Brace::default(),
+			fields: self.emit_field_values(field_values)?.into_iter().collect(),
+			dot2_token: None,
+			rest: None,
+		}))
+	}
+
+	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+		let mut path = self.get_type_path(t)?;
+		path.segments.push(syn::PathSegment {
+			ident: convert_id_pascal(case_name),
+			arguments: syn::PathArguments::None,
+		});
+
+		Ok(syn::Expr::Struct(syn::ExprStruct {
+			attrs: vec![],
+			qself: None,
+			path,
+			brace_token: Default::default(),
+			fields: self.emit_field_values(field_values)?.into_iter().collect(),
+			dot2_token: None,
+			rest: None,
+		}))
+	}
+
+	fn emit_field_values(&self, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<Vec<syn::FieldValue>, EmitError> {
+		field_values.iter().map(|(name, value)| {
+			let value = self.emit_value(value)?;
+			Ok(syn::FieldValue {
+				attrs: vec![],
+				member: syn::Member::Named(convert_id_snake(name)),
+				colon_token: Some(syn::token::Colon::default()),
+				expr: value,
+			})
+		}).collect::<Result<Vec<_>, _>>()
+	}
+
+	fn emit_optional_value(&self, optional_type: &TypeExpr, value: Option<&ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(optional_type)?;
+		let v = value.map(|v| self.emit_value(v)).transpose()?;
+		let v: syn::Expr = match v {
+			Some(v) => parse_quote! { std::option::Option::Some(#v) },
+			None => parse_quote! { ::std::option::Option::None },
+		};
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<_>>::from(#v)
+		})
+	}
+
+	fn emit_vararg_value(&self, vararg_type: &TypeExpr, values: &[ESExprDecodedValue]) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(vararg_type)?;
+		let v = values.iter().map(|v| self.emit_value(v)).collect::<Result<Vec<_>, _>>()?;
+		let v: syn::Expr = parse_quote! { ::std::vec![#(#v),*] };
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<_>>::from(#v)
+		})
+	}
+
+	fn emit_dict_value(&self, dict_type: &TypeExpr, values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(dict_type)?;
+		let v = values.iter().map(|(k, v)| {
+			let v = self.emit_value(v)?;
+			Ok(parse_quote! { (#k, #v) })
+		}).collect::<Result<Vec<syn::Expr>, EmitError>>()?;
+
+		let v: syn::Expr = parse_quote! { ::std::collection::HashMap::from([#(#v),*]) };
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<_>>::from(#v)
+		})
+	}
+
+	fn emit_build_from(&self, built_type: &TypeExpr, value: &ESExprDecodedValue) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(built_type)?;
+		let v = self.emit_value(value)?;
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<_>>::from(#v)
+		})
+	}
+
+	fn emit_literal_primitive<T: quote::ToTokens>(&self, t: &TypeExpr, value: T) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(t)?;
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<_>>::from(#value)
+		})
+	}
+
+	fn emit_literal_int(&self, t: &TypeExpr, value: &BigInt, min: Option<&BigInt>, max: Option<&BigInt>) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(t)?;
+
+		fn try_as<
+			I: num_traits::bounds::Bounded + for<'a> TryFrom<&'a BigInt> + Copy + quote::ToTokens
+		>(
+			t: &syn::Type,
+			value: &BigInt,
+			min: Option<&BigInt>,
+			max: Option<&BigInt>
+		) -> Option<syn::Expr> {
+			// Ensure that min/max are within the range of this type.
+			I::try_from(min?).ok()?;
+			I::try_from(max?).ok()?;
+
+			let value = I::try_from(value).ok()?;
+
+			Some(parse_quote! { <#t as std::convert::From<_>>::from(#value) })
+		}
+
+		let try_as_nat = || {
+			if !min.is_some_and(|min| min.sign() >= Sign::NoSign) {
+				return None;
+			}
+
+			let value = BigUint::try_from(value).ok()?;
+			let bytes = value.to_bytes_le();
+
+			let literal = syn::Lit::ByteStr(syn::LitByteStr::new(&bytes, proc_macro2::Span::mixed_site()));
+
+			Some(parse_quote! {
+				<#t as std::convert::From<::num_bigint::BigUint>>::from(::num_bigint::BigUint::from_bytes_le(#literal))
+			})
+		};
+
+		let as_bigint = || {
+			let (sign, bytes) = value.to_bytes_le();
+
+			let sign_expr: syn::Expr = match sign {
+				Sign::Minus => parse_quote! { ::num_bigint::Sign::Minus },
+				Sign::NoSign => parse_quote! { ::num_bigint::Sign::NoSign },
+				Sign::Plus => parse_quote! { ::num_bigint::Sign::Plus },
+			};
+
+			let literal = syn::Lit::ByteStr(syn::LitByteStr::new(&bytes, proc_macro2::Span::mixed_site()));
+
+			parse_quote! {
+				<#t as std::convert::From<::num_bigint::BigInt>>::from(::num_bigint::BigInt::from_bytes_le(#sign_expr, #literal))
+
+			}
+		};
+
+		Ok(
+			try_as::<u8>(&t, value, min, max)
+				.or_else(|| try_as::<i8>(&t, value, min, max))
+				.or_else(|| try_as::<u16>(&t, value, min, max))
+				.or_else(|| try_as::<i16>(&t, value, min, max))
+				.or_else(|| try_as::<u32>(&t, value, min, max))
+				.or_else(|| try_as::<i32>(&t, value, min, max))
+				.or_else(|| try_as::<u64>(&t, value, min, max))
+				.or_else(|| try_as::<i64>(&t, value, min, max))
+				.or_else(|| try_as::<u128>(&t, value, min, max))
+				.or_else(|| try_as::<i128>(&t, value, min, max))
+				.or_else(|| try_as_nat())
+				.unwrap_or_else(|| as_bigint())
+		)
+	}
+
+	fn emit_literal_binary(&self, t: &TypeExpr, value: &[u8]) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(t)?;
+
+		let literal = syn::Lit::ByteStr(syn::LitByteStr::new(&value, proc_macro2::Span::mixed_site()));
+
+		Ok(parse_quote! {
+			<#t as std::convert::From<&[u8]>>::from(#literal)
+		})
+	}
+
+	fn emit_literal_null(&self, t: &TypeExpr) -> Result<syn::Expr, EmitError> {
+		let t = self.emit_type_expr(t)?;
+
+		Ok(parse_quote! {
+			<#t as ::std::default::Default>::default()
+		})
+	}
 
 }
 

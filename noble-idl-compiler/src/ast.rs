@@ -41,6 +41,7 @@ impl RecordDefinition {
             type_parameters: self.type_parameters,
             definition: noble_idl_api::Definition::Record(noble_idl_api::RecordDefinition {
                 fields: self.fields.into_iter().map(RecordField::into_api).collect(),
+				esexpr_options: None,
             }),
             annotations: self.annotations,
 			is_library,
@@ -61,6 +62,7 @@ impl RecordField {
             name: self.name,
             field_type: self.field_type.into_api(),
             annotations: self.annotations,
+			esexpr_options: None,
         }
     }
 }
@@ -81,6 +83,7 @@ impl EnumDefinition {
             type_parameters: self.type_parameters,
             definition: noble_idl_api::Definition::Enum(noble_idl_api::EnumDefinition {
                 cases: self.cases.into_iter().map(EnumCase::into_api).collect(),
+				esexpr_options: None,
             }),
             annotations: self.annotations,
 			is_library,
@@ -101,6 +104,7 @@ impl EnumCase {
             name: self.name,
             fields: self.fields.into_iter().map(RecordField::into_api).collect(),
             annotations: self.annotations,
+			esexpr_options: None,
         }
     }
 }
@@ -117,7 +121,9 @@ impl ExternTypeDefinition {
         noble_idl_api::DefinitionInfo {
             name: QualifiedName(package, self.name),
             type_parameters: self.type_parameters,
-            definition: noble_idl_api::Definition::ExternType,
+            definition: noble_idl_api::Definition::ExternType(noble_idl_api::ExternTypeDefinition {
+				esexpr_options: None,
+			}),
             annotations: self.annotations,
 			is_library,
         }

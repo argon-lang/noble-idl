@@ -23,7 +23,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.8",
+    "@argon-lang/esexpr": "^0.1.9",
     "@argon-lang/noble-idl-core": "file:../../runtime/js"
   },
   "NobleIDL": {

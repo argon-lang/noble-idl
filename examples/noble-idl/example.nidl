@@ -99,11 +99,12 @@ enum either[a, b] {
 
 extern type my-extern;
 
+extern type my-extern2[a];
+
 record extern-user {
     e: my-extern;
+    e2: string;
 }
-
-extern type my-extern2[a];
 
 interface do-something {
     to-str(i: int): string;
