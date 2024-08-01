@@ -545,16 +545,31 @@ class ModEmitter {
 						}
 
 						case "positional":
-							return ts.factory.createCallExpression(
-								ts.factory.createPropertyAccessExpression(
-									ts.factory.createIdentifier("$esexpr"),
-									"positionalFieldCodec",
-								),
-								undefined,
-								[
-									this.#emitCodecExpr(f.fieldType),
-								],
-							);
+							switch(f.esexprOptions.kind.mode.$type) {
+								case "optional":
+									return ts.factory.createCallExpression(
+										ts.factory.createPropertyAccessExpression(
+											ts.factory.createIdentifier("$esexpr"),
+											"optionalPositionalFieldCodec",
+										),
+										undefined,
+										[
+											this.#emitCodecExprImpl(f.fieldType, "optionalCodec"),
+										],
+									);
+
+								case "required":
+									return ts.factory.createCallExpression(
+										ts.factory.createPropertyAccessExpression(
+											ts.factory.createIdentifier("$esexpr"),
+											"positionalFieldCodec",
+										),
+										undefined,
+										[
+											this.#emitCodecExpr(f.fieldType),
+										],
+									);
+							}
 					}
 				})();
 

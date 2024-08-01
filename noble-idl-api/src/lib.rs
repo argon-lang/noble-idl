@@ -128,7 +128,8 @@ pub struct RecordDefinition {
     #[vararg]
     pub fields: Vec<RecordField>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub esexpr_options: Option<ESExprRecordOptions>,
 }
 
@@ -140,7 +141,8 @@ pub struct RecordField {
     #[keyword]
     pub annotations: Vec<Annotation>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub esexpr_options: Option<ESExprRecordFieldOptions>,
 }
 
@@ -150,7 +152,8 @@ pub struct EnumDefinition {
     #[vararg]
     pub cases: Vec<EnumCase>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub esexpr_options: Option<ESExprEnumOptions>,
 }
 
@@ -164,13 +167,15 @@ pub struct EnumCase {
     #[keyword]
     pub annotations: Vec<Annotation>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub esexpr_options: Option<ESExprEnumCaseOptions>,
 }
 
 #[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct ExternTypeDefinition {
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub esexpr_options: Option<ESExprExternTypeOptions>,
 }
 
@@ -285,13 +290,16 @@ pub struct ESExprExternTypeOptions {
 	#[default_value = false]
 	pub allow_value: bool,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub allow_optional: Option<TypeExpr>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub allow_vararg: Option<TypeExpr>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub allow_dict: Option<TypeExpr>,
 
 	#[keyword]
@@ -306,10 +314,16 @@ pub struct ESExprRecordFieldOptions {
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum ESExprRecordFieldKind {
-	Positional,
+	Positional(ESExprRecordPositionalMode),
 	Keyword(String, ESExprRecordKeywordMode),
 	Dict(TypeExpr),
 	Vararg(TypeExpr),
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum ESExprRecordPositionalMode {
+	Required,
+	Optional(TypeExpr),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
@@ -327,7 +341,7 @@ pub enum ESExprDecodedValue {
 	Optional {
 		optional_type: TypeExpr,
 
-		#[keyword(required = false)]
+		#[optional]
 		value: Option<Box<ESExprDecodedValue>>,
 	},
 
@@ -352,10 +366,12 @@ pub enum ESExprDecodedValue {
 		t: TypeExpr,
 		i: BigInt,
 
-		#[keyword(required = false)]
+		#[keyword]
+		#[optional]
 		min_int: Option<BigInt>,
 
-		#[keyword(required = false)]
+		#[keyword]
+		#[optional]
 		max_int: Option<BigInt>,
 	},
 	FromStr(TypeExpr, String),
@@ -388,20 +404,13 @@ pub enum ESExprAnnEnumCase {
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum ESExprAnnRecordField {
-    Keyword {
-        #[keyword(required = false)]
-        name: Option<String>,
-
-        #[keyword]
-        #[default_value = true]
-        required: bool,
-
-        #[keyword(required = false)]
-        default_value: Option<ESExpr>,
-    },
+    Keyword(#[optional] Option<String>),
 
     Dict,
     Vararg,
+
+	Optional,
+	DefaultValue(ESExpr),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
@@ -425,10 +434,12 @@ pub struct ESExprAnnExternTypeLiterals {
 	#[default_value = false]
 	pub allow_int: bool,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub min_int: Option<BigInt>,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub max_int: Option<BigInt>,
 
 	#[keyword]
@@ -451,7 +462,8 @@ pub struct ESExprAnnExternTypeLiterals {
 	#[default_value = false]
 	pub allow_null: bool,
 
-	#[keyword(required = false)]
+	#[keyword]
+	#[optional]
 	pub build_literal_from: Option<TypeExpr>,
 }
 

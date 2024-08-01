@@ -212,13 +212,14 @@ impl <'a> ESExprOptionParser<'a> {
 
 		let mut has_dict = false;
 		let mut has_vararg = false;
+		let mut has_optional_positional = false;
 
 		for field in fields {
-			let mut kind = None;
-
-			let mut is_keyword = false;
+			let mut is_keyword = None;
 			let mut is_dict = false;
 			let mut is_vararg = false;
+			let mut is_optional = false;
+			let mut is_default_value = None;
 
 			for ann in &field.annotations {
 				if ann.scope != "esexpr" {
@@ -240,15 +241,9 @@ impl <'a> ESExprOptionParser<'a> {
 				}
 
 				match esexpr_field {
-					ESExprAnnRecordField::Keyword { name, required, default_value } => {
-						if is_keyword {
+					ESExprAnnRecordField::Keyword(name) => {
+						if is_keyword.is_some() {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "keyword".to_owned()));
-						}
-
-						is_keyword = true;
-
-						if is_dict || is_vararg || (!required && default_value.is_some()) {
-							return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						}
 
 						if has_dict {
@@ -260,19 +255,7 @@ impl <'a> ESExprOptionParser<'a> {
 							return Err(CheckError::ESExprDuplicateKeyword(def_name.clone(), case_name.map(str::to_owned), name));
 						}
 
-						let mode =
-							// Ignore default_value for now.
-							// Default values will be added in a later pass.
-							if required { ESExprRecordKeywordMode::Required }
-							else {
-								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
-									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
-								};
-
-								ESExprRecordKeywordMode::Optional(opt_metadata.element_type.clone())
-							};
-
-						kind = Some(ESExprRecordFieldKind::Keyword(name, mode));
+						is_keyword = Some(name);
 					},
 					ESExprAnnRecordField::Dict => {
 						if has_dict {
@@ -285,20 +268,14 @@ impl <'a> ESExprOptionParser<'a> {
 
 						has_dict = true;
 						is_dict = true;
-
-						if is_keyword || is_vararg {
-							return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
-						}
-
-						let Some(dict_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.dict_container_types.get(ftn)) else {
-							return Err(CheckError::ESExprInvalidDictFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
-						};
-
-						kind = Some(ESExprRecordFieldKind::Dict(dict_metadata.element_type.clone()));
 					},
 					ESExprAnnRecordField::Vararg => {
 						if has_vararg {
-							return Err(CheckError::ESExprMultipleDict(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+							return Err(CheckError::ESExprMultipleVararg(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						}
+
+						if has_optional_positional {
+							return Err(CheckError::ESExprVarargAfterOptionalPositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						}
 
 						if is_vararg {
@@ -307,34 +284,101 @@ impl <'a> ESExprOptionParser<'a> {
 
 						has_vararg = true;
 						is_vararg = true;
+					},
 
-						if is_keyword || is_dict {
-							return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+					ESExprAnnRecordField::Optional => {
+						if is_optional {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "optional".to_owned()));
 						}
 
+						is_optional = true;
+					},
+
+					ESExprAnnRecordField::DefaultValue(value) => {
+						if is_default_value.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "default-value".to_owned()));
+						}
+
+						is_default_value = Some(value);
+					}
+				}
+			}
+
+			if has_vararg && !(is_keyword.is_some() || is_dict || is_vararg) {
+				return Err(CheckError::ESExprVarargBeforePositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if
+				(is_keyword.is_some() && (is_dict || is_vararg || (is_optional && is_default_value.is_some()))) ||
+				(is_dict && is_vararg) ||
+				((is_dict || is_vararg) && (is_optional || is_default_value.is_some())) ||
+				(is_keyword.is_none() && !is_dict && !is_vararg && is_default_value.is_some())
+			{
+				return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if is_dict && is_vararg {
+				return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if !is_esexpr_type && (is_keyword.is_some() || is_dict || is_vararg || is_optional || is_default_value.is_some()) {
+				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
+			}
+
+			if is_esexpr_type {
+				let kind =
+					if is_vararg {
 						let Some(vararg_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.vararg_container_types.get(ftn)) else {
 							eprintln!("{:?}", def_name);
 							eprintln!("{:?}", self.vararg_container_types);
 							return Err(CheckError::ESExprInvalidVarargFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 
-						kind = Some(ESExprRecordFieldKind::Vararg(vararg_metadata.element_type.clone()));
-					},
-				}
-			}
+						ESExprRecordFieldKind::Vararg(vararg_metadata.element_type.clone())
+					}
+					else if is_dict {
+						let Some(dict_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.dict_container_types.get(ftn)) else {
+							return Err(CheckError::ESExprInvalidDictFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						};
 
-			if has_vararg && !(is_keyword || is_dict || is_vararg) {
-				return Err(CheckError::ESExprVarargBeforePositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
-			}
+						ESExprRecordFieldKind::Dict(dict_metadata.element_type.clone())
+					}
+					else if let Some(name) = is_keyword {
+						let mode =
+							// Ignore default_value for now.
+							// Default values will be added in a later pass.
+							if is_optional {
+								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
+									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								};
 
-			if !is_esexpr_type && kind.is_some() {
-				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
-			}
+								ESExprRecordKeywordMode::Optional(opt_metadata.element_type.clone())
+							}
+							else {
+								ESExprRecordKeywordMode::Required
+							};
 
-			if is_esexpr_type {
-				field.esexpr_options = Some(ESExprRecordFieldOptions {
-					kind: kind.unwrap_or(ESExprRecordFieldKind::Positional),
-				});
+						ESExprRecordFieldKind::Keyword(name, mode)
+					}
+					else {
+						let mode =
+							if is_optional {
+								has_optional_positional = true;
+
+								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
+									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								};
+
+								ESExprRecordPositionalMode::Optional(opt_metadata.element_type.clone())
+							}
+							else {
+								ESExprRecordPositionalMode::Required
+							};
+
+						ESExprRecordFieldKind::Positional(mode)
+					};
+
+				field.esexpr_options = Some(ESExprRecordFieldOptions { kind });
 			}
 		}
 

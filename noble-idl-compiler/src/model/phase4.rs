@@ -79,7 +79,7 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 			let Some(feo) = field.esexpr_options.as_ref() else { continue; };
 
 			match &feo.kind {
-				ESExprRecordFieldKind::Positional => {},
+				ESExprRecordFieldKind::Positional(_) => {},
 				ESExprRecordFieldKind::Keyword(_, ESExprRecordKeywordMode::Optional(_)) => {},
 				ESExprRecordFieldKind::Keyword(_, _) => {
 					let mut value_parser = ValueParser {
@@ -143,7 +143,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			.filter(|ann| ann.scope == "esexpr")
 			.filter_map(|ann| ESExprAnnRecordField::decode_esexpr(ann.value.clone()).ok())
 			.find_map(|ann| match ann {
-				ESExprAnnRecordField::Keyword { default_value, .. } => default_value,
+				ESExprAnnRecordField::DefaultValue(default_value) => Some(default_value),
 				_ => None,
 			})
 			.map(|expr| self.parse_value(&field.field_type, expr))
@@ -278,10 +278,19 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			}
 
 			let value = match &options.kind {
-				ESExprRecordFieldKind::Positional => {
+				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Required) => {
 					let arg_value = args.pop_front().ok_or_else(|| self.error())?;
 					self.parse_value(&field_type, arg_value)?
 				},
+
+				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Optional(element_type)) =>
+					ESExprDecodedValue::Optional {
+						optional_type: field_type,
+						value: args.pop_front()
+							.map(|value| self.parse_value(element_type, value))
+							.transpose()?
+							.map(Box::new),
+					},
 
 				ESExprRecordFieldKind::Keyword(_, ESExprRecordKeywordMode::Optional(element_type)) =>
 					ESExprDecodedValue::Optional {

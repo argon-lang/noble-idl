@@ -331,7 +331,10 @@ impl <'a> ModEmitter<'a> {
     fn process_field_ann(&self, field: &RecordField, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
 		if let Some(esexpr_options) = &field.esexpr_options {
 			match &esexpr_options.kind {
-				ESExprRecordFieldKind::Positional => {},
+				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Required) => {},
+				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Optional(_)) => {
+					attrs.push(quote! { #[optional] });
+				},
 				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Required) => {
 					attrs.push(quote! { #[keyword = #name] });
 				},
@@ -342,7 +345,8 @@ impl <'a> ModEmitter<'a> {
 					attrs.push(quote! { #[default_value = #value] });
 				},
 				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Optional(_)) => {
-					attrs.push(quote! { #[keyword(name = #name, required = false)] });
+					attrs.push(quote! { #[keyword = #name] });
+					attrs.push(quote! { #[optional] });
 
 				},
 				ESExprRecordFieldKind::Dict(_) => attrs.push(quote! { #[dict] }),

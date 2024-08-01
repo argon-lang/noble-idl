@@ -433,7 +433,7 @@ export namespace ESExprRecordFieldOptions {
 }
 
 export type ESExprRecordFieldKind =
-	| { readonly $type: "positional" }
+	| { readonly $type: "positional", readonly mode: ESExprRecordPositionalMode }
 	| { readonly $type: "keyword", readonly name: string, readonly mode: ESExprRecordKeywordMode }
 	| { readonly $type: "dict", readonly elementType: TypeExpr }
 	| { readonly $type: "vararg", readonly elementType: TypeExpr }
@@ -441,7 +441,9 @@ export type ESExprRecordFieldKind =
 
 export namespace ESExprRecordFieldKind {
 	export const codec: ESExprCodec<ESExprRecordFieldKind> = esexpr.lazyCodec(() => esexpr.enumCodec({
-		positional: esexpr.caseCodec("positional", {}),
+		positional: esexpr.caseCodec("positional", {
+			mode: esexpr.positionalFieldCodec(ESExprRecordPositionalMode.codec),
+		}),
 		keyword: esexpr.caseCodec("keyword", {
 			name: esexpr.positionalFieldCodec(esexpr.strCodec),
 			mode: esexpr.positionalFieldCodec(ESExprRecordKeywordMode.codec),
@@ -450,6 +452,20 @@ export namespace ESExprRecordFieldKind {
 			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
 		}),
 		vararg: esexpr.caseCodec("vararg", {
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
+		}),
+	}));
+}
+
+export type ESExprRecordPositionalMode =
+	| { readonly $type: "required" }
+	| { readonly $type: "optional", readonly elementType: TypeExpr }
+;
+
+export namespace ESExprRecordPositionalMode {
+	export const codec: ESExprCodec<ESExprRecordPositionalMode> = esexpr.lazyCodec(() => esexpr.enumCodec<ESExprRecordPositionalMode>({
+		required: esexpr.caseCodec("required", {}),
+		optional: esexpr.caseCodec("optional", {
 			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
 		}),
 	}));
@@ -556,7 +572,7 @@ export namespace ESExprDecodedValue {
 		}),
 		optional: esexpr.caseCodec("optional", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
-			value: esexpr.optionalKeywordFieldCodec("value", esexpr.undefinedOptionalCodec(ESExprDecodedValue.codec)),
+			value: esexpr.optionalPositionalFieldCodec(esexpr.undefinedOptionalCodec(ESExprDecodedValue.codec)),
 		}),
 		vararg: esexpr.caseCodec("vararg", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
@@ -649,22 +665,27 @@ export type ESExprAnnRecordField =
 	| {
 		readonly $type: "keyword",
 		readonly name?: string | undefined,
-		readonly required: boolean,
-		readonly defaultValue?: ESExpr | undefined,
 	}
 	| { readonly $type: "dict" }
 	| { readonly $type: "vararg" }
+	| { readonly $type: "optional" }
+	| {
+		readonly $type: "default-value"
+		readonly defaultValue: ESExpr,
+	}
 ;
 
 export namespace ESExprAnnRecordField {
 	export const codec: ESExprCodec<ESExprAnnRecordField> = esexpr.enumCodec({
 		keyword: esexpr.caseCodec("keyword", {
-			name: esexpr.optionalKeywordFieldCodec("name", esexpr.undefinedOptionalCodec(esexpr.strCodec)),
-			required: esexpr.defaultKeywordFieldCodec("required", () => true, esexpr.boolCodec),
-			defaultValue: esexpr.optionalKeywordFieldCodec("default-value", esexpr.undefinedOptionalCodec(ESExpr.codec)),
+			name: esexpr.optionalPositionalFieldCodec(esexpr.undefinedOptionalCodec(esexpr.strCodec)),
 		}),
 		dict: esexpr.caseCodec("dict", {}),
 		vararg: esexpr.caseCodec("vararg", {}),
+		optional: esexpr.caseCodec("optional", {}),
+		"default-value": esexpr.caseCodec("default-value", {
+			defaultValue: esexpr.positionalFieldCodec(ESExpr.codec),
+		})
 	});
 }
 

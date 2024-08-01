@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-esexpr = "0.1.11"
+esexpr = "0.1.12"
 noble-idl-runtime = { path = "../../runtime/rust" }
 
 [build-dependencies]
