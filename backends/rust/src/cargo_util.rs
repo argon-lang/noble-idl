@@ -12,6 +12,10 @@ struct NobleIDLRustMetadata {
     package_mapping: HashMap<String, String>,
 }
 
+
+
+
+
 pub fn load_options() -> RustIDLCompilerOptions {
     let mut manifest_path: PathBuf = std::env::var_os("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
@@ -28,7 +32,7 @@ pub fn load_options() -> RustIDLCompilerOptions {
     let resolve = metadata.resolve.as_ref().expect("Failed to get dependency resolution");
     let resolve_nodes = &resolve.nodes;
 
-    
+
     let mut input_dirs = HashSet::new();
     let mut library_dirs = HashSet::new();
 
@@ -41,7 +45,7 @@ pub fn load_options() -> RustIDLCompilerOptions {
 
     let root_crate = resolve.root.as_ref().expect("Could not get resolve.root.");
     to_scan.push_back(root_crate);
-    
+
     while let Some(current_id) = to_scan.pop_front() {
         if visited_packages.contains(&current_id) {
             continue;
@@ -119,7 +123,7 @@ fn add_idl_files<'a>(dirs: &mut HashSet<PathBuf>, package: &cargo_metadata::Pack
     let path = PathBuf::from(&lib.src_path);
     let mut path = std::fs::canonicalize(path).expect("Could not canonicalize path.");
     path.pop();
-    
+
     dirs.insert(path);
 
 }

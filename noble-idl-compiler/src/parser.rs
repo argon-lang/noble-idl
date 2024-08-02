@@ -7,7 +7,7 @@ use nom::{
     branch::alt,
     character::complete::{alphanumeric1, multispace1},
     bytes::complete::{tag, take_until},
-    combinator::{eof, map, not, opt, value},
+    combinator::{all_consuming, map, not, opt, value, cut},
     multi::{many0, many0_count, separated_list1},
     sequence::{delimited, pair, preceded, terminated, tuple},
 };
@@ -61,19 +61,20 @@ fn identifier(input: &str) -> IResult<&str, &str> {
 
 
 pub fn definition_file(input: &str) -> IResult<&str, ast::DefinitionFile> {
-    map(tuple((
-        package_specifier,
-        many0(import),
-        many0(definition),
-        skip_ws,
-        eof
-    )), |(package, imports, definitions, _, _)| {
-        ast::DefinitionFile {
-            package,
-            imports,
-            definitions,
-        }
-    })(input)
+	all_consuming(
+		map(tuple((
+			package_specifier,
+			many0(import),
+			many0(definition),
+			skip_ws,
+		)), |(package, imports, definitions, _)| {
+			ast::DefinitionFile {
+				package,
+				imports,
+				definitions,
+			}
+		})
+	)(input)
 }
 
 
@@ -94,7 +95,7 @@ fn qual_name(input: &str) -> IResult<&str, ast::QualifiedName> {
 fn package_specifier(input: &str) -> IResult<&str, ast::PackageName> {
     map(opt(delimited(
             keyword("package"),
-            package_name,
+            cut(package_name),
             sym(";"),
     )), |pkg| {
         match pkg {
@@ -116,10 +117,10 @@ fn annotations(input: &str) -> IResult<&str, Vec<ast::Annotation>> {
     many0(
         map(tuple((
             sym("@"),
-            identifier,
-            sym(":"),
+            cut(identifier),
+            cut(sym(":")),
 			skip_ws,
-            expr,
+            cut(expr),
         )), |(_, scope, _, _, value)| ast::Annotation { scope: scope.to_owned(), value })
     )(input)
 }
@@ -140,11 +141,11 @@ fn record_def(input: &str) -> IResult<&str, ast::RecordDefinition> {
     map(tuple((
         annotations,
         keyword("record"),
-        identifier,
+        cut(identifier),
         type_parameters,
-        sym("{"),
+        cut(sym("{")),
         many0(record_field),
-        sym("}"),
+        cut(sym("}")),
     )), |(annotations, _, name, type_parameters, _, fields, _)| {
         ast::RecordDefinition {
             name: name.to_owned(),
@@ -159,9 +160,9 @@ fn record_field(input: &str) -> IResult<&str, ast::RecordField> {
     map(tuple((
         annotations,
         identifier,
-        sym(":"),
-        type_expr,
-        sym(";"),
+        cut(sym(":")),
+        cut(type_expr),
+        cut(sym(";")),
     )), |(annotations, name, _, field_type, _)| {
         ast::RecordField {
             name: name.to_owned(),
@@ -175,12 +176,12 @@ fn enum_def(input: &str) -> IResult<&str, ast::EnumDefinition> {
     map(tuple((
         annotations,
         keyword("enum"),
-        identifier,
+        cut(identifier),
         type_parameters,
-        sym("{"),
+        cut(sym("{")),
         separated_list1(sym(","), enum_case),
         opt(sym(",")),
-        sym("}"),
+        cut(sym("}")),
     )), |(annotations, _, name, type_parameters, _, cases, _, _)| {
         ast::EnumDefinition {
             name: name.to_owned(),
@@ -195,16 +196,22 @@ fn enum_case(input: &str) -> IResult<&str, ast::EnumCase> {
     map(tuple((
         annotations,
         identifier,
-        sym("{"),
-        many0(record_field),
-        sym("}"),
-    )), |(annotations, name, _, fields, _)| {
+        opt(enum_case_body),
+    )), |(annotations, name, fields)| {
         ast::EnumCase {
             name: name.to_owned(),
-            fields,
+            fields: fields.unwrap_or_default(),
             annotations,
         }
     })(input)
+}
+
+fn enum_case_body(input: &str) -> IResult<&str, Vec<ast::RecordField>> {
+    delimited(
+        sym("{"),
+        cut(many0(record_field)),
+        cut(sym("}")),
+    )(input)
 }
 
 fn extern_type(input: &str) -> IResult<&str, ast::ExternTypeDefinition> {
@@ -212,7 +219,7 @@ fn extern_type(input: &str) -> IResult<&str, ast::ExternTypeDefinition> {
         annotations,
         keyword("extern"),
         keyword("type"),
-        identifier,
+        cut(identifier),
         type_parameters,
         sym(";"),
     )), |(annotations, _, _, name, type_parameters, _)| {
@@ -228,11 +235,11 @@ fn interface_def(input: &str) -> IResult<&str, ast::InterfaceDefinition> {
     map(tuple((
         annotations,
         keyword("interface"),
-        identifier,
+        cut(identifier),
         type_parameters,
-        sym("{"),
+        cut(sym("{")),
         many0(interface_method),
-        sym("}"),
+        cut(sym("}")),
     )), |(annotations, _, name, type_parameters, _, methods, _)| {
         ast::InterfaceDefinition {
             name: name.to_owned(),
@@ -248,12 +255,12 @@ pub fn interface_method(input: &str) -> IResult<&str, ast::InterfaceMethod> {
         annotations,
         identifier,
         type_parameters,
-        sym("("),
+        cut(sym("(")),
         method_parameters,
-        sym(")"),
-        sym(":"),
+        cut(sym(")")),
+        cut(sym(":")),
         type_expr,
-        sym(";"),
+        cut(sym(";")),
     )), |(annotations, name, type_parameters, _, parameters, _, _, return_type, _)| {
         ast::InterfaceMethod {
             name: name.to_owned(),
@@ -270,7 +277,7 @@ fn method_parameters(input: &str) -> IResult<&str, Vec<ast::InterfaceMethodParam
         terminated(
             separated_list1(
                 sym(","),
-                method_parameter,
+                cut(method_parameter),
             ),
             opt(sym(",")),
         ),
@@ -281,7 +288,7 @@ fn method_parameter(input: &str) -> IResult<&str, ast::InterfaceMethodParameter>
     map(tuple((
         annotations,
         identifier,
-        sym(":"),
+        cut(sym(":")),
         type_expr,
     )), |(annotations, name, _, parameter_type)| {
         ast::InterfaceMethodParameter {
@@ -299,11 +306,11 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
             terminated(
                 separated_list1(
                     sym(","),
-                    map(identifier, |name| ast::TypeParameter::Type(name.to_owned())),
+                    cut(map(identifier, |name| ast::TypeParameter::Type(name.to_owned()))),
                 ),
                 opt(sym(","))
             ),
-            sym("]")
+            cut(sym("]"))
         )
     ), Option::unwrap_or_default)(input)
 }
@@ -322,14 +329,14 @@ fn type_expr(input: &str) -> IResult<&str, ast::TypeExpr> {
 fn type_argument_list(input: &str) -> IResult<&str, Vec<ast::TypeExpr>> {
     delimited(
         sym("["),
-        terminated(
+        cut(terminated(
             separated_list1(
                 sym(","),
                 type_expr,
             ),
             opt(sym(","))
-        ),
-        sym("]"),
+        )),
+        cut(sym("]")),
     )(input)
 }
 

@@ -608,7 +608,6 @@ impl <'a> ModEmitter<'a> {
 
 			parse_quote! {
 				<#t as std::convert::From<::num_bigint::BigInt>>::from(::num_bigint::BigInt::from_bytes_le(#sign_expr, #literal))
-
 			}
 		};
 

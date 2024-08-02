@@ -1,6 +1,10 @@
 package nobleidl.core;
 
 @esexpr:(derive-codec)
+extern type esexpr;
+
+
+@esexpr:(derive-codec)
 @esexpr:(literals allow-str: #true)
 extern type string;
 
@@ -16,6 +20,9 @@ extern type int;
 @esexpr:(literals allow-int: #true min-int: 0)
 extern type nat;
 
+@esexpr:(derive-codec)
+@esexpr:(literals allow-bool: #true)
+extern type bool;
 
 
 

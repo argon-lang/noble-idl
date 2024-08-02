@@ -8,7 +8,7 @@ esexpr = "0.1.12"
 noble-idl-runtime = { path = "../../runtime/rust" }
 
 [build-dependencies]
-noble-idl-compiler-rust = { path = "../../backends/rust/noble-idl-compiler-rust" }
+noble-idl-compiler-rust = { path = "../../backends/rust" }
 
 
 [package.metadata.noble-idl.package_mapping]

@@ -2,11 +2,14 @@ use std::collections::{HashMap, HashSet};
 
 use esexpr::{ESExpr, ESExprCodec, ESExprTag};
 
+pub type Esexpr = ESExpr;
 
 pub type String = std::string::String;
 
 pub type Int = num_bigint::BigInt;
 pub type Nat = num_bigint::BigUint;
+
+pub type Bool = bool;
 
 pub type I8 = i8;
 pub type U8 = u8;
@@ -24,6 +27,7 @@ pub type Unit = ();
 
 pub type List<A> = Vec<A>;
 pub type Option<A> = std::option::Option<A>;
+pub type OptionalField<A> = std::option::Option<A>;
 pub type Dict<A> = HashMap<String, A>;
 
 

@@ -1,5 +1,11 @@
 import * as esexpr from "@argon-lang/esexpr";
-import type { ESExpr, ESExprCodec } from "@argon-lang/esexpr";
+import { ESExpr, type ESExprCodec } from "@argon-lang/esexpr";
+
+
+export type Esexpr = ESExpr;
+export namespace Esexpr {
+	export const codec: ESExprCodec<Esexpr> = ESExpr.codec;
+}
 
 
 export type String = string;
@@ -41,6 +47,11 @@ export namespace Nat {
 			return result;
 		}
 	};
+}
+
+export type Bool = boolean;
+export namespace Bool {
+	export const codec: ESExprCodec<boolean> = esexpr.boolCodec;
 }
 
 

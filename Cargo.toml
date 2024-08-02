@@ -2,8 +2,7 @@
 resolver = "2"
 
 members = [
-    "backends/rust/noble-idl-compiler-rust",
-    "backends/rust/noble-idl-rust-plugin",
+    "backends/rust",
     "examples/rust",
     "noble-idl-api",
     "noble-idl-compiler",

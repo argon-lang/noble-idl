@@ -1,0 +1,463 @@
+
+package nobleidl.compiler.api;
+
+import nobleidl.core;
+
+@esexpr:(derive-codec)
+record noble-idl-generation-request[l] {
+    @esexpr: (keyword)
+    language-options: l;
+}
+
+@esexpr: (derive-codec)
+record noble-idl-generation-result {
+    @esexpr: (keyword)
+    generated-files: list[string];
+}
+
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "options")
+record noble-idl-compile-model-options {
+    @esexpr: (keyword)
+    library-files: list[string];
+
+    @esexpr: (keyword)
+    files: list[string];
+}
+
+@esexpr: (derive-codec)
+enum noble-idl-compile-model-result {
+    @rust: (tuple)
+    success {
+        model: noble-idl-model;
+    },
+    failure {
+        @esexpr: (vararg)
+        errors: list[string];
+    },
+}
+
+@esexpr: (derive-codec)
+record noble-idl-model {
+    @esexpr: (keyword)
+    definitions: list[definition-info];
+}
+
+@esexpr: (derive-codec)
+record definition-info {
+    @esexpr: (keyword)
+    name: qualified-name;
+
+    @esexpr: (keyword)
+    type-parameters: list[type-parameter];
+
+    @esexpr: (keyword)
+    definition: definition;
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
+
+    @esexpr: (keyword)
+    is-library: bool;
+}
+
+
+@esexpr: (derive-codec)
+@rust: (tuple)
+record package-name {
+    @esexpr: (vararg)
+    parts: list[string];
+}
+
+@esexpr: (derive-codec)
+@rust: (tuple)
+record qualified-name {
+    package: package-name;
+    name: string;
+}
+
+
+@esexpr: (derive-codec)
+enum definition {
+    @esexpr: (inline-value)
+    @rust: (tuple)
+    record {
+        r: record-definition;
+    },
+
+    @esexpr: (inline-value)
+    @rust: (tuple)
+    enum {
+        e: enum-definition;
+    },
+
+    @esexpr: (inline-value)
+    @rust: (tuple)
+    extern-type {
+        et: extern-type-definition;
+    },
+
+    @esexpr: (inline-value)
+    @rust: (tuple)
+    interface {
+        iface: interface-definition;
+    },
+}
+
+@esexpr: (derive-codec)
+record record-definition {
+    @esexpr: (vararg)
+    fields: list[record-field];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-record-options];
+}
+
+@esexpr: (derive-codec)
+record record-field {
+    name: string;
+    field-type: type-expr;
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
+
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-record-field-options];
+}
+
+@esexpr: (derive-codec)
+record enum-definition {
+    @esexpr: (vararg)
+    cases: list[enum-case];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-record-options];
+}
+
+@esexpr: (derive-codec)
+record enum-case {
+    name: string;
+
+    @esexpr: (vararg)
+    fields: list[record-field];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-enum-case-options];
+}
+
+@esexpr: (derive-codec)
+record extern-type-definition {
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-extern-type-options];
+}
+
+@esexpr: (derive-codec)
+record interface-definition {
+    @esexpr: (vararg)
+    methods: list[interface-method];
+}
+
+@esexpr: (derive-codec)
+record interface-method {
+    @esexpr: (keyword)
+    name: string;
+
+    @esexpr: (keyword)
+    type-parameters: list[type-parameter];
+
+    @esexpr: (keyword)
+    parameters: list[interface-method-parameter];
+
+    @esexpr: (keyword)
+    return-type: type-expr;
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
+}
+
+@esexpr: (derive-codec)
+record interface-method-parameter {
+    name: string;
+    parameter-type: type-expr;
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
+}
+
+@esexpr: (derive-codec)
+record annotation {
+    scope: string;
+    value: esexpr;
+}
+
+
+@esexpr: (derive-codec)
+enum type-expr {
+    @rust: (tuple)
+    defined-type {
+        name: qualified-name;
+
+        @esexpr: (vararg)
+        args: list[type-expr];
+    },
+
+    @rust: (tuple)
+    type-parameter {
+        name: string;
+    },
+}
+
+@esexpr: (derive-codec)
+enum type-parameter {
+    type {
+        name: string;
+    },
+}
+
+
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "record-options")
+record esexpr-record-options {
+    constructor: string;
+}
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "enum-options")
+record esexpr-enum-options {
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    simple-enum: bool;
+}
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "enum-case-options")
+record esexpr-enum-case-options {
+    case-type: esexpr-enum-case-type;
+}
+
+@esexpr: (derive-codec)
+enum esexpr-enum-case-type {
+    @rust: (tuple)
+    constructor {
+        name: string;
+    },
+
+    @rust: (unit)
+    inline-value,
+}
+
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "extern-type-options")
+record esexpr-extern-type-options {
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-value: bool;
+
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    allow-optional: optional-field[type-expr];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    allow-vararg: optional-field[type-expr];
+    
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    allow-dict: optional-field[type-expr];
+    
+    @esexpr: (keyword)
+    literals: optional-field[type-expr];
+}
+
+@esexpr: (derive-codec)
+record esexpr-extern-type-literals {
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-bool: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-int: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    min-int: optional-field[int];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    max-int: optional-field[int];
+    
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-str: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-binary: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-float32: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-float64: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    allow-null: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    build-literal-from: optional-field[type-expr];
+}
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "field-options")
+record esexpr-record-field-options {
+    kind: esexpr-record-field-kind;
+}
+
+@esexpr: (derive-codec)
+enum esexpr-record-field-kind {
+    @rust: (tuple)
+    positional {
+        mode: esexpr-record-positional-mode;
+    },
+
+    @rust: (tuple)
+    keyword {
+        name: string;
+        mode: esexpr-record-keyword-mode;
+    },
+
+    @rust: (tuple)
+    dict {
+        element-type: type-expr;
+    },
+
+    @rust: (tuple)
+    vararg {
+        element-type: type-expr;
+    },
+}
+
+@esexpr: (derive-codec)
+enum esexpr-record-positional-mode {
+    @rust: (unit)
+    required,
+
+    @rust: (tuple)
+    optional {
+        element-type: type-expr;
+    }
+}
+
+@esexpr: (derive-codec)
+enum esexpr-record-keyword-mode {
+    @rust: (unit)
+    required,
+
+    @rust: (tuple)
+    optional {
+        element-type: type-expr;
+    },
+
+    @rust: (tuple)
+    default-value {
+        value: esexpr-decoded-value;
+    },
+}
+
+
+@esexpr: (derive-codec)
+enum esexpr-decoded-value {
+    record {
+        t: type-expr;
+
+        @esexpr: (dict)
+        fields: dict[esexpr-decoded-value];
+    },
+
+    enum {
+        t: type-expr;
+        case-name: string;
+
+        @esexpr: (dict)
+        fields: dict[esexpr-decoded-value];
+    },
+
+    optional {
+        t: type-expr;
+
+        @esexpr: (optional)
+        value: optional-field[esexpr-decoded-value];
+    },
+
+    vararg {
+        t: type-expr;
+
+        @esexpr: (vararg)
+        values: list[esexpr-decoded-value];
+    },
+
+    dict {
+        t: type-expr;
+
+        @esexpr: (dict)
+        value: dict[esexpr-decoded-value];
+    },
+
+    build-from {
+        t: type-expr;
+        from-value: esexpr-decoded-value;
+    },
+
+    from-int {
+        t: type-expr;
+        i: int;
+
+        @esexpr: (keyword)
+        @esexpr: (optional)
+        min-int: optional-field[int];
+
+        @esexpr: (keyword)
+        @esexpr: (optional)
+        max-int: optional-field[int];
+    },
+
+    from-str {
+        t: type-expr;
+        s: string;
+    },
+
+    from-binary {
+        t: type-expr;
+        b: binary;
+    },
+
+    from-float32 {
+        t: type-expr;
+        f: f32;
+    },
+
+    from-float64 {
+        t: type-expr;
+        f: f64;
+    },
+
+    from-null {
+        t: type-expr;
+    },
+}
+
