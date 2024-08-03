@@ -9,7 +9,7 @@ use esexpr::ESExprCodec;
 use noble_idl_api::*;
 use syn::{parse_quote, punctuated::Punctuated};
 
-use crate::RustLanguageOptions;
+use crate::{cycle::CycleScanner, RustLanguageOptions};
 
 #[derive(derive_more::From, Debug)]
 pub enum EmitError {
@@ -34,12 +34,13 @@ pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<N
 		.collect::<HashMap<_, _>>();
 
     let mut emitter = ModEmitter {
-        definitions,
+        definitions: &definitions,
         pkg_mapping,
 		current_crate: &request.language_options.crate_name,
 
         output_dir: PathBuf::from(&request.language_options.output_dir),
         output_files: Vec::new(),
+		cycle: CycleScanner::new(&definitions),
     };
 
     emitter.emit_modules()?;
@@ -83,12 +84,14 @@ struct RustModule<'a> {
 }
 
 struct ModEmitter<'a> {
-	definitions: HashMap<QualifiedName, DefinitionInfo>,
+	definitions: &'a HashMap<QualifiedName, DefinitionInfo>,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
 	current_crate: &'a str,
 
     output_dir: PathBuf,
     output_files: Vec<String>,
+
+	cycle: CycleScanner<'a>,
 }
 
 impl <'a> ModEmitter<'a> {
@@ -105,8 +108,8 @@ impl <'a> ModEmitter<'a> {
             dfns.push(dfn);
         }
 
-        for (pkg, dfns) in &package_groups {
-            let p = self.emit_module(pkg, dfns)?;
+        for (pkg, dfns) in package_groups {
+            let p = self.emit_module(pkg, &dfns)?;
             self.output_files.push(p.as_os_str().to_str().ok_or(EmitError::InvalidFileName)?.to_owned());
         }
 
@@ -141,7 +144,7 @@ impl <'a> ModEmitter<'a> {
         self.pkg_mapping.get(package_name).ok_or_else(|| EmitError::UnmappedPackage(package_name.clone()))
     }
 
-    fn emit_module(&self, package_name: &PackageName, definitions: &[&DefinitionInfo]) -> Result<PathBuf, EmitError>  {
+    fn emit_module(&mut self, package_name: &PackageName, definitions: &[&'a DefinitionInfo]) -> Result<PathBuf, EmitError>  {
         let p = self.build_package_path(package_name)?;
 
         if let Some(parent) = p.parent() {
@@ -166,7 +169,7 @@ impl <'a> ModEmitter<'a> {
     }
 
 
-    fn emit_definition(&self, dfn: &DefinitionInfo) -> Result<TokenStream, EmitError> {
+    fn emit_definition(&mut self, dfn: &'a DefinitionInfo) -> Result<TokenStream, EmitError> {
         match &dfn.definition {
             Definition::Record(r) => self.emit_record(dfn, r),
             Definition::Enum(e) => self.emit_enum(dfn, e),
@@ -175,12 +178,12 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn emit_record(&self, dfn: &DefinitionInfo, r: &RecordDefinition) -> Result<TokenStream, EmitError> {
+    fn emit_record(&mut self, dfn: &'a DefinitionInfo, r: &'a RecordDefinition) -> Result<TokenStream, EmitError> {
         let rec_name = convert_id_pascal(dfn.name.name());
 
         let type_parameters = self.emit_type_parameters(&dfn.type_parameters);
 
-        let fields = self.emit_fields(true, &r.fields)?;
+        let fields = self.emit_fields(true, dfn, &r.fields)?;
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
@@ -211,12 +214,12 @@ impl <'a> ModEmitter<'a> {
         Ok(())
     }
 
-    fn emit_enum(&self, dfn: &DefinitionInfo, e: &EnumDefinition) -> Result<TokenStream, EmitError> {
+    fn emit_enum(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition) -> Result<TokenStream, EmitError> {
         let enum_name = convert_id_pascal(dfn.name.name());
 
         let type_parameters = self.emit_type_parameters(&dfn.type_parameters);
 
-        let cases: TokenStream = e.cases.iter().map(|c| self.emit_enum_case(c)).collect::<Result<_, _>>()?;
+        let cases: TokenStream = e.cases.iter().map(|c| self.emit_enum_case(dfn, c)).collect::<Result<_, _>>()?;
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
@@ -248,9 +251,9 @@ impl <'a> ModEmitter<'a> {
         Ok(())
     }
 
-    fn emit_enum_case(&self, c: &EnumCase) -> Result<TokenStream, EmitError> {
+    fn emit_enum_case(&mut self, dfn: &'a DefinitionInfo, c: &'a EnumCase) -> Result<TokenStream, EmitError> {
         let case_name = convert_id_pascal(&c.name);
-        let fields = self.emit_fields(false, &c.fields)?;
+        let fields = self.emit_fields(false, dfn, &c.fields)?;
 
         let mut attrs = Vec::new();
         self.process_enum_case_ann(c, &mut attrs)?;
@@ -308,13 +311,18 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn emit_fields(&self, use_pub: bool, fields: &[RecordField]) -> Result<TokenStream, EmitError> {
-        fields.iter().map(|f| self.emit_field(use_pub, f)).collect()
+    fn emit_fields(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, fields: &'a [RecordField]) -> Result<TokenStream, EmitError> {
+        fields.iter().map(|f| self.emit_field(use_pub, dfn, f)).collect()
     }
 
-    fn emit_field(&self, use_pub: bool, field: &RecordField) -> Result<TokenStream, EmitError> {
+    fn emit_field(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, field: &'a RecordField) -> Result<TokenStream, EmitError> {
         let field_name = convert_id_snake(&field.name);
-        let field_type = self.emit_type_expr(&field.field_type)?;
+        let mut field_type = self.emit_type_expr(&field.field_type)?;
+
+		if self.cycle.field_contains_cycle(&dfn.name, &field.field_type) {
+			field_type = parse_quote! { ::std::boxed::Box<#field_type> };
+		}
+
 
         let mut attrs = Vec::new();
         self.process_field_ann(field, &mut attrs)?;

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use noble_idl_compiler::{compile, NobleIDLOptions};
 use cargo_util::load_options;
 
+mod cycle;
 pub mod emit;
 pub mod cargo_util;
 
