@@ -12,7 +12,7 @@ const compilerOptions: JavaScriptIDLCompilerOptions = {
 		outputDir: path.join(dir, "../src"),
 		packageName: "@argon-lang/noble-idl-compiler-js",
 		packageOptions: new Map([
-			[ "@argon-lang/noble-idl-runtime", {
+			[ "@argon-lang/noble-idl-core", {
 				packageMapping: new Map([
 					[ "nobleidl.core", "" ],
 				]),
