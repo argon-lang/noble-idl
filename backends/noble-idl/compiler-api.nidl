@@ -144,7 +144,7 @@ record enum-definition {
 
     @esexpr: (keyword)
     @esexpr: (optional)
-    esexpr-options: optional-field[esexpr-record-options];
+    esexpr-options: optional-field[esexpr-enum-options];
 }
 
 @esexpr: (derive-codec)
