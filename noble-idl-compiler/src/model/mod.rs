@@ -45,6 +45,7 @@ pub enum CheckError {
 	ESExprMultipleDict(QualifiedName, Option<String>, String),
 	ESExprMultipleVararg(QualifiedName, Option<String>, String),
 	ESExprVarargAfterOptionalPositional(QualifiedName, Option<String>, String),
+	ESExprMultipleOptionalPositional(QualifiedName, Option<String>, String),
 	ESExprDuplicateKeyword(QualifiedName, Option<String>, String),
 	ESExprInvalidDefaultValue(QualifiedName, Option<String>, String),
 	ESExprBuildLiteralFromCodecMissing(QualifiedName),

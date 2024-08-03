@@ -363,6 +363,10 @@ impl <'a> ESExprOptionParser<'a> {
 					else {
 						let mode =
 							if is_optional {
+								if has_optional_positional {
+									return Err(CheckError::ESExprMultipleOptionalPositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								}
+
 								has_optional_positional = true;
 
 								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
