@@ -429,7 +429,7 @@ enum esexpr-decoded-value {
         t: type-expr;
 
         @esexpr: (dict)
-        value: dict[esexpr-decoded-value];
+        values: dict[esexpr-decoded-value];
     },
 
     build-from {
