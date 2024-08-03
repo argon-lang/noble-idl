@@ -7,6 +7,9 @@ import nobleidl.core;
 record noble-idl-generation-request[l] {
     @esexpr: (keyword)
     language-options: l;
+
+    @esexpr: (keyword)
+    model: noble-idl-model;
 }
 
 @esexpr: (derive-codec)
