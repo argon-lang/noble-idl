@@ -81,7 +81,7 @@ pub struct DefinitionInfo {
 	pub is_library: bool,
 }
 
-#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub struct PackageName(#[vararg] pub Vec<String>);
 
 impl PackageName {
@@ -95,7 +95,7 @@ impl PackageName {
     }
 }
 
-#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub struct QualifiedName(pub PackageName, pub String);
 
 impl QualifiedName {

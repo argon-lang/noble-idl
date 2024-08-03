@@ -66,6 +66,9 @@ record definition-info {
 @esexpr: (derive-codec)
 @rust: (tuple)
 @rust: (derive "std::hash::Hash")
+@rust: (derive "std::cmp::Eq")
+@rust: (derive "std::cmp::PartialOrd")
+@rust: (derive "std::cmp::Ord")
 record package-name {
     @esexpr: (vararg)
     parts: list[string];
@@ -74,6 +77,9 @@ record package-name {
 @esexpr: (derive-codec)
 @rust: (tuple)
 @rust: (derive "std::hash::Hash")
+@rust: (derive "std::cmp::Eq")
+@rust: (derive "std::cmp::PartialOrd")
+@rust: (derive "std::cmp::Ord")
 record qualified-name {
     package: package-name;
     name: string;
@@ -151,6 +157,9 @@ record enum-case {
     @esexpr: (keyword)
     @esexpr: (optional)
     esexpr-options: optional-field[esexpr-enum-case-options];
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
 }
 
 @esexpr: (derive-codec)

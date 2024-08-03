@@ -1,6 +1,7 @@
 use std::collections::{hash_map, HashMap};
 
 use esexpr::ESExprTag;
+use itertools::Itertools;
 use noble_idl_api::NobleIDLModel;
 use tag_scanner::TagScannerState;
 
@@ -128,7 +129,8 @@ impl ModelBuilder {
 		phase5::run(&definitions, &phase3_state, &mut tag_scan_state)?;
 		phase6::run(&mut definitions);
 
-        let model_definitions = definitions.into_values().collect();
+        let mut model_definitions = definitions.into_values().collect_vec();
+		model_definitions.sort_by_key(|dfn| dfn.name.clone());
 
         Ok(NobleIDLModel {
             definitions: model_definitions,

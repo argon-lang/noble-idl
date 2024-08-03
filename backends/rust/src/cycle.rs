@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::{borrow::Borrow, collections::{HashMap, HashSet}, hash::Hash};
 
 use esexpr::ESExprCodec;
 use noble_idl_api::*;
@@ -12,8 +12,8 @@ enum SimpleType<'a> {
 	TypeParameter(&'a str),
 }
 
-pub struct CycleScanner<'a> {
-	definitions: &'a HashMap<QualifiedName, DefinitionInfo>,
+pub struct CycleScanner<'a, QualName, DefInfo> {
+	definitions: &'a HashMap<QualName, DefInfo>,
 	referenced_types: HashMap<&'a QualifiedName, HashSet<SimpleType<'a>>>,
 }
 
@@ -23,8 +23,8 @@ struct ScanState<'a> {
 	is_complete: bool,
 }
 
-impl <'a> CycleScanner<'a> {
-	pub fn new(definitions: &'a HashMap<QualifiedName, DefinitionInfo>) -> Self {
+impl <'a, QualName: Borrow<QualifiedName> + Eq + Hash, DefInfo: Borrow<DefinitionInfo>> CycleScanner<'a, QualName, DefInfo> {
+	pub fn new(definitions: &'a HashMap<QualName, DefInfo>) -> Self {
 		Self {
 			definitions,
 			referenced_types: HashMap::new(),
@@ -51,7 +51,7 @@ impl <'a> CycleScanner<'a> {
 			TypeExpr::DefinedType(name, args) => {
 				types.insert(SimpleType::DefinedType(name));
 
-				let dfn = self.definitions.get(name).expect("Undefined type was referenced");
+				let dfn = self.definitions.get(name).expect("Undefined type was referenced").borrow();
 
 
 				let mapping = dfn.type_parameters.iter()

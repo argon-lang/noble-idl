@@ -34,19 +34,19 @@ pub enum EmitError {
 pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
     let pkg_mapping = get_package_mapping(&request.language_options);
 
-	let definitions = request.model.definitions
-		.into_iter()
-		.map(|dfn| (dfn.name.clone(), dfn))
+	let definition_map = request.model.definitions
+		.iter()
+		.map(|dfn| (&dfn.name, dfn))
 		.collect::<HashMap<_, _>>();
 
     let mut emitter = ModEmitter {
-        definitions: &definitions,
+        definitions: &request.model.definitions,
         pkg_mapping,
 		current_crate: &request.language_options.crate_name,
 
         output_dir: PathBuf::from(&request.language_options.output_dir),
         output_files: Vec::new(),
-		cycle: CycleScanner::new(&definitions),
+		cycle: CycleScanner::new(&definition_map),
     };
 
     emitter.emit_modules()?;
@@ -90,20 +90,20 @@ struct RustModule<'a> {
 }
 
 struct ModEmitter<'a> {
-	definitions: &'a HashMap<QualifiedName, DefinitionInfo>,
+	definitions: &'a Vec<DefinitionInfo>,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
 	current_crate: &'a str,
 
     output_dir: PathBuf,
     output_files: Vec<String>,
 
-	cycle: CycleScanner<'a>,
+	cycle: CycleScanner<'a, &'a QualifiedName, &'a DefinitionInfo>,
 }
 
 impl <'a> ModEmitter<'a> {
     fn emit_modules(&mut self) -> Result<(), EmitError> {
         let mut package_groups = HashMap::new();
-        for dfn in self.definitions.values() {
+        for dfn in self.definitions {
 			if dfn.is_library {
 				continue;
 			}
