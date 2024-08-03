@@ -300,7 +300,7 @@ impl <'a> ModEmitter<'a> {
             let type_params: Vec<syn::TypeParam> = type_params
                 .into_iter()
                 .map(|param| match param {
-                    TypeParameter::Type(param) =>
+                    TypeParameter::Type { name: param, .. } =>
                         syn::TypeParam::from(convert_id_pascal(param)),
                 })
                 .collect();

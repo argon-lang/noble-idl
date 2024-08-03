@@ -243,13 +243,16 @@ impl TypeExpr {
 
 #[derive(ESExprCodec, Debug, Clone, PartialEq)]
 pub enum TypeParameter {
-    Type(String),
+    Type {
+		name: String,
+		annotations: Vec<Annotation>,
+	},
 }
 
 impl TypeParameter {
     pub fn name(&self) -> &str {
         match self {
-            TypeParameter::Type(name) => name,
+            TypeParameter::Type { name, .. } => name,
         }
     }
 }

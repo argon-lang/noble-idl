@@ -72,7 +72,10 @@ extern type unit;
 
 @esexpr:(derive-codec)
 @esexpr:(allow-vararg (type-parameter "a"))
-extern type list[a];
+extern type list[
+    @rust:(boxed-usage)
+    a,
+];
 
 @esexpr:(derive-codec)
 extern type option[a];
@@ -83,5 +86,8 @@ extern type optional-field[a];
 
 @esexpr:(derive-codec)
 @esexpr:(allow-dict (type-parameter "a"))
-extern type dict[a];
+extern type dict[
+    @rust:(boxed-usage)
+    a,
+];
 

@@ -306,7 +306,7 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
             terminated(
                 separated_list1(
                     sym(","),
-                    cut(map(identifier, |name| ast::TypeParameter::Type(name.to_owned()))),
+                    type_parameter,
                 ),
                 opt(sym(","))
             ),
@@ -315,6 +315,15 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
     ), Option::unwrap_or_default)(input)
 }
 
+fn type_parameter(input: &str) -> IResult<&str, ast::TypeParameter> {
+	map(
+		pair(
+			annotations,
+			identifier,
+		),
+		|(annotations, name)| ast::TypeParameter::Type { name: name.to_owned(), annotations }
+	)(input)
+}
 
 fn type_expr(input: &str) -> IResult<&str, ast::TypeExpr> {
 	map(

@@ -66,6 +66,7 @@ impl ESExprCodec for Binary {
     }
 }
 
+
 #[macro_export]
 macro_rules! include_noble_idl {
 	() => {
