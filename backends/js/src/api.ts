@@ -323,7 +323,7 @@ export namespace TypeExpr {
     export const codec: ESExprCodec<TypeExpr> = esexpr.lazyCodec(() => esexpr.enumCodec({
         "defined-type": esexpr.caseCodec("defined-type", {
             name: esexpr.positionalFieldCodec(QualifiedName.codec),
-            args: esexpr.positionalFieldCodec(esexpr.listCodec(TypeExpr.codec)),
+            args: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(TypeExpr.codec)),
         }),
         "type-parameter": esexpr.caseCodec("type-parameter", {
             name: esexpr.positionalFieldCodec(esexpr.strCodec),

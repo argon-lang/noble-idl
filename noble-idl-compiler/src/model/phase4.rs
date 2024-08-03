@@ -180,7 +180,10 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 		let fields = self.parse_field_values(dfn, None, type_args, &r.fields, args.into(), kwargs)?;
 
-		Ok(EsexprDecodedValue::Record(t.clone(), fields))
+		Ok(EsexprDecodedValue::Record {
+			t: t.clone(),
+			fields,
+		})
 	}
 
 	fn parse_enum_value(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition, t: &TypeExpr, type_args: &[TypeExpr], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
@@ -209,7 +212,11 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 			let fields = self.parse_field_values(dfn, Some(c.name.as_ref()), type_args, &c.fields, args.into(), kwargs)?;
 
-			return Ok(EsexprDecodedValue::Enum(t.clone(), c.name.clone(), fields));
+			return Ok(EsexprDecodedValue::Enum {
+				t: t.clone(),
+				case_name: c.name.clone(),
+				fields
+			});
 		}
 
 		self.fail()?
@@ -239,9 +246,9 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				let dec_value = self.parse_value(&build_from, value)?;
 				self.seen_decode_types.remove(&build_from_type_name);
 
-				EsexprDecodedValue::BuildFrom(t.clone(), Box::new(dec_value))
+				EsexprDecodedValue::BuildFrom { t: t.clone(), from_value: Box::new(dec_value) }
 			},
-			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool(t.clone(), *b) } else { self.fail()? },
+			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: t.clone(), b: *b } } else { self.fail()? },
 			ESExpr::Int(i) => {
 				if esexpr_options.literals.allow_int {
 					EsexprDecodedValue::FromInt {
@@ -256,11 +263,11 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				}
 			},
 
-			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr(t.clone(), s.clone()) } else { self.fail()? },
-			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary(t.clone(), Binary(b.clone())) } else { self.fail()? },
-			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32(t.clone(), *f) } else { self.fail()? },
-			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64(t.clone(), *f) } else { self.fail()? },
-			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull(t.clone()) } else { self.fail()? },
+			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr { t: t.clone(), s: s.clone() } } else { self.fail()? },
+			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: t.clone(), b: Binary(b.clone()) } } else { self.fail()? },
+			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: t.clone(), f: *f } } else { self.fail()? },
+			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: t.clone(), f: *f } } else { self.fail()? },
+			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: t.clone() } } else { self.fail()? },
 		})
 	}
 
@@ -285,7 +292,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(element_type)) =>
 					EsexprDecodedValue::Optional {
-						optional_type: field_type,
+						t: field_type,
 						value: Box::new(
 							args.pop_front()
 								.map(|value| self.parse_value(element_type, value))
@@ -295,7 +302,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 				EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(element_type)) =>
 					EsexprDecodedValue::Optional {
-						optional_type: field_type,
+						t: field_type,
 						value: Box::new(
 							kwargs.remove(&field.name)
 								.map(|value| self.parse_value(element_type, value))
@@ -328,7 +335,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 						dict.insert(k, item_value);
 					}
 
-					EsexprDecodedValue::Dict { dict_type: field_type, values: dict }
+					EsexprDecodedValue::Dict { t: field_type, values: dict }
 				},
 
 				EsexprRecordFieldKind::Vararg(element_type) => {
@@ -338,7 +345,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 						vararg.push(item_value);
 					}
 
-					EsexprDecodedValue::Vararg { vararg_type: field_type, values: vararg }
+					EsexprDecodedValue::Vararg { t: field_type, values: vararg }
 				},
 			};
 

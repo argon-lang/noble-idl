@@ -1,8 +1,8 @@
 use std::collections::{hash_map, HashMap};
 
-use esexpr::ESExprTag;
+use esexpr::{DecodeError, ESExprTag};
 use itertools::Itertools;
-use noble_idl_api::NobleIDLModel;
+use noble_idl_api::NobleIdlModel;
 use tag_scanner::TagScannerState;
 
 mod tag_scanner;
@@ -30,7 +30,7 @@ pub enum CheckError {
     TypeParameterMismatch { expected: usize, actual: usize, },
 
 
-	InvalidESExprAnnotation(QualifiedName),
+	InvalidESExprAnnotation(QualifiedName, DecodeError),
 	DuplicateESExprAnnotation(QualifiedName, Vec<String>, String),
 	ESExprAnnotationWithoutDerive(QualifiedName, Vec<String>),
 	ESExprExternTypeCodecMissing(QualifiedName),
@@ -102,7 +102,7 @@ impl ModelBuilder {
         Ok(())
     }
 
-    pub(crate) fn check(self) -> Result<NobleIDLModel, CheckError> {
+    pub(crate) fn check(self) -> Result<NobleIdlModel, CheckError> {
         let mut types = HashMap::new();
         let mut definitions = HashMap::new();
 
@@ -132,7 +132,7 @@ impl ModelBuilder {
         let mut model_definitions = definitions.into_values().collect_vec();
 		model_definitions.sort_by_key(|dfn| dfn.name.clone());
 
-        Ok(NobleIDLModel {
+        Ok(NobleIdlModel {
             definitions: model_definitions,
         })
     }

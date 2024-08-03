@@ -297,6 +297,7 @@ record esexpr-extern-type-options {
 }
 
 @esexpr: (derive-codec)
+@esexpr: (constructor "literals")
 record esexpr-extern-type-literals {
     @esexpr: (keyword)
     @esexpr: (default-value #false)

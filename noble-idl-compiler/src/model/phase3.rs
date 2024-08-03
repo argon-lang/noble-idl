@@ -63,7 +63,7 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			let esexpr_rec = EsexprAnnRecord::decode_esexpr(ann.value.clone())
-				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
 			match esexpr_rec {
 				EsexprAnnRecord::DeriveCodec => {
@@ -110,7 +110,7 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			let esexpr_rec = EsexprAnnEnum::decode_esexpr(ann.value.clone())
-				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
 			match esexpr_rec {
 				EsexprAnnEnum::DeriveCodec => {
@@ -153,7 +153,7 @@ impl <'a> ESExprOptionParser<'a> {
 				}
 
 				let esexpr_rec = EsexprAnnEnumCase::decode_esexpr(ann.value.clone())
-					.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
 				match esexpr_rec {
 					EsexprAnnEnumCase::Constructor(constructor_name) => {
@@ -234,7 +234,7 @@ impl <'a> ESExprOptionParser<'a> {
 				};
 
 				let esexpr_field = EsexprAnnRecordField::decode_esexpr(ann.value.clone())
-					.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
 				if !is_esexpr_type {
 					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), current_path()))

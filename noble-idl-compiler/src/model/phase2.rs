@@ -52,7 +52,7 @@ impl ESExprOptionParseExtern {
 			}
 
 			let esexpr_rec = EsexprAnnExternType::decode_esexpr(ann.value.clone())
-				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
 			match esexpr_rec {
 				EsexprAnnExternType::DeriveCodec => {

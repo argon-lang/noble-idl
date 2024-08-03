@@ -31,7 +31,7 @@ pub enum EmitError {
 	UnitWithFields(QualifiedName, Option<String>),
 }
 
-pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
+pub fn emit(request: NobleIdlGenerationRequest<RustLanguageOptions>) -> Result<NobleIdlGenerationResult, EmitError> {
     let pkg_mapping = get_package_mapping(&request.language_options);
 
 	let definition_map = request.model.definitions
@@ -122,8 +122,8 @@ impl <'a> ModEmitter<'a> {
         Ok(())
     }
 
-    fn generation_result(self) -> NobleIDLGenerationResult {
-        NobleIDLGenerationResult {
+    fn generation_result(self) -> NobleIdlGenerationResult {
+        NobleIdlGenerationResult {
             generated_files: self.output_files,
         }
     }
@@ -557,19 +557,19 @@ impl <'a> ModEmitter<'a> {
 
 	fn emit_value(&self, value: &EsexprDecodedValue) -> Result<syn::Expr, EmitError> {
 		match value {
-			EsexprDecodedValue::Record(t, field_values) => self.emit_record_value(t, field_values),
-			EsexprDecodedValue::Enum(t, case_name, field_values) => self.emit_enum_value(t, case_name, field_values),
-			EsexprDecodedValue::Optional { optional_type, value } => self.emit_optional_value(optional_type, value.as_ref().as_ref()),
-			EsexprDecodedValue::Vararg { vararg_type, values } => self.emit_vararg_value(vararg_type, values),
-			EsexprDecodedValue::Dict { dict_type, values } => self.emit_dict_value(dict_type, values),
-			EsexprDecodedValue::BuildFrom(built_type, value) => self.emit_build_from(built_type, &**value),
-			EsexprDecodedValue::FromBool(t, value) => self.emit_literal_primitive::<bool>(t, *value),
+			EsexprDecodedValue::Record { t, fields } => self.emit_record_value(t, fields),
+			EsexprDecodedValue::Enum { t, case_name, fields } => self.emit_enum_value(t, case_name, fields),
+			EsexprDecodedValue::Optional { t, value } => self.emit_optional_value(t, value.as_ref().as_ref()),
+			EsexprDecodedValue::Vararg { t, values } => self.emit_vararg_value(t, values),
+			EsexprDecodedValue::Dict { t, values } => self.emit_dict_value(t, values),
+			EsexprDecodedValue::BuildFrom { t, from_value } => self.emit_build_from(t, &**from_value),
+			EsexprDecodedValue::FromBool { t, b } => self.emit_literal_primitive::<bool>(t, *b),
 			EsexprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
-			EsexprDecodedValue::FromStr(t, value) => self.emit_literal_primitive::<&str>(t, value),
-			EsexprDecodedValue::FromBinary(t, value) => self.emit_literal_binary(t, &value.0),
-			EsexprDecodedValue::FromFloat32(t, value) => self.emit_literal_primitive::<f32>(t, *value),
-			EsexprDecodedValue::FromFloat64(t, value) => self.emit_literal_primitive::<f64>(t, *value),
-			EsexprDecodedValue::FromNull(t) => self.emit_literal_null(t),
+			EsexprDecodedValue::FromStr { t, s } => self.emit_literal_primitive::<&str>(t, s),
+			EsexprDecodedValue::FromBinary { t, b } => self.emit_literal_binary(t, &b.0),
+			EsexprDecodedValue::FromFloat32 { t, f } => self.emit_literal_primitive::<f32>(t, *f),
+			EsexprDecodedValue::FromFloat64 { t, f } => self.emit_literal_primitive::<f64>(t, *f),
+			EsexprDecodedValue::FromNull { t } => self.emit_literal_null(t),
 		}
 	}
 

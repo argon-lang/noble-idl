@@ -1,88 +1,16 @@
 use esexpr::*;
-use num_bigint::BigInt;
 
-use std::borrow::Borrow;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::collections::HashMap;
-
-use noble_idl_runtime::Binary;
+use std::{borrow::Borrow, collections::HashMap, fmt::Debug, hash::Hash};
 
 pub trait NobleIDLPluginExecutor {
     type LanguageOptions: Clone + Debug;
     type Error: Debug;
 
-    fn generate(&self, request: NobleIDLGenerationRequest<Self::LanguageOptions>) -> Result<NobleIDLGenerationResult, Self::Error>;
+    fn generate(&self, request: NobleIdlGenerationRequest<Self::LanguageOptions>) -> Result<NobleIdlGenerationResult, Self::Error>;
 }
 
 
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct NobleIDLGenerationRequest<L> {
-    #[keyword]
-    pub language_options: L,
-
-    #[keyword]
-    pub model: NobleIDLModel,
-}
-
-
-
-#[derive(ESExprCodec, Debug, Clone, PartialEq)]
-pub struct NobleIDLGenerationResult {
-    #[keyword]
-    pub generated_files: Vec<String>,
-}
-
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-#[constructor = "options"]
-pub struct NobleIDLCompileModelOptions {
-    #[keyword]
-    pub library_files: Vec<String>,
-
-    #[keyword]
-    pub files: Vec<String>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub enum NobleIDLCompileModelResult {
-    Success(NobleIDLModel),
-    Failure {
-        #[vararg]
-        errors: Vec<String>,
-    },
-}
-
-
-
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct NobleIDLModel {
-    #[keyword]
-    pub definitions: Vec<DefinitionInfo>,
-}
-
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct DefinitionInfo {
-    #[keyword]
-    pub name: QualifiedName,
-
-    #[keyword]
-    pub type_parameters: Vec<TypeParameter>,
-
-    #[keyword]
-    pub definition: Definition,
-
-    #[keyword]
-    pub annotations: Vec<Annotation>,
-
-	#[keyword]
-	pub is_library: bool,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
-pub struct PackageName(#[vararg] pub Vec<String>);
+include!("noble_idl_api.rs");
 
 impl PackageName {
     pub fn from_str(s: &str) -> Self {
@@ -95,9 +23,6 @@ impl PackageName {
     }
 }
 
-#[derive(ESExprCodec, Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
-pub struct QualifiedName(pub PackageName, pub String);
-
 impl QualifiedName {
     pub fn package_name(&self) -> &PackageName {
         &self.0
@@ -106,125 +31,6 @@ impl QualifiedName {
     pub fn name(&self) -> &str {
         &self.1
     }
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub enum Definition {
-    #[inline_value]
-    Record(RecordDefinition),
-
-    #[inline_value]
-    Enum(EnumDefinition),
-
-	#[inline_value]
-    ExternType(ExternTypeDefinition),
-
-    #[inline_value]
-    Interface(InterfaceDefinition),
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct RecordDefinition {
-    #[vararg]
-    pub fields: Vec<RecordField>,
-
-	#[keyword]
-	#[optional]
-	pub esexpr_options: Option<EsexprRecordOptions>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct RecordField {
-    pub name: String,
-    pub field_type: TypeExpr,
-
-    #[keyword]
-    pub annotations: Vec<Annotation>,
-
-	#[keyword]
-	#[optional]
-	pub esexpr_options: Option<EsexprRecordFieldOptions>,
-}
-
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct EnumDefinition {
-    #[vararg]
-    pub cases: Vec<EnumCase>,
-
-	#[keyword]
-	#[optional]
-	pub esexpr_options: Option<EsexprEnumOptions>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct EnumCase {
-    pub name: String,
-
-    #[vararg]
-    pub fields: Vec<RecordField>,
-
-    #[keyword]
-    pub annotations: Vec<Annotation>,
-
-	#[keyword]
-	#[optional]
-	pub esexpr_options: Option<EsexprEnumCaseOptions>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct ExternTypeDefinition {
-	#[keyword]
-	#[optional]
-	pub esexpr_options: Option<EsexprExternTypeOptions>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct InterfaceDefinition {
-    #[vararg]
-    pub methods: Vec<InterfaceMethod>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct InterfaceMethod {
-    #[keyword]
-    pub name: String,
-
-    #[keyword]
-    pub type_parameters: Vec<TypeParameter>,
-
-    #[keyword]
-    pub parameters: Vec<InterfaceMethodParameter>,
-
-    #[keyword]
-    pub return_type: TypeExpr,
-
-    #[keyword]
-    pub annotations: Vec<Annotation>,
-}
-
-#[derive(ESExprCodec, Clone, Debug, PartialEq)]
-pub struct InterfaceMethodParameter {
-    pub name: String,
-    pub parameter_type: TypeExpr,
-
-    #[keyword]
-    pub annotations: Vec<Annotation>,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub struct Annotation {
-    pub scope: String,
-    pub value: ESExpr,
-}
-
-
-
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum TypeExpr {
-    DefinedType(QualifiedName, Vec<TypeExpr>),
-    TypeParameter(String),
 }
 
 impl TypeExpr {
@@ -241,16 +47,6 @@ impl TypeExpr {
 	}
 }
 
-#[derive(ESExprCodec, Debug, Clone, PartialEq)]
-pub enum TypeParameter {
-    Type {
-		name: String,
-
-		#[keyword]
-		annotations: Vec<Annotation>,
-	},
-}
-
 impl TypeParameter {
     pub fn name(&self) -> &str {
         match self {
@@ -265,132 +61,6 @@ impl TypeParameter {
     }
 }
 
-
-// ESExpr options
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "record-options"]
-pub struct EsexprRecordOptions {
-	pub constructor: String,
-}
-
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "enum-options"]
-pub struct EsexprEnumOptions {
-	#[keyword]
-	#[default_value = "false"]
-	pub simple_enum: bool,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "enum-case-options"]
-pub struct EsexprEnumCaseOptions {
-	pub case_type: EsexprEnumCaseType,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprEnumCaseType {
-	Constructor(String),
-	InlineValue,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "extern-type-options"]
-pub struct EsexprExternTypeOptions {
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_value: bool,
-
-	#[keyword]
-	#[optional]
-	pub allow_optional: Option<TypeExpr>,
-
-	#[keyword]
-	#[optional]
-	pub allow_vararg: Option<TypeExpr>,
-
-	#[keyword]
-	#[optional]
-	pub allow_dict: Option<TypeExpr>,
-
-	#[keyword]
-	pub literals: EsexprExternTypeLiterals,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "field-options"]
-pub struct EsexprRecordFieldOptions {
-	pub kind: EsexprRecordFieldKind,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprRecordFieldKind {
-	Positional(EsexprRecordPositionalMode),
-	Keyword(String, EsexprRecordKeywordMode),
-	Dict(TypeExpr),
-	Vararg(TypeExpr),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprRecordPositionalMode {
-	Required,
-	Optional(TypeExpr),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprRecordKeywordMode {
-	Required,
-	Optional(TypeExpr),
-	DefaultValue(EsexprDecodedValue),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprDecodedValue {
-	Record(TypeExpr, #[dict] HashMap<String, EsexprDecodedValue>),
-	Enum(TypeExpr, String, #[dict] HashMap<String, EsexprDecodedValue>),
-
-	Optional {
-		optional_type: TypeExpr,
-
-		#[optional]
-		value: Box<Option<EsexprDecodedValue>>,
-	},
-
-	Vararg {
-		vararg_type: TypeExpr,
-
-		#[vararg]
-		values: Vec<EsexprDecodedValue>,
-	},
-
-	Dict {
-		dict_type: TypeExpr,
-
-		#[dict]
-		values: HashMap<String, EsexprDecodedValue>,
-	},
-
-	BuildFrom(TypeExpr, Box<EsexprDecodedValue>),
-
-	FromBool(TypeExpr, bool),
-	FromInt {
-		t: TypeExpr,
-		i: BigInt,
-
-		#[keyword]
-		#[optional]
-		min_int: Option<BigInt>,
-
-		#[keyword]
-		#[optional]
-		max_int: Option<BigInt>,
-	},
-	FromStr(TypeExpr, String),
-	FromBinary(TypeExpr, Binary),
-	FromFloat32(TypeExpr, f32),
-	FromFloat64(TypeExpr, f64),
-	FromNull(TypeExpr),
-}
 
 
 
@@ -433,48 +103,3 @@ pub enum EsexprAnnExternType {
 	#[inline_value]
 	Literals(EsexprExternTypeLiterals),
 }
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-#[constructor = "literals"]
-pub struct EsexprExternTypeLiterals {
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_bool: bool,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_int: bool,
-
-	#[keyword]
-	#[optional]
-	pub min_int: Option<BigInt>,
-
-	#[keyword]
-	#[optional]
-	pub max_int: Option<BigInt>,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_str: bool,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_binary: bool,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_float32: bool,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_float64: bool,
-
-	#[keyword]
-	#[default_value = "false"]
-	pub allow_null: bool,
-
-	#[keyword]
-	#[optional]
-	pub build_literal_from: Option<TypeExpr>,
-}
-

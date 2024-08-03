@@ -84,7 +84,7 @@ impl NobleIDLPluginExecutor for RustPlugin {
     type LanguageOptions = RustLanguageOptions;
     type Error = emit::EmitError;
 
-    fn generate(&self, request: noble_idl_api::NobleIDLGenerationRequest<Self::LanguageOptions>) -> Result<noble_idl_api::NobleIDLGenerationResult, Self::Error> {
+    fn generate(&self, request: noble_idl_api::NobleIdlGenerationRequest<Self::LanguageOptions>) -> Result<noble_idl_api::NobleIdlGenerationResult, Self::Error> {
         emit::emit(request)
     }
 }
