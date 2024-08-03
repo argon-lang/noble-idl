@@ -46,7 +46,7 @@ impl <'a> ESExprOptionParser<'a> {
 				self.scan_enum(&dfn.name, &dfn.annotations, e)?,
 
 			Definition::ExternType(et) => {
-				self.esexpr_codecs.insert(dfn.name.clone(), et.esexpr_options.is_some());
+				self.esexpr_codecs.insert(dfn.name.clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
 			},
 			Definition::Interface(_) => {},
 		}

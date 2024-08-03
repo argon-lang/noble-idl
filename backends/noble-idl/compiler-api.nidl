@@ -290,7 +290,7 @@ record esexpr-extern-type-options {
     allow-dict: optional-field[type-expr];
     
     @esexpr: (keyword)
-    literals: optional-field[type-expr];
+    literals: esexpr-extern-type-literals;
 }
 
 @esexpr: (derive-codec)
