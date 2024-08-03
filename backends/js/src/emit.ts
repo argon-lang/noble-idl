@@ -706,7 +706,6 @@ class ModEmitter {
 			return ts.factory.createFunctionDeclaration(
 				[
 					ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
-					ts.factory.createModifier(ts.SyntaxKind.ConstKeyword),
 				],
 				undefined,
 				"codec",
