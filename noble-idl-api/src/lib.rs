@@ -276,7 +276,7 @@ pub struct ESExprRecordOptions {
 #[constructor = "enum-options"]
 pub struct ESExprEnumOptions {
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub simple_enum: bool,
 }
 
@@ -296,7 +296,7 @@ pub enum ESExprEnumCaseType {
 #[constructor = "extern-type-options"]
 pub struct ESExprExternTypeOptions {
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_value: bool,
 
 	#[keyword]
@@ -436,11 +436,11 @@ pub enum ESExprAnnExternType {
 #[constructor = "literals"]
 pub struct ESExprAnnExternTypeLiterals {
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_bool: bool,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_int: bool,
 
 	#[keyword]
@@ -452,23 +452,23 @@ pub struct ESExprAnnExternTypeLiterals {
 	pub max_int: Option<BigInt>,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_str: bool,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_binary: bool,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_float32: bool,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_float64: bool,
 
 	#[keyword]
-	#[default_value = false]
+	#[default_value = "false"]
 	pub allow_null: bool,
 
 	#[keyword]

@@ -363,13 +363,13 @@ struct DefaultUpdater;
 impl DefaultUpdater {
 	fn update_all(&self, definitions: &mut HashMap<QualifiedName, DefinitionInfo>, default_values: HashMap<FieldKey, Option<ESExprDecodedValue>>) {
 		for (k, v) in default_values {
-			let Some(v) = v else { return; };
+			let Some(v) = v else { continue; };
 			self.update(definitions, k, v);
 		}
 	}
 
 	fn update(&self, definitions: &mut HashMap<QualifiedName, DefinitionInfo>, key: FieldKey, value: ESExprDecodedValue) {
-		let Some(dfn) = definitions.get_mut(&key.definition_name) else { return; };
+		let dfn = definitions.get_mut(&key.definition_name).expect("Could not find definition");
 
 		match &mut dfn.definition {
 			Definition::Record(r) =>
@@ -388,13 +388,13 @@ impl DefaultUpdater {
 	}
 
 	fn update_enum(&self, e: &mut EnumDefinition, case_name: &str, field_name: &str, value: ESExprDecodedValue) {
-		let Some(c) = e.cases.iter_mut().find(|c| c.name == case_name) else { return; };
+		let c = e.cases.iter_mut().find(|c| c.name == case_name).expect("Could not find case");
 		self.update_fields(&mut c.fields, field_name, value)
 	}
 
 	fn update_fields(&self, fields: &mut [RecordField], field_name: &str, value: ESExprDecodedValue) {
-		let Some(field) = fields.iter_mut().find(|f| f.name == field_name) else { return; };
-		let Some(esexpr_options) = field.esexpr_options.as_mut() else { return; };
+		let field = fields.iter_mut().find(|f| f.name == field_name).expect("Could not find field");
+		let esexpr_options = field.esexpr_options.as_mut().expect("esexpr_options are missing");
 
 		match &mut esexpr_options.kind {
 			ESExprRecordFieldKind::Keyword(_, mode) =>

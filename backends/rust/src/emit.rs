@@ -3,7 +3,7 @@ use esexpr_binary::FixedStringPool;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, Sign};
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use esexpr::ESExprCodec;
 use noble_idl_api::*;
@@ -350,7 +350,9 @@ impl <'a> ModEmitter<'a> {
 					attrs.push(quote! { #[keyword = #name] });
 
 					let value = self.emit_value(default_value)?;
-					attrs.push(quote! { #[default_value = #value] });
+					let value_str = value.into_token_stream().to_string();
+
+					attrs.push(quote! { #[default_value = #value_str] });
 				},
 				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Optional(_)) => {
 					attrs.push(quote! { #[keyword = #name] });

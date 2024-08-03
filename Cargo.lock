@@ -199,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ea6654473f05c32b426168a0d48a2030f965a5bf0be46cf53b3545f181291c"
+checksum = "dd305a40ccdf9c10c982a35b2c1cd8175debe3fb9af2bbe220968d6511392c23"
 dependencies = [
  "derive_more",
  "esexpr-derive",
@@ -211,9 +211,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-binary"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "925cc81a338ce0fb62fd5aabcb9b3aa828e1665945c73d349825487b337da951"
+checksum = "6d94aa6c8851d9c742e2e86f8542377e3ec7f0b4ae819217d8df2923f8780293"
 dependencies = [
  "derive_more",
  "esexpr",
@@ -223,9 +223,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-derive"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddc6733cdcbcdf8b0403e3184b1b18a36bbf1ac39cc3724291b2ecf4c21b57e2"
+checksum = "f31f76b54cc4dd80004d4ef6e211f660d864138506414aac4ab2d879fbc22844"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-text"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b04e5a465e7bb6c912e0e2bb1fc0637cde75b9890947ed9c404bb9902b91e7"
+checksum = "b49cfcd5fefc460fbff714f0b5d709d00f58d8c11da6c16b88e3cd2875957cec"
 dependencies = [
  "esexpr",
  "hexfloat2",

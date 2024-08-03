@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 derive_more = "0.99.18"
-esexpr = "0.1.12"
-esexpr-binary = "0.1.12"
+esexpr = "0.1.13"
+esexpr-binary = "0.1.13"
 itertools = "0.13.0"
 noble-idl-api = { path = "../../noble-idl-api" }
 noble-idl-compiler = { path = "../../noble-idl-compiler" }
