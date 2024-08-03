@@ -255,6 +255,12 @@ impl TypeParameter {
             TypeParameter::Type { name, .. } => name,
         }
     }
+
+    pub fn annotations(&self) -> &Vec<Annotation> {
+        match self {
+            TypeParameter::Type { annotations, .. } => annotations,
+        }
+    }
 }
 
 

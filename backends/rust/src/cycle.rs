@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
+use esexpr::ESExprCodec;
 use noble_idl_api::*;
+
+use crate::annotations::RustAnnExternTypeParameter;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -128,6 +131,17 @@ impl <'a> CycleScanner<'a> {
 
 	fn scan_extern_type(&mut self, dfn: &'a DefinitionInfo) -> HashSet<SimpleType<'a>> {
 		dfn.type_parameters.iter()
+			.filter(|tp| {
+				let is_boxed_usage = tp.annotations()
+					.iter()
+					.filter(|ann| ann.scope == "rust")
+					.filter_map(|ann| RustAnnExternTypeParameter::decode_esexpr(ann.value.clone()).ok())
+					.any(|ann| match ann {
+						RustAnnExternTypeParameter::BoxedUsage => true,
+					});
+
+				!is_boxed_usage
+			})
 			.map(|tp| SimpleType::TypeParameter(tp.name()))
 			.collect()
 	}
