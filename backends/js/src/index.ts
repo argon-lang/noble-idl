@@ -1,5 +1,5 @@
 import type { ESExpr } from "@argon-lang/esexpr";
-import { NobleIDLCompileModelOptions, NobleIDLCompileModelResult, type NobleIDLGenerationResult } from "./api.js";
+import { NobleIdlCompileModelOptions, NobleIdlCompileModelResult, type NobleIdlGenerationResult } from "./api.js";
 import { emit, type JSLanguageOptions } from "./emit.js";
 import * as compiler from "./noble-idl-compiler.js";
 
@@ -16,7 +16,7 @@ export interface JavaScriptIDLCompilerOptions {
 }
 
 
-async function loadModelOptions(options: JavaScriptIDLCompilerOptions): Promise<NobleIDLCompileModelOptions> {
+async function loadModelOptions(options: JavaScriptIDLCompilerOptions): Promise<NobleIdlCompileModelOptions> {
     const inputFiles: string[] = [];
     const libraryFiles: string[] = [];
 
@@ -57,7 +57,7 @@ function nobleidl_compile_model(options: Buffer): Buffer {
 async function* writeExprWithSP(expr: ESExpr): AsyncIterable<Uint8Array> {
     const spb = new esxb.StringPoolBuilder();
     const parts: Uint8Array[] = [];
-    
+
     for await(const part of esxb.writeExpr(expr, spb.adapter())) {
         parts.push(part);
     }
@@ -99,8 +99,8 @@ async function* singleton(b: Uint8Array): AsyncIterable<Uint8Array> {
     yield b;
 }
 
-async function loadModel(options: NobleIDLCompileModelOptions): Promise<NobleIDLCompileModelResult> {
-    const optionsBuffer = await streamToBuffer(writeExprWithSP(NobleIDLCompileModelOptions.codec.encode(options)));
+async function loadModel(options: NobleIdlCompileModelOptions): Promise<NobleIdlCompileModelResult> {
+    const optionsBuffer = await streamToBuffer(writeExprWithSP(NobleIdlCompileModelOptions.codec.encode(options)));
     try {
         const resultBuffer = nobleidl_compile_model(optionsBuffer);
         const resultArray = bufferToArray(resultBuffer);
@@ -120,7 +120,7 @@ async function loadModel(options: NobleIDLCompileModelOptions): Promise<NobleIDL
                 throw new Error("No model found");
             }
 
-            const result = NobleIDLCompileModelResult.codec.decode(expr);
+            const result = NobleIdlCompileModelResult.codec.decode(expr);
             if(!result.success) {
                 throw new Error("Invalid model: " + result.message + "\n" + JSON.stringify(result.path));
             }
@@ -137,7 +137,7 @@ async function loadModel(options: NobleIDLCompileModelOptions): Promise<NobleIDL
 }
 
 
-export async function compile(options: JavaScriptIDLCompilerOptions): Promise<NobleIDLGenerationResult> {
+export async function compile(options: JavaScriptIDLCompilerOptions): Promise<NobleIdlGenerationResult> {
     const model = await loadModel(await loadModelOptions(options));
 
     if(model.$type === "failure") {
