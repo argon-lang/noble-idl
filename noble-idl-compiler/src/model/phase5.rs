@@ -80,8 +80,8 @@ impl <'a> ESExprChecker<'a> {
 			let Some(esexpr_options) = c.esexpr_options.as_ref() else { continue; };
 
 			match &esexpr_options.case_type {
-				ESExprEnumCaseType::Constructor(name) => add_tag(ESExprTag::Constructor(name.clone()))?,
-				ESExprEnumCaseType::InlineValue => {
+				EsexprEnumCaseType::Constructor(name) => add_tag(ESExprTag::Constructor(name.clone()))?,
+				EsexprEnumCaseType::InlineValue => {
 					let [field] = &c.fields[..] else {
 						return Err(CheckError::ESExprInlineValueNotSingleField(def.name.clone(), c.name.clone()));
 					};
@@ -142,25 +142,25 @@ impl <'a> ESExprChecker<'a> {
 			};
 
 			match &esexpr_options.kind {
-				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Required) | ESExprRecordFieldKind::Keyword(_, ESExprRecordKeywordMode::Required | ESExprRecordKeywordMode::DefaultValue(_)) => {
+				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Required) | EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Required | EsexprRecordKeywordMode::DefaultValue(_)) => {
 					if !self.check_type(&field.field_type) {
 						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 					}
 				},
 
-				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Optional(element_type)) | ESExprRecordFieldKind::Keyword(_, ESExprRecordKeywordMode::Optional(element_type)) => {
+				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(element_type)) | EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(element_type)) => {
 					if !self.check_type(&element_type) {
 						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 					}
 				},
 
-				ESExprRecordFieldKind::Dict(element_type) => {
+				EsexprRecordFieldKind::Dict(element_type) => {
 					if !self.check_type(&element_type) {
 						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 					}
 				},
-				
-				ESExprRecordFieldKind::Vararg(element_type) => {
+
+				EsexprRecordFieldKind::Vararg(element_type) => {
 					if !self.check_type(&element_type) {
 						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 					}

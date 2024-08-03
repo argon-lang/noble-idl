@@ -9,7 +9,7 @@ use esexpr::ESExprCodec;
 use noble_idl_api::*;
 use syn::{parse_quote, punctuated::Punctuated};
 
-use crate::{cycle::CycleScanner, RustLanguageOptions};
+use crate::{annotations::{RustAnnEnumCase, RustAnnRecord}, cycle::CycleScanner, RustLanguageOptions};
 
 #[derive(derive_more::From, Debug)]
 pub enum EmitError {
@@ -23,6 +23,12 @@ pub enum EmitError {
     RustParseError(syn::Error),
 	InvalidLiteralForType(TypeExpr),
     InvalidFileName,
+
+	#[from(ignore)]
+	TupleAndUnit(QualifiedName, Option<String>),
+
+	#[from(ignore)]
+	UnitWithFields(QualifiedName, Option<String>),
 }
 
 pub fn emit(request: NobleIDLGenerationRequest<RustLanguageOptions>) -> Result<NobleIDLGenerationResult, EmitError> {
@@ -183,20 +189,48 @@ impl <'a> ModEmitter<'a> {
 
         let type_parameters = self.emit_type_parameters(&dfn.type_parameters);
 
-        let fields = self.emit_fields(true, dfn, &r.fields)?;
+		let is_unit = self.is_record_unit(dfn);
+		let is_tuple = self.is_record_tuple(dfn);
+
+		if is_unit && is_tuple {
+			return Err(EmitError::TupleAndUnit(dfn.name.clone(), None));
+		}
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
         self.process_record_ann(r, &mut derives, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
-        Ok(quote! {
-            #[derive(#(#derives),*)]
-            #attrs
-            pub struct #rec_name #type_parameters {
-                #fields
-            }
-        })
+		if is_unit {
+			if !r.fields.is_empty() {
+				return Err(EmitError::UnitWithFields(dfn.name.clone(), None));
+			}
+
+			return Ok(quote! {
+				#[derive(#(#derives),*)]
+				#attrs
+				pub struct #rec_name #type_parameters;
+			});
+		}
+
+        let fields = self.emit_fields(true, dfn, is_tuple, &r.fields)?;
+
+		if is_tuple {
+			Ok(quote! {
+				#[derive(#(#derives),*)]
+				#attrs
+				pub struct #rec_name #type_parameters(#fields);
+			})
+		}
+		else {
+			Ok(quote! {
+				#[derive(#(#derives),*)]
+				#attrs
+				pub struct #rec_name #type_parameters {
+					#fields
+				}
+			})
+		}
     }
 
     fn process_record_ann(&self, r: &RecordDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
@@ -253,25 +287,52 @@ impl <'a> ModEmitter<'a> {
 
     fn emit_enum_case(&mut self, dfn: &'a DefinitionInfo, c: &'a EnumCase) -> Result<TokenStream, EmitError> {
         let case_name = convert_id_pascal(&c.name);
-        let fields = self.emit_fields(false, dfn, &c.fields)?;
+
+		let is_unit = self.is_enum_case_unit(c);
+		let is_tuple = self.is_enum_case_tuple(c);
+
+		if is_unit && is_tuple {
+			return Err(EmitError::TupleAndUnit(dfn.name.clone(), Some(c.name.clone())));
+		}
 
         let mut attrs = Vec::new();
         self.process_enum_case_ann(c, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
-        Ok(quote! {
-            #attrs
-            #case_name {
-                #fields
-            },
-        })
+		if is_unit {
+			if !c.fields.is_empty() {
+				return Err(EmitError::UnitWithFields(dfn.name.clone(), None));
+			}
+
+			return Ok(quote! {
+				#attrs
+				#case_name,
+			})
+		}
+
+        let fields = self.emit_fields(false, dfn, is_tuple, &c.fields)?;
+
+		if is_tuple {
+			Ok(quote! {
+				#attrs
+				#case_name(#fields),
+			})
+		}
+		else {
+			Ok(quote! {
+				#attrs
+				#case_name {
+					#fields
+				},
+			})
+		}
     }
 
     fn process_enum_case_ann(&self, c: &EnumCase, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
 		if let Some(esexpr_options) = &c.esexpr_options {
 			match &esexpr_options.case_type {
-				ESExprEnumCaseType::Constructor(name) => attrs.push(quote! { #[constructor = #name] }),
-				ESExprEnumCaseType::InlineValue => attrs.push(quote! { #[inline_value] }),
+				EsexprEnumCaseType::Constructor(name) => attrs.push(quote! { #[constructor = #name] }),
+				EsexprEnumCaseType::InlineValue => attrs.push(quote! { #[inline_value] }),
 			}
 		}
 
@@ -311,11 +372,11 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn emit_fields(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, fields: &'a [RecordField]) -> Result<TokenStream, EmitError> {
-        fields.iter().map(|f| self.emit_field(use_pub, dfn, f)).collect()
+    fn emit_fields(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, is_tuple: bool, fields: &'a [RecordField]) -> Result<TokenStream, EmitError> {
+        fields.iter().map(|f| self.emit_field(use_pub, dfn, is_tuple, f)).collect()
     }
 
-    fn emit_field(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, field: &'a RecordField) -> Result<TokenStream, EmitError> {
+    fn emit_field(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, is_tuple: bool, field: &'a RecordField) -> Result<TokenStream, EmitError> {
         let field_name = convert_id_snake(&field.name);
         let mut field_type = self.emit_type_expr(&field.field_type)?;
 
@@ -330,23 +391,31 @@ impl <'a> ModEmitter<'a> {
 
 		let pub_kw = if use_pub { quote! { pub } } else { quote!{} };
 
-        Ok(quote! {
-            #attrs
-            #pub_kw #field_name: #field_type,
-        })
+		if is_tuple {
+			Ok(quote! {
+				#attrs
+				#pub_kw #field_type,
+			})
+		}
+		else {
+			Ok(quote! {
+				#attrs
+				#pub_kw #field_name: #field_type,
+			})
+		}
     }
 
     fn process_field_ann(&self, field: &RecordField, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
 		if let Some(esexpr_options) = &field.esexpr_options {
 			match &esexpr_options.kind {
-				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Required) => {},
-				ESExprRecordFieldKind::Positional(ESExprRecordPositionalMode::Optional(_)) => {
+				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Required) => {},
+				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(_)) => {
 					attrs.push(quote! { #[optional] });
 				},
-				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Required) => {
+				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::Required) => {
 					attrs.push(quote! { #[keyword = #name] });
 				},
-				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::DefaultValue(default_value)) => {
+				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::DefaultValue(default_value)) => {
 					attrs.push(quote! { #[keyword = #name] });
 
 					let value = self.emit_value(default_value)?;
@@ -354,13 +423,13 @@ impl <'a> ModEmitter<'a> {
 
 					attrs.push(quote! { #[default_value = #value_str] });
 				},
-				ESExprRecordFieldKind::Keyword(name, ESExprRecordKeywordMode::Optional(_)) => {
+				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::Optional(_)) => {
 					attrs.push(quote! { #[keyword = #name] });
 					attrs.push(quote! { #[optional] });
 
 				},
-				ESExprRecordFieldKind::Dict(_) => attrs.push(quote! { #[dict] }),
-				ESExprRecordFieldKind::Vararg(_) => attrs.push(quote! { #[vararg] }),
+				EsexprRecordFieldKind::Dict(_) => attrs.push(quote! { #[dict] }),
+				EsexprRecordFieldKind::Vararg(_) => attrs.push(quote! { #[vararg] }),
 			}
 		}
 
@@ -456,25 +525,25 @@ impl <'a> ModEmitter<'a> {
 	}
 
 
-	fn emit_value(&self, value: &ESExprDecodedValue) -> Result<syn::Expr, EmitError> {
+	fn emit_value(&self, value: &EsexprDecodedValue) -> Result<syn::Expr, EmitError> {
 		match value {
-			ESExprDecodedValue::Record(t, field_values) => self.emit_record_value(t, field_values),
-			ESExprDecodedValue::Enum(t, case_name, field_values) => self.emit_enum_value(t, case_name, field_values),
-			ESExprDecodedValue::Optional { optional_type, value } => self.emit_optional_value(optional_type, value.as_deref()),
-			ESExprDecodedValue::Vararg { vararg_type, values } => self.emit_vararg_value(vararg_type, values),
-			ESExprDecodedValue::Dict { dict_type, values } => self.emit_dict_value(dict_type, values),
-			ESExprDecodedValue::BuildFrom(built_type, value) => self.emit_build_from(built_type, &**value),
-			ESExprDecodedValue::FromBool(t, value) => self.emit_literal_primitive::<bool>(t, *value),
-			ESExprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
-			ESExprDecodedValue::FromStr(t, value) => self.emit_literal_primitive::<&str>(t, value),
-			ESExprDecodedValue::FromBinary(t, value) => self.emit_literal_binary(t, &value.0),
-			ESExprDecodedValue::FromFloat32(t, value) => self.emit_literal_primitive::<f32>(t, *value),
-			ESExprDecodedValue::FromFloat64(t, value) => self.emit_literal_primitive::<f64>(t, *value),
-			ESExprDecodedValue::FromNull(t) => self.emit_literal_null(t),
+			EsexprDecodedValue::Record(t, field_values) => self.emit_record_value(t, field_values),
+			EsexprDecodedValue::Enum(t, case_name, field_values) => self.emit_enum_value(t, case_name, field_values),
+			EsexprDecodedValue::Optional { optional_type, value } => self.emit_optional_value(optional_type, value.as_ref().as_ref()),
+			EsexprDecodedValue::Vararg { vararg_type, values } => self.emit_vararg_value(vararg_type, values),
+			EsexprDecodedValue::Dict { dict_type, values } => self.emit_dict_value(dict_type, values),
+			EsexprDecodedValue::BuildFrom(built_type, value) => self.emit_build_from(built_type, &**value),
+			EsexprDecodedValue::FromBool(t, value) => self.emit_literal_primitive::<bool>(t, *value),
+			EsexprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
+			EsexprDecodedValue::FromStr(t, value) => self.emit_literal_primitive::<&str>(t, value),
+			EsexprDecodedValue::FromBinary(t, value) => self.emit_literal_binary(t, &value.0),
+			EsexprDecodedValue::FromFloat32(t, value) => self.emit_literal_primitive::<f32>(t, *value),
+			EsexprDecodedValue::FromFloat64(t, value) => self.emit_literal_primitive::<f64>(t, *value),
+			EsexprDecodedValue::FromNull(t) => self.emit_literal_null(t),
 		}
 	}
 
-	fn emit_record_value(&self, t: &TypeExpr, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_record_value(&self, t: &TypeExpr, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		Ok(syn::Expr::Struct(syn::ExprStruct {
 			attrs: vec![],
 			qself: None,
@@ -486,7 +555,7 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		let mut path = self.get_type_path(t)?;
 		path.segments.push(syn::PathSegment {
 			ident: convert_id_pascal(case_name),
@@ -504,7 +573,7 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_field_values(&self, field_values: &HashMap<String, ESExprDecodedValue>) -> Result<Vec<syn::FieldValue>, EmitError> {
+	fn emit_field_values(&self, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<Vec<syn::FieldValue>, EmitError> {
 		field_values.iter().map(|(name, value)| {
 			let value = self.emit_value(value)?;
 			Ok(syn::FieldValue {
@@ -516,7 +585,7 @@ impl <'a> ModEmitter<'a> {
 		}).collect::<Result<Vec<_>, _>>()
 	}
 
-	fn emit_optional_value(&self, optional_type: &TypeExpr, value: Option<&ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_optional_value(&self, optional_type: &TypeExpr, value: Option<&EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(optional_type)?;
 		let v = value.map(|v| self.emit_value(v)).transpose()?;
 		let v: syn::Expr = match v {
@@ -529,7 +598,7 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_vararg_value(&self, vararg_type: &TypeExpr, values: &[ESExprDecodedValue]) -> Result<syn::Expr, EmitError> {
+	fn emit_vararg_value(&self, vararg_type: &TypeExpr, values: &[EsexprDecodedValue]) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(vararg_type)?;
 		let v = values.iter().map(|v| self.emit_value(v)).collect::<Result<Vec<_>, _>>()?;
 		let v: syn::Expr = parse_quote! { ::std::vec![#(#v),*] };
@@ -539,7 +608,7 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_dict_value(&self, dict_type: &TypeExpr, values: &HashMap<String, ESExprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_dict_value(&self, dict_type: &TypeExpr, values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(dict_type)?;
 		let v = values.iter().map(|(k, v)| {
 			let v = self.emit_value(v)?;
@@ -553,7 +622,7 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_build_from(&self, built_type: &TypeExpr, value: &ESExprDecodedValue) -> Result<syn::Expr, EmitError> {
+	fn emit_build_from(&self, built_type: &TypeExpr, value: &EsexprDecodedValue) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(built_type)?;
 		let v = self.emit_value(value)?;
 
@@ -653,6 +722,47 @@ impl <'a> ModEmitter<'a> {
 		Ok(parse_quote! {
 			<#t as ::std::default::Default>::default()
 		})
+	}
+
+
+	fn is_record_unit(&self, dfn: &DefinitionInfo) -> bool {
+		dfn.annotations.iter()
+			.filter(|ann| ann.scope == "rust")
+			.filter_map(|ann| RustAnnRecord::decode_esexpr(ann.value.clone()).ok())
+			.any(|ann| match ann {
+				RustAnnRecord::Unit => true,
+				_ => false,
+			})
+	}
+
+	fn is_record_tuple(&self, dfn: &DefinitionInfo) -> bool {
+		dfn.annotations.iter()
+			.filter(|ann| ann.scope == "rust")
+			.filter_map(|ann| RustAnnRecord::decode_esexpr(ann.value.clone()).ok())
+			.any(|ann| match ann {
+				RustAnnRecord::Tuple => true,
+				_ => false,
+			})
+	}
+
+	fn is_enum_case_unit(&self, c: &EnumCase) -> bool {
+		c.annotations.iter()
+			.filter(|ann| ann.scope == "rust")
+			.filter_map(|ann| RustAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
+			.any(|ann| match ann {
+				RustAnnEnumCase::Unit => true,
+				_ => false,
+			})
+	}
+
+	fn is_enum_case_tuple(&self, c: &EnumCase) -> bool {
+		c.annotations.iter()
+			.filter(|ann| ann.scope == "rust")
+			.filter_map(|ann| RustAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
+			.any(|ann| match ann {
+				RustAnnEnumCase::Tuple => true,
+				_ => false,
+			})
 	}
 
 }

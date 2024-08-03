@@ -44,9 +44,9 @@ impl <'a> TagScanner<'a> {
 		let constructor = def.annotations
 			.iter()
 			.filter(|ann| ann.scope == "esexpr")
-			.filter_map(|ann| ESExprAnnRecord::decode_esexpr(ann.value.clone()).ok())
+			.filter_map(|ann| EsexprAnnRecord::decode_esexpr(ann.value.clone()).ok())
 			.find_map(|ann| match ann {
-				ESExprAnnRecord::Constructor(constructor) => Some(constructor),
+				EsexprAnnRecord::Constructor(constructor) => Some(constructor),
 				_ => None,
 			})
 			.unwrap_or_else(|| def.name.name().to_owned());
@@ -61,9 +61,9 @@ impl <'a> TagScanner<'a> {
 			let has_inline_value = c.annotations
 				.iter()
 				.filter(|ann| ann.scope == "esexpr")
-				.filter_map(|ann| ESExprAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
+				.filter_map(|ann| EsexprAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
 				.any(|ann| match ann {
-					ESExprAnnEnumCase::InlineValue => true,
+					EsexprAnnEnumCase::InlineValue => true,
 					_ => false,
 				});
 
@@ -78,9 +78,9 @@ impl <'a> TagScanner<'a> {
 					let constructor = c.annotations
 						.iter()
 						.filter(|ann| ann.scope == "esexpr")
-						.filter_map(|ann| ESExprAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
+						.filter_map(|ann| EsexprAnnEnumCase::decode_esexpr(ann.value.clone()).ok())
 						.find_map(|ann| match ann {
-							ESExprAnnEnumCase::Constructor(constructor) => Some(constructor),
+							EsexprAnnEnumCase::Constructor(constructor) => Some(constructor),
 							_ => None,
 						})
 						.unwrap_or_else(|| def.name.name().to_owned());
@@ -107,12 +107,12 @@ impl <'a> TagScanner<'a> {
 
 		let literals = def.annotations.iter()
 			.filter(|ann| ann.scope == "esexpr")
-			.filter_map(|ann| ESExprAnnExternType::decode_esexpr(ann.value.clone()).ok())
+			.filter_map(|ann| EsexprAnnExternType::decode_esexpr(ann.value.clone()).ok())
 			.find_map(|ann| match ann {
-				ESExprAnnExternType::Literals(literals) => Some(literals),
+				EsexprAnnExternType::Literals(literals) => Some(literals),
 				_ => None,
 			})
-			.unwrap_or(ESExprAnnExternTypeLiterals {
+			.unwrap_or(EsexprExternTypeLiterals {
 				allow_bool: false,
 				allow_int: false,
 				min_int: None,

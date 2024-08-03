@@ -332,13 +332,18 @@ export namespace TypeExpr {
 }
 
 export type TypeParameter =
-    | { readonly $type: "type", readonly name: string }
+    | {
+		readonly $type: "type",
+		readonly name: string,
+		readonly annotations: readonly Annotation[],
+	}
 ;
 
 export namespace TypeParameter {
     export const codec: ESExprCodec<TypeParameter> = esexpr.enumCodec({
         type: esexpr.caseCodec("type", {
             name: esexpr.positionalFieldCodec(esexpr.strCodec),
+			annotations: esexpr.keywordFieldCodec("annotations", esexpr.listCodec(Annotation.codec)),
         }),
     });
 }
@@ -372,25 +377,25 @@ export namespace ESExprEnumOptions {
 }
 
 export interface ESExprEnumCaseOptions {
-	readonly caseType: ESExprEnumCaseType,
+	readonly caseType: EsexprEnumCaseType,
 }
 
 export namespace ESExprEnumCaseOptions {
 	export const codec: ESExprCodec<ESExprEnumCaseOptions> = esexpr.lazyCodec(() => esexpr.recordCodec<ESExprEnumCaseOptions>(
 		"enum-case-options",
 		{
-			caseType: esexpr.positionalFieldCodec(ESExprEnumCaseType.codec),
+			caseType: esexpr.positionalFieldCodec(EsexprEnumCaseType.codec),
 		},
 	));
 }
 
-export type ESExprEnumCaseType =
+export type EsexprEnumCaseType =
 	| { readonly $type: "constructor", readonly name: string }
 	| { readonly $type: "inline-value" }
 ;
 
-export namespace ESExprEnumCaseType {
-	export const codec: ESExprCodec<ESExprEnumCaseType> = esexpr.enumCodec({
+export namespace EsexprEnumCaseType {
+	export const codec: ESExprCodec<EsexprEnumCaseType> = esexpr.enumCodec({
 		constructor: esexpr.caseCodec("constructor", {
 			name: esexpr.positionalFieldCodec(esexpr.strCodec),
 		}),
@@ -433,7 +438,7 @@ export namespace ESExprRecordFieldOptions {
 }
 
 export type ESExprRecordFieldKind =
-	| { readonly $type: "positional", readonly mode: ESExprRecordPositionalMode }
+	| { readonly $type: "positional", readonly mode: EsexprRecordPositionalMode }
 	| { readonly $type: "keyword", readonly name: string, readonly mode: ESExprRecordKeywordMode }
 	| { readonly $type: "dict", readonly elementType: TypeExpr }
 	| { readonly $type: "vararg", readonly elementType: TypeExpr }
@@ -442,7 +447,7 @@ export type ESExprRecordFieldKind =
 export namespace ESExprRecordFieldKind {
 	export const codec: ESExprCodec<ESExprRecordFieldKind> = esexpr.lazyCodec(() => esexpr.enumCodec({
 		positional: esexpr.caseCodec("positional", {
-			mode: esexpr.positionalFieldCodec(ESExprRecordPositionalMode.codec),
+			mode: esexpr.positionalFieldCodec(EsexprRecordPositionalMode.codec),
 		}),
 		keyword: esexpr.caseCodec("keyword", {
 			name: esexpr.positionalFieldCodec(esexpr.strCodec),
@@ -457,13 +462,13 @@ export namespace ESExprRecordFieldKind {
 	}));
 }
 
-export type ESExprRecordPositionalMode =
+export type EsexprRecordPositionalMode =
 	| { readonly $type: "required" }
 	| { readonly $type: "optional", readonly elementType: TypeExpr }
 ;
 
-export namespace ESExprRecordPositionalMode {
-	export const codec: ESExprCodec<ESExprRecordPositionalMode> = esexpr.lazyCodec(() => esexpr.enumCodec<ESExprRecordPositionalMode>({
+export namespace EsexprRecordPositionalMode {
+	export const codec: ESExprCodec<EsexprRecordPositionalMode> = esexpr.lazyCodec(() => esexpr.enumCodec<EsexprRecordPositionalMode>({
 		required: esexpr.caseCodec("required", {}),
 		optional: esexpr.caseCodec("optional", {
 			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),

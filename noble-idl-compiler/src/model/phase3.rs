@@ -62,18 +62,18 @@ impl <'a> ESExprOptionParser<'a> {
 				continue;
 			}
 
-			let esexpr_rec = ESExprAnnRecord::decode_esexpr(ann.value.clone())
+			let esexpr_rec = EsexprAnnRecord::decode_esexpr(ann.value.clone())
 				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
 
 			match esexpr_rec {
-				ESExprAnnRecord::DeriveCodec => {
+				EsexprAnnRecord::DeriveCodec => {
 					if has_derive_codec {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
 					}
 
 					has_derive_codec = true;
 				},
-				ESExprAnnRecord::Constructor(constructor_name) => {
+				EsexprAnnRecord::Constructor(constructor_name) => {
 					if constructor.is_some() {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
 					}
@@ -88,7 +88,7 @@ impl <'a> ESExprOptionParser<'a> {
 		}
 
 		if has_derive_codec {
-			rec.esexpr_options = Some(ESExprRecordOptions {
+			rec.esexpr_options = Some(EsexprRecordOptions {
 				constructor: constructor.unwrap_or_else(|| def_name.name().to_owned()),
 			});
 		}
@@ -109,18 +109,18 @@ impl <'a> ESExprOptionParser<'a> {
 				continue;
 			}
 
-			let esexpr_rec = ESExprAnnEnum::decode_esexpr(ann.value.clone())
+			let esexpr_rec = EsexprAnnEnum::decode_esexpr(ann.value.clone())
 				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
 
 			match esexpr_rec {
-				ESExprAnnEnum::DeriveCodec => {
+				EsexprAnnEnum::DeriveCodec => {
 					if has_derive_codec {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
 					}
 
 					has_derive_codec = true;
 				},
-				ESExprAnnEnum::SimpleEnum => {
+				EsexprAnnEnum::SimpleEnum => {
 					if has_simple_enum {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "simple-enum".to_owned()));
 					}
@@ -135,7 +135,7 @@ impl <'a> ESExprOptionParser<'a> {
 		}
 
 		if has_derive_codec {
-			e.esexpr_options = Some(ESExprEnumOptions {
+			e.esexpr_options = Some(EsexprEnumOptions {
 				simple_enum: has_simple_enum,
 			});
 		}
@@ -152,11 +152,11 @@ impl <'a> ESExprOptionParser<'a> {
 					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![ c.name.clone() ]));
 				}
 
-				let esexpr_rec = ESExprAnnEnumCase::decode_esexpr(ann.value.clone())
+				let esexpr_rec = EsexprAnnEnumCase::decode_esexpr(ann.value.clone())
 					.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
 
 				match esexpr_rec {
-					ESExprAnnEnumCase::Constructor(constructor_name) => {
+					EsexprAnnEnumCase::Constructor(constructor_name) => {
 						if constructor.is_some() {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
 						}
@@ -167,7 +167,7 @@ impl <'a> ESExprOptionParser<'a> {
 
 						constructor = Some(constructor_name);
 					},
-					ESExprAnnEnumCase::InlineValue => {
+					EsexprAnnEnumCase::InlineValue => {
 						if has_inline_value {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "inline-value".to_owned()));
 						}
@@ -190,11 +190,11 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			if has_derive_codec {
-				c.esexpr_options = Some(ESExprEnumCaseOptions {
+				c.esexpr_options = Some(EsexprEnumCaseOptions {
 					case_type:
-						if has_inline_value { ESExprEnumCaseType::InlineValue }
+						if has_inline_value { EsexprEnumCaseType::InlineValue }
 						else {
-							ESExprEnumCaseType::Constructor(constructor.unwrap_or_else(|| c.name.clone()))
+							EsexprEnumCaseType::Constructor(constructor.unwrap_or_else(|| c.name.clone()))
 						}
 				})
 			}
@@ -233,7 +233,7 @@ impl <'a> ESExprOptionParser<'a> {
 					path
 				};
 
-				let esexpr_field = ESExprAnnRecordField::decode_esexpr(ann.value.clone())
+				let esexpr_field = EsexprAnnRecordField::decode_esexpr(ann.value.clone())
 					.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
 
 				if !is_esexpr_type {
@@ -241,7 +241,7 @@ impl <'a> ESExprOptionParser<'a> {
 				}
 
 				match esexpr_field {
-					ESExprAnnRecordField::Keyword(name) => {
+					EsexprAnnRecordField::Keyword(name) => {
 						if is_keyword.is_some() {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "keyword".to_owned()));
 						}
@@ -257,7 +257,7 @@ impl <'a> ESExprOptionParser<'a> {
 
 						is_keyword = Some(name);
 					},
-					ESExprAnnRecordField::Dict => {
+					EsexprAnnRecordField::Dict => {
 						if has_dict {
 							return Err(CheckError::ESExprMultipleDict(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						}
@@ -269,7 +269,7 @@ impl <'a> ESExprOptionParser<'a> {
 						has_dict = true;
 						is_dict = true;
 					},
-					ESExprAnnRecordField::Vararg => {
+					EsexprAnnRecordField::Vararg => {
 						if has_vararg {
 							return Err(CheckError::ESExprMultipleVararg(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						}
@@ -286,7 +286,7 @@ impl <'a> ESExprOptionParser<'a> {
 						is_vararg = true;
 					},
 
-					ESExprAnnRecordField::Optional => {
+					EsexprAnnRecordField::Optional => {
 						if is_optional {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "optional".to_owned()));
 						}
@@ -294,7 +294,7 @@ impl <'a> ESExprOptionParser<'a> {
 						is_optional = true;
 					},
 
-					ESExprAnnRecordField::DefaultValue(value) => {
+					EsexprAnnRecordField::DefaultValue(value) => {
 						if is_default_value.is_some() {
 							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "default-value".to_owned()));
 						}
@@ -334,14 +334,14 @@ impl <'a> ESExprOptionParser<'a> {
 							return Err(CheckError::ESExprInvalidVarargFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 
-						ESExprRecordFieldKind::Vararg(vararg_metadata.element_type.clone())
+						EsexprRecordFieldKind::Vararg(vararg_metadata.element_type.clone())
 					}
 					else if is_dict {
 						let Some(dict_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.dict_container_types.get(ftn)) else {
 							return Err(CheckError::ESExprInvalidDictFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 
-						ESExprRecordFieldKind::Dict(dict_metadata.element_type.clone())
+						EsexprRecordFieldKind::Dict(dict_metadata.element_type.clone())
 					}
 					else if let Some(name) = is_keyword {
 						let mode =
@@ -352,13 +352,13 @@ impl <'a> ESExprOptionParser<'a> {
 									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 								};
 
-								ESExprRecordKeywordMode::Optional(opt_metadata.element_type.clone())
+								EsexprRecordKeywordMode::Optional(opt_metadata.element_type.clone())
 							}
 							else {
-								ESExprRecordKeywordMode::Required
+								EsexprRecordKeywordMode::Required
 							};
 
-						ESExprRecordFieldKind::Keyword(name, mode)
+						EsexprRecordFieldKind::Keyword(name, mode)
 					}
 					else {
 						let mode =
@@ -369,16 +369,16 @@ impl <'a> ESExprOptionParser<'a> {
 									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 								};
 
-								ESExprRecordPositionalMode::Optional(opt_metadata.element_type.clone())
+								EsexprRecordPositionalMode::Optional(opt_metadata.element_type.clone())
 							}
 							else {
-								ESExprRecordPositionalMode::Required
+								EsexprRecordPositionalMode::Required
 							};
 
-						ESExprRecordFieldKind::Positional(mode)
+						EsexprRecordFieldKind::Positional(mode)
 					};
 
-				field.esexpr_options = Some(ESExprRecordFieldOptions { kind });
+				field.esexpr_options = Some(EsexprRecordFieldOptions { kind });
 			}
 		}
 

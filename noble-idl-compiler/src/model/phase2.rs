@@ -51,18 +51,18 @@ impl ESExprOptionParseExtern {
 				continue;
 			}
 
-			let esexpr_rec = ESExprAnnExternType::decode_esexpr(ann.value.clone())
+			let esexpr_rec = EsexprAnnExternType::decode_esexpr(ann.value.clone())
 				.map_err(|_| CheckError::InvalidESExprAnnotation(def_name.clone()))?;
 
 			match esexpr_rec {
-				ESExprAnnExternType::DeriveCodec => {
+				EsexprAnnExternType::DeriveCodec => {
 					if has_derive_codec {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
 					}
 
 					has_derive_codec = true;
 				},
-				ESExprAnnExternType::AllowOptional(element_type) => {
+				EsexprAnnExternType::AllowOptional(element_type) => {
 					if allow_optional.is_some() {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "allow-optional".to_owned()));
 					}
@@ -73,7 +73,7 @@ impl ESExprOptionParseExtern {
 						element_type,
 					});
 				},
-				ESExprAnnExternType::AllowVararg(element_type) => {
+				EsexprAnnExternType::AllowVararg(element_type) => {
 					if allow_vararg.is_some() {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "allow-vararg".to_owned()));
 					}
@@ -84,7 +84,7 @@ impl ESExprOptionParseExtern {
 						element_type,
 					});
 				},
-				ESExprAnnExternType::AllowDict(element_type) => {
+				EsexprAnnExternType::AllowDict(element_type) => {
 					if allow_dict.is_some() {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "allow-dict".to_owned()));
 					}
@@ -96,7 +96,7 @@ impl ESExprOptionParseExtern {
 					});
 
 				},
-				ESExprAnnExternType::Literals(l) => {
+				EsexprAnnExternType::Literals(l) => {
 					if literals.is_some() {
 						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "literals".to_owned()));
 					}
@@ -107,12 +107,12 @@ impl ESExprOptionParseExtern {
 		}
 
 		if has_derive_codec || allow_optional.is_some() || allow_vararg.is_some() || allow_dict.is_some() {
-			et.esexpr_options = Some(ESExprExternTypeOptions {
+			et.esexpr_options = Some(EsexprExternTypeOptions {
 				allow_value: has_derive_codec,
 				allow_optional,
 				allow_vararg,
 				allow_dict,
-				literals: literals.unwrap_or(ESExprAnnExternTypeLiterals {
+				literals: literals.unwrap_or(EsexprExternTypeLiterals {
 					allow_bool: false,
 					allow_int: false,
 					min_int: None,

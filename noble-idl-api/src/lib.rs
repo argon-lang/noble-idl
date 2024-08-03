@@ -130,7 +130,7 @@ pub struct RecordDefinition {
 
 	#[keyword]
 	#[optional]
-	pub esexpr_options: Option<ESExprRecordOptions>,
+	pub esexpr_options: Option<EsexprRecordOptions>,
 }
 
 #[derive(ESExprCodec, Clone, Debug, PartialEq)]
@@ -143,7 +143,7 @@ pub struct RecordField {
 
 	#[keyword]
 	#[optional]
-	pub esexpr_options: Option<ESExprRecordFieldOptions>,
+	pub esexpr_options: Option<EsexprRecordFieldOptions>,
 }
 
 
@@ -154,7 +154,7 @@ pub struct EnumDefinition {
 
 	#[keyword]
 	#[optional]
-	pub esexpr_options: Option<ESExprEnumOptions>,
+	pub esexpr_options: Option<EsexprEnumOptions>,
 }
 
 #[derive(ESExprCodec, Clone, Debug, PartialEq)]
@@ -169,14 +169,14 @@ pub struct EnumCase {
 
 	#[keyword]
 	#[optional]
-	pub esexpr_options: Option<ESExprEnumCaseOptions>,
+	pub esexpr_options: Option<EsexprEnumCaseOptions>,
 }
 
 #[derive(ESExprCodec, Clone, Debug, PartialEq)]
 pub struct ExternTypeDefinition {
 	#[keyword]
 	#[optional]
-	pub esexpr_options: Option<ESExprExternTypeOptions>,
+	pub esexpr_options: Option<EsexprExternTypeOptions>,
 }
 
 #[derive(ESExprCodec, Clone, Debug, PartialEq)]
@@ -245,6 +245,8 @@ impl TypeExpr {
 pub enum TypeParameter {
     Type {
 		name: String,
+
+		#[keyword]
 		annotations: Vec<Annotation>,
 	},
 }
@@ -267,14 +269,14 @@ impl TypeParameter {
 // ESExpr options
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "record-options"]
-pub struct ESExprRecordOptions {
+pub struct EsexprRecordOptions {
 	pub constructor: String,
 }
 
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "enum-options"]
-pub struct ESExprEnumOptions {
+pub struct EsexprEnumOptions {
 	#[keyword]
 	#[default_value = "false"]
 	pub simple_enum: bool,
@@ -282,19 +284,19 @@ pub struct ESExprEnumOptions {
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "enum-case-options"]
-pub struct ESExprEnumCaseOptions {
-	pub case_type: ESExprEnumCaseType,
+pub struct EsexprEnumCaseOptions {
+	pub case_type: EsexprEnumCaseType,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprEnumCaseType {
+pub enum EsexprEnumCaseType {
 	Constructor(String),
 	InlineValue,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "extern-type-options"]
-pub struct ESExprExternTypeOptions {
+pub struct EsexprExternTypeOptions {
 	#[keyword]
 	#[default_value = "false"]
 	pub allow_value: bool,
@@ -312,63 +314,63 @@ pub struct ESExprExternTypeOptions {
 	pub allow_dict: Option<TypeExpr>,
 
 	#[keyword]
-	pub literals: ESExprAnnExternTypeLiterals,
+	pub literals: EsexprExternTypeLiterals,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "field-options"]
-pub struct ESExprRecordFieldOptions {
-	pub kind: ESExprRecordFieldKind,
+pub struct EsexprRecordFieldOptions {
+	pub kind: EsexprRecordFieldKind,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprRecordFieldKind {
-	Positional(ESExprRecordPositionalMode),
-	Keyword(String, ESExprRecordKeywordMode),
+pub enum EsexprRecordFieldKind {
+	Positional(EsexprRecordPositionalMode),
+	Keyword(String, EsexprRecordKeywordMode),
 	Dict(TypeExpr),
 	Vararg(TypeExpr),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprRecordPositionalMode {
+pub enum EsexprRecordPositionalMode {
 	Required,
 	Optional(TypeExpr),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprRecordKeywordMode {
+pub enum EsexprRecordKeywordMode {
 	Required,
 	Optional(TypeExpr),
-	DefaultValue(ESExprDecodedValue),
+	DefaultValue(EsexprDecodedValue),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprDecodedValue {
-	Record(TypeExpr, #[dict] HashMap<String, ESExprDecodedValue>),
-	Enum(TypeExpr, String, #[dict] HashMap<String, ESExprDecodedValue>),
+pub enum EsexprDecodedValue {
+	Record(TypeExpr, #[dict] HashMap<String, EsexprDecodedValue>),
+	Enum(TypeExpr, String, #[dict] HashMap<String, EsexprDecodedValue>),
 
 	Optional {
 		optional_type: TypeExpr,
 
 		#[optional]
-		value: Option<Box<ESExprDecodedValue>>,
+		value: Box<Option<EsexprDecodedValue>>,
 	},
 
 	Vararg {
 		vararg_type: TypeExpr,
 
 		#[vararg]
-		values: Vec<ESExprDecodedValue>,
+		values: Vec<EsexprDecodedValue>,
 	},
 
 	Dict {
 		dict_type: TypeExpr,
 
 		#[dict]
-		values: HashMap<String, ESExprDecodedValue>,
+		values: HashMap<String, EsexprDecodedValue>,
 	},
 
-	BuildFrom(TypeExpr, Box<ESExprDecodedValue>),
+	BuildFrom(TypeExpr, Box<EsexprDecodedValue>),
 
 	FromBool(TypeExpr, bool),
 	FromInt {
@@ -394,25 +396,25 @@ pub enum ESExprDecodedValue {
 
 // ESExpr annotations
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprAnnRecord {
+pub enum EsexprAnnRecord {
     DeriveCodec,
     Constructor(String),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprAnnEnum {
+pub enum EsexprAnnEnum {
     DeriveCodec,
     SimpleEnum,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprAnnEnumCase {
+pub enum EsexprAnnEnumCase {
     Constructor(String),
     InlineValue,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprAnnRecordField {
+pub enum EsexprAnnRecordField {
     Keyword(#[optional] Option<String>),
 
     Dict,
@@ -423,18 +425,18 @@ pub enum ESExprAnnRecordField {
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum ESExprAnnExternType {
+pub enum EsexprAnnExternType {
     DeriveCodec,
 	AllowOptional(TypeExpr),
 	AllowVararg(TypeExpr),
 	AllowDict(TypeExpr),
 	#[inline_value]
-	Literals(ESExprAnnExternTypeLiterals),
+	Literals(EsexprExternTypeLiterals),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 #[constructor = "literals"]
-pub struct ESExprAnnExternTypeLiterals {
+pub struct EsexprExternTypeLiterals {
 	#[keyword]
 	#[default_value = "false"]
 	pub allow_bool: bool,
