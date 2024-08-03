@@ -437,6 +437,11 @@ enum esexpr-decoded-value {
         from-value: esexpr-decoded-value;
     },
 
+    from-bool {
+        t: type-expr;
+        b: bool;
+    },
+
     from-int {
         t: type-expr;
         i: int;
