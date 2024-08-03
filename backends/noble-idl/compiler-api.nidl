@@ -65,6 +65,7 @@ record definition-info {
 
 @esexpr: (derive-codec)
 @rust: (tuple)
+@rust: (derive "std::hash::Hash")
 record package-name {
     @esexpr: (vararg)
     parts: list[string];
@@ -72,6 +73,7 @@ record package-name {
 
 @esexpr: (derive-codec)
 @rust: (tuple)
+@rust: (derive "std::hash::Hash")
 record qualified-name {
     package: package-name;
     name: string;

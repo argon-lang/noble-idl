@@ -9,7 +9,7 @@ use esexpr::ESExprCodec;
 use noble_idl_api::*;
 use syn::{parse_quote, punctuated::Punctuated};
 
-use crate::{annotations::{RustAnnEnumCase, RustAnnRecord}, cycle::CycleScanner, RustLanguageOptions};
+use crate::{annotations::{RustAnnEnum, RustAnnEnumCase, RustAnnRecord}, cycle::CycleScanner, RustLanguageOptions};
 
 #[derive(derive_more::From, Debug)]
 pub enum EmitError {
@@ -198,7 +198,7 @@ impl <'a> ModEmitter<'a> {
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
-        self.process_record_ann(r, &mut derives, &mut attrs)?;
+        self.process_record_ann(dfn, r, &mut derives, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
 		if is_unit {
@@ -233,10 +233,26 @@ impl <'a> ModEmitter<'a> {
 		}
     }
 
-    fn process_record_ann(&self, r: &RecordDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+    fn process_record_ann(&self, dfn: &DefinitionInfo, r: &RecordDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
+
+		for ann in &dfn.annotations {
+			if ann.scope != "rust" {
+				continue;
+			}
+
+			let Ok(ann) = RustAnnRecord::decode_esexpr(ann.value.clone()) else { continue; };
+
+			match ann {
+				RustAnnRecord::Derive(derive) => {
+					derives.push(syn::parse_str(&derive)?);
+				},
+
+				_ => {}
+			}
+		}
 
 		if let Some(esexpr_options) = &r.esexpr_options {
 			derives.push(quote! { ::esexpr::ESExprCodec });
@@ -257,7 +273,7 @@ impl <'a> ModEmitter<'a> {
 
         let mut derives = Vec::new();
         let mut attrs = Vec::new();
-        self.process_enum_ann(e, &mut derives, &mut attrs)?;
+        self.process_enum_ann(dfn, e, &mut derives, &mut attrs)?;
         let attrs = attrs.into_iter().collect::<TokenStream>();
 
         Ok(quote! {
@@ -269,10 +285,24 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn process_enum_ann(&self, e: &EnumDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+    fn process_enum_ann(&self, dfn: &DefinitionInfo, e: &EnumDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
+
+		for ann in &dfn.annotations {
+			if ann.scope != "rust" {
+				continue;
+			}
+
+			let Ok(ann) = RustAnnEnum::decode_esexpr(ann.value.clone()) else { continue; };
+
+			match ann {
+				RustAnnEnum::Derive(derive) => {
+					derives.push(syn::parse_str(&derive)?);
+				},
+			}
+		}
 
 		if let Some(esexpr_options) = &e.esexpr_options {
 			derives.push(quote! { ::esexpr::ESExprCodec });

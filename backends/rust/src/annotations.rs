@@ -5,6 +5,13 @@ use esexpr::ESExprCodec;
 pub enum RustAnnRecord {
 	Unit,
 	Tuple,
+	Derive(String),
+}
+
+
+#[derive(ESExprCodec, PartialEq, Clone, Debug)]
+pub enum RustAnnEnum {
+	Derive(String),
 }
 
 #[derive(ESExprCodec, PartialEq, Clone, Debug)]
