@@ -559,16 +559,16 @@ impl <'a> ModEmitter<'a> {
 		match value {
 			EsexprDecodedValue::Record { t, fields } => self.emit_record_value(t, fields),
 			EsexprDecodedValue::Enum { t, case_name, fields } => self.emit_enum_value(t, case_name, fields),
-			EsexprDecodedValue::Optional { t, value } => self.emit_optional_value(t, value.as_ref().as_ref()),
-			EsexprDecodedValue::Vararg { t, values } => self.emit_vararg_value(t, values),
-			EsexprDecodedValue::Dict { t, values } => self.emit_dict_value(t, values),
-			EsexprDecodedValue::BuildFrom { t, from_value } => self.emit_build_from(t, &**from_value),
-			EsexprDecodedValue::FromBool { t, b } => self.emit_literal_primitive::<bool>(t, *b),
+			EsexprDecodedValue::Optional { t, element_type, value } => self.emit_optional_value(t, element_type, value.as_ref().as_ref()),
+			EsexprDecodedValue::Vararg { t, element_type, values } => self.emit_vararg_value(t, element_type, values),
+			EsexprDecodedValue::Dict { t, element_type, values } => self.emit_dict_value(t, element_type, values),
+			EsexprDecodedValue::BuildFrom { t, from_type, from_value } => self.emit_build_from(t, from_type, &**from_value),
+			EsexprDecodedValue::FromBool { t, b } => self.emit_literal_primitive::<bool>(t, parse_quote!(::std::primitive::bool), *b),
 			EsexprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
-			EsexprDecodedValue::FromStr { t, s } => self.emit_literal_primitive::<&str>(t, s),
+			EsexprDecodedValue::FromStr { t, s } => self.emit_literal_primitive::<&str>(t, parse_quote!(&'static ::std::primitive::str), s),
 			EsexprDecodedValue::FromBinary { t, b } => self.emit_literal_binary(t, &b.0),
-			EsexprDecodedValue::FromFloat32 { t, f } => self.emit_literal_primitive::<f32>(t, *f),
-			EsexprDecodedValue::FromFloat64 { t, f } => self.emit_literal_primitive::<f64>(t, *f),
+			EsexprDecodedValue::FromFloat32 { t, f } => self.emit_literal_primitive::<f32>(t, parse_quote!(::std::primitive::f32), *f),
+			EsexprDecodedValue::FromFloat64 { t, f } => self.emit_literal_primitive::<f64>(t, parse_quote!(::std::primitive::f64), *f),
 			EsexprDecodedValue::FromNull { t } => self.emit_literal_null(t),
 		}
 	}
@@ -615,8 +615,9 @@ impl <'a> ModEmitter<'a> {
 		}).collect::<Result<Vec<_>, _>>()
 	}
 
-	fn emit_optional_value(&self, optional_type: &TypeExpr, value: Option<&EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_optional_value(&self, optional_type: &TypeExpr, element_type: &TypeExpr, value: Option<&EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(optional_type)?;
+		let et = self.emit_type_expr(element_type)?;
 		let v = value.map(|v| self.emit_value(v)).transpose()?;
 		let v: syn::Expr = match v {
 			Some(v) => parse_quote! { std::option::Option::Some(#v) },
@@ -624,22 +625,26 @@ impl <'a> ModEmitter<'a> {
 		};
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<_>>::from(#v)
+			<#t as ::std::convert::From<::std::option::Option<#et>>>::from(#v)
 		})
 	}
 
-	fn emit_vararg_value(&self, vararg_type: &TypeExpr, values: &[EsexprDecodedValue]) -> Result<syn::Expr, EmitError> {
+	fn emit_vararg_value(&self, vararg_type: &TypeExpr, element_type: &TypeExpr, values: &[EsexprDecodedValue]) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(vararg_type)?;
+		let et = self.emit_type_expr(element_type)?;
 		let v = values.iter().map(|v| self.emit_value(v)).collect::<Result<Vec<_>, _>>()?;
 		let v: syn::Expr = parse_quote! { ::std::vec![#(#v),*] };
 
+
+
 		Ok(parse_quote! {
-			<#t as std::convert::From<_>>::from(#v)
+			<#t as std::convert::From<std::vec::Vec<#et>>>::from(#v)
 		})
 	}
 
-	fn emit_dict_value(&self, dict_type: &TypeExpr, values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_dict_value(&self, dict_type: &TypeExpr, element_type: &TypeExpr, values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(dict_type)?;
+		let et = self.emit_type_expr(element_type)?;
 		let v = values.iter().map(|(k, v)| {
 			let v = self.emit_value(v)?;
 			Ok(parse_quote! { (#k, #v) })
@@ -648,24 +653,25 @@ impl <'a> ModEmitter<'a> {
 		let v: syn::Expr = parse_quote! { ::std::collection::HashMap::from([#(#v),*]) };
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<_>>::from(#v)
+			<#t as ::std::convert::From<::std::collection::HashMap<::std::string::String, #et>>>::from(#v)
 		})
 	}
 
-	fn emit_build_from(&self, built_type: &TypeExpr, value: &EsexprDecodedValue) -> Result<syn::Expr, EmitError> {
+	fn emit_build_from(&self, built_type: &TypeExpr, from_type: &TypeExpr, value: &EsexprDecodedValue) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(built_type)?;
+		let ft = self.emit_type_expr(from_type)?;
 		let v = self.emit_value(value)?;
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<_>>::from(#v)
+			<#t as ::std::convert::From<#ft>>::from(#v)
 		})
 	}
 
-	fn emit_literal_primitive<T: quote::ToTokens>(&self, t: &TypeExpr, value: T) -> Result<syn::Expr, EmitError> {
+	fn emit_literal_primitive<T: quote::ToTokens>(&self, t: &TypeExpr, prim_type: syn::Type, value: T) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(t)?;
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<_>>::from(#value)
+			<#t as ::std::convert::From<#prim_type>>::from(#value)
 		})
 	}
 
@@ -676,6 +682,7 @@ impl <'a> ModEmitter<'a> {
 			I: num_traits::bounds::Bounded + for<'a> TryFrom<&'a BigInt> + Copy + quote::ToTokens
 		>(
 			t: &syn::Type,
+			prim_type: syn::Type,
 			value: &BigInt,
 			min: Option<&BigInt>,
 			max: Option<&BigInt>
@@ -686,7 +693,7 @@ impl <'a> ModEmitter<'a> {
 
 			let value = I::try_from(value).ok()?;
 
-			Some(parse_quote! { <#t as std::convert::From<_>>::from(#value) })
+			Some(parse_quote! { <#t as std::convert::From<#prim_type>>::from(#value) })
 		}
 
 		let try_as_nat = || {
@@ -721,16 +728,16 @@ impl <'a> ModEmitter<'a> {
 		};
 
 		Ok(
-			try_as::<u8>(&t, value, min, max)
-				.or_else(|| try_as::<i8>(&t, value, min, max))
-				.or_else(|| try_as::<u16>(&t, value, min, max))
-				.or_else(|| try_as::<i16>(&t, value, min, max))
-				.or_else(|| try_as::<u32>(&t, value, min, max))
-				.or_else(|| try_as::<i32>(&t, value, min, max))
-				.or_else(|| try_as::<u64>(&t, value, min, max))
-				.or_else(|| try_as::<i64>(&t, value, min, max))
-				.or_else(|| try_as::<u128>(&t, value, min, max))
-				.or_else(|| try_as::<i128>(&t, value, min, max))
+			try_as::<u8>(&t, parse_quote!(::std::primitive::u8), value, min, max)
+				.or_else(|| try_as::<i8>(&t, parse_quote!(::std::primitive::i8), value, min, max))
+				.or_else(|| try_as::<u16>(&t, parse_quote!(::std::primitive::u16), value, min, max))
+				.or_else(|| try_as::<i16>(&t, parse_quote!(::std::primitive::i16), value, min, max))
+				.or_else(|| try_as::<u32>(&t, parse_quote!(::std::primitive::u32), value, min, max))
+				.or_else(|| try_as::<i32>(&t, parse_quote!(::std::primitive::i32), value, min, max))
+				.or_else(|| try_as::<u64>(&t, parse_quote!(::std::primitive::u64), value, min, max))
+				.or_else(|| try_as::<i64>(&t, parse_quote!(::std::primitive::i64), value, min, max))
+				.or_else(|| try_as::<u128>(&t, parse_quote!(::std::primitive::u128), value, min, max))
+				.or_else(|| try_as::<i128>(&t, parse_quote!(::std::primitive::i128), value, min, max))
 				.or_else(|| try_as_nat())
 				.unwrap_or_else(|| as_bigint())
 		)
@@ -742,7 +749,7 @@ impl <'a> ModEmitter<'a> {
 		let literal = syn::Lit::ByteStr(syn::LitByteStr::new(&value, proc_macro2::Span::mixed_site()));
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<&[u8]>>::from(#literal)
+			<#t as std::convert::From<&[::std::primitive::u8]>>::from(#literal)
 		})
 	}
 

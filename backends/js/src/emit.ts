@@ -1,4 +1,4 @@
-import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIDLGenerationRequest, type NobleIDLGenerationResult, type NobleIDLModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition } from "./api.js";
+import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIDLGenerationRequest, type NobleIDLGenerationResult, type NobleIDLModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, ESExprDecodedValue, QualifiedName } from "./api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
@@ -513,7 +513,26 @@ class ModEmitter {
 
 							switch(f.esexprOptions.kind.mode.$type) {
 								case "default-value":
-									throw new Error("Not implemented");
+									return ts.factory.createCallExpression(
+										ts.factory.createPropertyAccessExpression(
+											ts.factory.createIdentifier("$esexpr"),
+											"defaultKeywordFieldCodec",
+										),
+										undefined,
+										[
+											ts.factory.createStringLiteral(keywordName),
+											ts.factory.createArrowFunction(
+												undefined,
+												undefined,
+												[],
+												undefined,
+												ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+												this.#emitValue(f.esexprOptions.kind.mode.defaultValue),
+											),
+											this.#emitCodecExpr(f.fieldType),
+										],
+									);
+
 
 								case "optional":
 									return ts.factory.createCallExpression(
@@ -575,7 +594,7 @@ class ModEmitter {
 
 
 				return ts.factory.createPropertyAssignment(
-					ts.factory.createStringLiteral(f.name),
+					ts.factory.createStringLiteral(convertIdCamel(f.name)),
 					fieldCodec,
 				);
 			}),
@@ -732,22 +751,7 @@ class ModEmitter {
 		switch(t.$type) {
             case "defined-type":
 			{
-				let typeModule: ts.Expression;
-
-				if(PackageName.isSamePackage(this.currentPackage, t.name.package)) {
-					if(this.metadata.shadowedTypes.has(t.name.name)) {
-						typeModule = ts.factory.createIdentifier(getUnshadowedName(t.name.name));
-					}
-					else {
-						typeModule = ts.factory.createIdentifier(convertIdPascal(t.name.name));
-					}
-				}
-				else {
-					typeModule = ts.factory.createPropertyAccessExpression(
-						ts.factory.createIdentifier(getPackageIdStr(t.name.package)),
-						convertIdPascal(t.name.name)
-					);
-				}
+				const typeModule: ts.Expression = this.#emitTypeModule(t.name);
 
 				const codecExpr = ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
 
@@ -768,6 +772,23 @@ class ModEmitter {
 		}
 	}
 
+	#emitTypeModule(name: QualifiedName): ts.Expression {
+		if(PackageName.isSamePackage(this.currentPackage, name.package)) {
+			if(this.metadata.shadowedTypes.has(name.name)) {
+				return ts.factory.createIdentifier(getUnshadowedName(name.name));
+			}
+			else {
+				return ts.factory.createIdentifier(convertIdPascal(name.name));
+			}
+		}
+		else {
+			return ts.factory.createPropertyAccessExpression(
+				ts.factory.createIdentifier(getPackageIdStr(name.package)),
+				convertIdPascal(name.name)
+			);
+		}
+	}
+
 	#defAsType(def: DefinitionInfo): TypeExpr {
 		return {
 			$type: "defined-type",
@@ -777,6 +798,186 @@ class ModEmitter {
 				name: tp.name,
 			})),
 		};
+	}
+
+
+	#emitValue(value: ESExprDecodedValue): ts.Expression {
+		if(value.t.$type === "type-parameter") {
+			throw new Error("Emitted values cannot have an unsubstituted type parameter for a value.");
+		}
+
+		const t = value.t;
+
+		const typeArgs = () => t.args.length === 0
+			? undefined
+			: t.args.map(arg => this.#emitTypeExpr(arg));
+
+		const fromValue = (funcName: string, value: ts.Expression): ts.Expression => {
+			return ts.factory.createCallExpression(
+				ts.factory.createPropertyAccessExpression(
+					this.#emitTypeModule(t.name),
+					funcName,
+				),
+				typeArgs(),
+				[
+					value,
+				],
+			);
+		};
+
+		switch(value.$type) {
+			case "record":
+				return ts.factory.createObjectLiteralExpression(
+					Array.from(value.fieldValues.entries())
+						.map(([ name, value ]) => ts.factory.createPropertyAssignment(
+							convertIdCamel(name),
+							this.#emitValue(value),
+						)),
+					true,
+				);
+
+			case "enum":
+				return ts.factory.createObjectLiteralExpression(
+					[
+						ts.factory.createPropertyAssignment(ts.factory.createStringLiteral("$type"), ts.factory.createStringLiteral(value.caseName)),
+						...Array.from(value.fieldValues.entries())
+							.map(([ name, value ]) => ts.factory.createPropertyAssignment(
+								convertIdCamel(name),
+								this.#emitValue(value),
+							)),
+					],
+					true,
+				);
+
+			case "optional":
+			{
+				if(value.value === undefined) {
+					return ts.factory.createCallExpression(
+						ts.factory.createPropertyAccessExpression(
+							this.#emitTypeModule(value.t.name),
+							"empty",
+						),
+						typeArgs(),
+						[],
+					);
+				}
+				else {
+					return ts.factory.createCallExpression(
+						ts.factory.createPropertyAccessExpression(
+							this.#emitTypeModule(value.t.name),
+							"fromElement",
+						),
+						typeArgs(),
+						[
+							this.#emitValue(value.value),
+						],
+					);
+				}
+			}
+
+			case "vararg":
+			{
+				return ts.factory.createCallExpression(
+					ts.factory.createPropertyAccessExpression(
+						this.#emitTypeModule(value.t.name),
+						"fromArray",
+					),
+					typeArgs(),
+					[
+						ts.factory.createArrayLiteralExpression(
+							value.values.map(v => this.#emitValue(v)),
+							true,
+						),
+					],
+				);
+			}
+
+			case "dict":
+			{
+				return ts.factory.createCallExpression(
+					ts.factory.createPropertyAccessExpression(
+						this.#emitTypeModule(value.t.name),
+						"fromMap",
+					),
+					typeArgs(),
+					[
+						ts.factory.createNewExpression(
+							ts.factory.createIdentifier("Map"),
+							[
+								ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+								this.#emitTypeExpr(value.elementType),
+							],
+							[
+								ts.factory.createArrayLiteralExpression(
+									Array.from(value.values.entries()).map(([k, v]) =>
+										ts.factory.createArrayLiteralExpression(
+											[
+												ts.factory.createStringLiteral(k),
+												this.#emitValue(v),
+											],
+											false,
+										),
+									),
+									true,
+								),
+							],
+						),
+					],
+				);
+			}
+
+			case "build-from":
+				return fromValue("buildFrom", this.#emitValue(value.value));
+
+			case "from-bool":
+				return fromValue("fromBoolean", value.b ? ts.factory.createTrue() : ts.factory.createFalse());
+
+			case "from-int":
+				if(
+					value.minInt !== undefined &&
+					value.minInt >= BigInt(Number.MIN_SAFE_INTEGER) &&
+					value.maxInt !== undefined &&
+					value.maxInt <= BigInt(Number.MAX_SAFE_INTEGER)
+				) {
+					return fromValue("fromNumberInteger", ts.factory.createNumericLiteral(Number(value.i)));
+				}
+				else {
+					return fromValue("fromBigInt", ts.factory.createBigIntLiteral(value.i.toString() + "n"));
+				}
+
+			case "from-str":
+				return fromValue("fromString", ts.factory.createStringLiteral(value.s));
+
+			case "from-binary":
+				return fromValue("fromUint8Array", ts.factory.createNewExpression(
+					ts.factory.createIdentifier("Uint8Array"),
+					undefined,
+					[
+						ts.factory.createArrayLiteralExpression(
+							Array.from(value.b).map(b => ts.factory.createNumericLiteral(b)),
+							false,
+						),
+					],
+				));
+
+			case "from-float32":
+				return fromValue("fromNumberFloat32", ts.factory.createNumericLiteral(value.f));
+
+			case "from-float64":
+				return fromValue("fromNumberFloat64", ts.factory.createNumericLiteral(value.f));
+
+			case "from-null":
+				return ts.factory.createCallExpression(
+					ts.factory.createPropertyAccessExpression(
+						this.#emitTypeModule(t.name),
+						"fromNull",
+					),
+					typeArgs(),
+					[],
+				);
+
+
+		}
 	}
 
 

@@ -417,6 +417,7 @@ enum esexpr-decoded-value {
 
     optional {
         t: type-expr;
+        element-type: type-expr;
 
         @esexpr: (optional)
         value: optional-field[esexpr-decoded-value];
@@ -424,6 +425,7 @@ enum esexpr-decoded-value {
 
     vararg {
         t: type-expr;
+        element-type: type-expr;
 
         @esexpr: (vararg)
         values: list[esexpr-decoded-value];
@@ -431,6 +433,7 @@ enum esexpr-decoded-value {
 
     dict {
         t: type-expr;
+        element-type: type-expr;
 
         @esexpr: (dict)
         values: dict[esexpr-decoded-value];
@@ -438,6 +441,7 @@ enum esexpr-decoded-value {
 
     build-from {
         t: type-expr;
+        from-type: type-expr;
         from-value: esexpr-decoded-value;
     },
 

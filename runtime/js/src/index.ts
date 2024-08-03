@@ -132,6 +132,8 @@ export namespace OptionalField {
 	export function optionalCodec<A>(aCodec: ESExprCodec<A>): esexpr.OptionalValueCodec<OptionalField<A>> {
 		return esexpr.undefinedOptionalCodec(aCodec);
 	}
+
+	export 
 }
 
 export type Dict<A> = ReadonlyMap<string, A>;

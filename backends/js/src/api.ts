@@ -509,21 +509,25 @@ export type ESExprDecodedValue =
 	| {
 		readonly $type: "optional",
 		readonly t: TypeExpr,
+		readonly elementType: TypeExpr,
 		readonly value?: ESExprDecodedValue | undefined,
 	}
 	| {
 		readonly $type: "vararg",
 		readonly t: TypeExpr,
+		readonly elementType: TypeExpr,
 		readonly values: readonly ESExprDecodedValue[],
 	}
 	| {
 		readonly $type: "dict",
 		readonly t: TypeExpr,
+		readonly elementType: TypeExpr,
 		readonly values: ReadonlyMap<string, ESExprDecodedValue>,
 	}
 	| {
 		readonly $type: "build-from",
 		readonly t: TypeExpr,
+		readonly fromType: TypeExpr,
 		readonly value: ESExprDecodedValue,
 	}
 	| {
@@ -577,18 +581,22 @@ export namespace ESExprDecodedValue {
 		}),
 		optional: esexpr.caseCodec("optional", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
 			value: esexpr.optionalPositionalFieldCodec(esexpr.undefinedOptionalCodec(ESExprDecodedValue.codec)),
 		}),
 		vararg: esexpr.caseCodec("vararg", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
 			values: esexpr.varargFieldCodec(esexpr.arrayRepeatedValuesCodec(ESExprDecodedValue.codec)),
 		}),
 		dict: esexpr.caseCodec("dict", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
+			elementType: esexpr.positionalFieldCodec(TypeExpr.codec),
 			values: esexpr.dictFieldCodec(esexpr.mapMappedValueCodec(ESExprDecodedValue.codec)),
 		}),
 		"build-from": esexpr.caseCodec("build-from", {
 			t: esexpr.positionalFieldCodec(TypeExpr.codec),
+			fromType: esexpr.positionalFieldCodec(TypeExpr.codec),
 			value: esexpr.positionalFieldCodec(ESExprDecodedValue.codec),
 		}),
 		"from-bool": esexpr.caseCodec("from-bool", {

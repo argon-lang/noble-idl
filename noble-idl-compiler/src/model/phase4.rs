@@ -246,7 +246,12 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				let dec_value = self.parse_value(&build_from, value)?;
 				self.seen_decode_types.remove(&build_from_type_name);
 
-				EsexprDecodedValue::BuildFrom { t: t.clone(), from_value: Box::new(dec_value) }
+				EsexprDecodedValue::BuildFrom {
+					t: t.clone(),
+					from_type: build_from,
+
+					from_value: Box::new(dec_value),
+				}
 			},
 			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: t.clone(), b: *b } } else { self.fail()? },
 			ESExpr::Int(i) => {
@@ -293,6 +298,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(element_type)) =>
 					EsexprDecodedValue::Optional {
 						t: field_type,
+						element_type: element_type.clone(),
+
 						value: Box::new(
 							args.pop_front()
 								.map(|value| self.parse_value(element_type, value))
@@ -303,6 +310,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(element_type)) =>
 					EsexprDecodedValue::Optional {
 						t: field_type,
+						element_type: element_type.clone(),
+
 						value: Box::new(
 							kwargs.remove(&field.name)
 								.map(|value| self.parse_value(element_type, value))
@@ -335,7 +344,11 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 						dict.insert(k, item_value);
 					}
 
-					EsexprDecodedValue::Dict { t: field_type, values: dict }
+					EsexprDecodedValue::Dict {
+						t: field_type,
+						element_type: element_type.clone(),
+						values: dict,
+					}
 				},
 
 				EsexprRecordFieldKind::Vararg(element_type) => {
@@ -345,7 +358,11 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 						vararg.push(item_value);
 					}
 
-					EsexprDecodedValue::Vararg { t: field_type, values: vararg }
+					EsexprDecodedValue::Vararg {
+						t: field_type,
+						element_type: element_type.clone(),
+						values: vararg,
+					}
 				},
 			};
 

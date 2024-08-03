@@ -98,6 +98,7 @@ pub enum EsexprDecodedValue {
     #[constructor = "optional"]
     Optional {
         t: crate::TypeExpr,
+        element_type: crate::TypeExpr,
         #[optional]
         value: ::std::boxed::Box<
             ::noble_idl_runtime::OptionalField<crate::EsexprDecodedValue>,
@@ -106,18 +107,21 @@ pub enum EsexprDecodedValue {
     #[constructor = "vararg"]
     Vararg {
         t: crate::TypeExpr,
+        element_type: crate::TypeExpr,
         #[vararg]
         values: ::noble_idl_runtime::List<crate::EsexprDecodedValue>,
     },
     #[constructor = "dict"]
     Dict {
         t: crate::TypeExpr,
+        element_type: crate::TypeExpr,
         #[dict]
         values: ::noble_idl_runtime::Dict<crate::EsexprDecodedValue>,
     },
     #[constructor = "build-from"]
     BuildFrom {
         t: crate::TypeExpr,
+        from_type: crate::TypeExpr,
         from_value: ::std::boxed::Box<crate::EsexprDecodedValue>,
     },
     #[constructor = "from-bool"]
