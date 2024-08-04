@@ -31,15 +31,15 @@ fn main() {
 				]),
 			},
 
-			output_dir: dir.join("../../../../noble-idl-api/src").into_os_string().into_string().unwrap(),
+			output_dir: dir.join("../../../../../noble-idl-api/src").into_os_string().into_string().unwrap(),
 		},
 
 		files: vec![
-			dir.join("../../../noble-idl/compiler-api.nidl"),
+			dir.join("../../../../noble-idl/backend/compiler-api.nidl"),
 		],
 
 		library_files: vec![
-			dir.join("../../../../runtime/noble-idl/nobleidl-core.nidl"),
+			dir.join("../../../../noble-idl/runtime/nobleidl-core.nidl"),
 		],
 	};
 

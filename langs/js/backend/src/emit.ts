@@ -690,7 +690,7 @@ class ModEmitter {
 							ts.factory.createTypeReferenceNode(
 								ts.factory.createQualifiedName(
 									ts.factory.createIdentifier("$esexpr"),
-									"EsexprCodec"
+									"ESExprCodec"
 								),
 								[
 									this.#emitTypeExpr(this.#defAsType(def)),
@@ -719,7 +719,7 @@ class ModEmitter {
 					ts.factory.createTypeReferenceNode(
 						ts.factory.createQualifiedName(
 							ts.factory.createIdentifier("$esexpr"),
-							"EsexprCodec"
+							"ESExprCodec"
 						),
 						[
 							this.#emitTypeExpr({ $type: "type-parameter", name: tp.name }),
@@ -730,7 +730,7 @@ class ModEmitter {
 				ts.factory.createTypeReferenceNode(
 					ts.factory.createQualifiedName(
 						ts.factory.createIdentifier("$esexpr"),
-						"EsexprCodec"
+						"ESExprCodec"
 					),
 					[
 						this.#emitTypeExpr(this.#defAsType(def)),

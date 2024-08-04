@@ -5,7 +5,6 @@ import * as path from "node:path";
 
 
 const dir = import.meta.dirname;
-console.log(dir);
 
 const compilerOptions: JavaScriptIDLCompilerOptions = {
 	languageOptions: {
@@ -26,11 +25,11 @@ const compilerOptions: JavaScriptIDLCompilerOptions = {
 	},
 
 	inputFiles: [
-		path.join(dir, "../../noble-idl/compiler-api.nidl"),
+		path.join(dir, "../../../noble-idl/backend/compiler-api.nidl"),
 	],
 
 	libraryFiles: [
-		path.join(dir, "../../../runtime/noble-idl/nobleidl-core.nidl"),
+		path.join(dir, "../../../noble-idl/runtime/nobleidl-core.nidl"),
 	],
 };
 await compile(compilerOptions);

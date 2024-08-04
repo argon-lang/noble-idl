@@ -9,7 +9,7 @@
     "./binary_format": "./lib/binary_format.js"
   },
   "scripts": {
-    "prebuild": "cpy --cwd=../noble-idl/ nobleidl-core.nidl ../js/src/",
+    "prebuild": "cpy --cwd=../../noble-idl/runtime nobleidl-core.nidl ../../js/runtime/src/",
     "build": "npm run prebuild && tsc --project .",
     "test": "npm run build && vitest run --root lib"
   },

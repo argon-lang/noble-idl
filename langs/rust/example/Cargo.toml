@@ -5,10 +5,10 @@ edition = "2021"
 
 [dependencies]
 esexpr = "0.1.12"
-noble-idl-runtime = { path = "../../runtime/rust" }
+noble-idl-runtime = { path = "../runtime" }
 
 [build-dependencies]
-noble-idl-compiler-rust = { path = "../../backends/rust" }
+noble-idl-compiler-rust = { path = "../backend" }
 
 
 [package.metadata.noble-idl.package_mapping]

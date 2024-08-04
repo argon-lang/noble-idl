@@ -3,7 +3,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-const wasmFile = path.join(import.meta.dirname, "../../target/wasm32-unknown-unknown/release/noble_idl_compiler.wasm");
+const wasmFile = path.join(import.meta.dirname, "../../../target/wasm32-unknown-unknown/release/noble_idl_compiler.wasm");
 
 const wasmContent = await fs.readFile(wasmFile);
 

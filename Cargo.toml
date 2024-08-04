@@ -2,9 +2,9 @@
 resolver = "2"
 
 members = [
-    "backends/rust",
-    "examples/rust",
+    "langs/rust/runtime",
+    "langs/rust/backend",
+    "langs/rust/example",
     "noble-idl-api",
     "noble-idl-compiler",
-    "runtime/rust",
 ]

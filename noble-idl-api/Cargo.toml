@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 esexpr = "0.1.14"
 num-bigint = "0.4.6"
-noble-idl-runtime = { path = "../runtime/rust" }
+noble-idl-runtime = { path = "../langs/rust/runtime" }
