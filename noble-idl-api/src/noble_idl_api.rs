@@ -179,7 +179,7 @@ pub enum EsexprEnumCaseType {
 #[constructor = "enum-options"]
 pub struct EsexprEnumOptions {
     #[keyword = "simple-enum"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub simple_enum: ::noble_idl_runtime::Bool,
 }
 #[derive(
@@ -191,10 +191,10 @@ pub struct EsexprEnumOptions {
 #[constructor = "literals"]
 pub struct EsexprExternTypeLiterals {
     #[keyword = "allow-bool"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_bool: ::noble_idl_runtime::Bool,
     #[keyword = "allow-int"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_int: ::noble_idl_runtime::Bool,
     #[keyword = "min-int"]
     #[optional]
@@ -203,19 +203,19 @@ pub struct EsexprExternTypeLiterals {
     #[optional]
     pub max_int: ::noble_idl_runtime::OptionalField<::noble_idl_runtime::Int>,
     #[keyword = "allow-str"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_str: ::noble_idl_runtime::Bool,
     #[keyword = "allow-binary"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_binary: ::noble_idl_runtime::Bool,
     #[keyword = "allow-float32"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_float32: ::noble_idl_runtime::Bool,
     #[keyword = "allow-float64"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_float64: ::noble_idl_runtime::Bool,
     #[keyword = "allow-null"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_null: ::noble_idl_runtime::Bool,
     #[keyword = "build-literal-from"]
     #[optional]
@@ -230,7 +230,7 @@ pub struct EsexprExternTypeLiterals {
 #[constructor = "extern-type-options"]
 pub struct EsexprExternTypeOptions {
     #[keyword = "allow-value"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as std :: convert :: From < _ > > :: from (false)"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_value: ::noble_idl_runtime::Bool,
     #[keyword = "allow-optional"]
     #[optional]
@@ -292,6 +292,7 @@ pub enum EsexprRecordKeywordMode {
 )]
 #[constructor = "record-options"]
 pub struct EsexprRecordOptions {
+    #[keyword = "constructor"]
     pub constructor: ::noble_idl_runtime::String,
 }
 #[derive(

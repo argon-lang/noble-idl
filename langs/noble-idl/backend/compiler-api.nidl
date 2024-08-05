@@ -243,6 +243,7 @@ enum type-parameter {
 @esexpr: (derive-codec)
 @esexpr: (constructor "record-options")
 record esexpr-record-options {
+    @esexpr: (keyword)
     constructor: string;
 }
 

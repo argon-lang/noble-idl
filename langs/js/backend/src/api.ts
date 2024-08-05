@@ -328,7 +328,7 @@ export interface EsexprRecordOptions {
 }
 export namespace EsexprRecordOptions {
     export const codec: $esexpr.ESExprCodec<EsexprRecordOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprRecordOptions>("record-options", {
-        "constructor": $esexpr.positionalFieldCodec(nobleidl__core.String.codec)
+        "constructor": $esexpr.keywordFieldCodec("constructor", nobleidl__core.String.codec)
     }));
 }
 export type EsexprRecordPositionalMode = {
