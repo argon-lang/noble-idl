@@ -573,7 +573,7 @@ impl <'a> ModEmitter<'a> {
 		}
 	}
 
-	fn emit_record_value(&self, t: &TypeExpr, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_record_value(&self, t: &TypeExpr, field_values: &[EsexprDecodedFieldValue]) -> Result<syn::Expr, EmitError> {
 		Ok(syn::Expr::Struct(syn::ExprStruct {
 			attrs: vec![],
 			qself: None,
@@ -585,7 +585,7 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &[EsexprDecodedFieldValue]) -> Result<syn::Expr, EmitError> {
 		let mut path = self.get_type_path(t)?;
 		path.segments.push(syn::PathSegment {
 			ident: convert_id_pascal(case_name),
@@ -603,12 +603,12 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_field_values(&self, field_values: &HashMap<String, EsexprDecodedValue>) -> Result<Vec<syn::FieldValue>, EmitError> {
-		field_values.iter().map(|(name, value)| {
-			let value = self.emit_value(value)?;
+	fn emit_field_values(&self, field_values: &[EsexprDecodedFieldValue]) -> Result<Vec<syn::FieldValue>, EmitError> {
+		field_values.iter().map(|fv| {
+			let value = self.emit_value(&fv.value)?;
 			Ok(syn::FieldValue {
 				attrs: vec![],
-				member: syn::Member::Named(convert_id_snake(name)),
+				member: syn::Member::Named(convert_id_snake(&fv.name)),
 				colon_token: Some(syn::token::Colon::default()),
 				expr: value,
 			})

@@ -81,19 +81,30 @@ pub struct EnumDefinition {
     ::std::cmp::PartialEq,
     ::esexpr::ESExprCodec
 )]
+#[constructor = "field-value"]
+pub struct EsexprDecodedFieldValue {
+    pub name: ::noble_idl_runtime::String,
+    pub value: crate::EsexprDecodedValue,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
 pub enum EsexprDecodedValue {
     #[constructor = "record"]
     Record {
         t: crate::TypeExpr,
-        #[dict]
-        fields: ::noble_idl_runtime::Dict<crate::EsexprDecodedValue>,
+        #[vararg]
+        fields: ::noble_idl_runtime::List<crate::EsexprDecodedFieldValue>,
     },
     #[constructor = "enum"]
     Enum {
         t: crate::TypeExpr,
         case_name: ::noble_idl_runtime::String,
-        #[dict]
-        fields: ::noble_idl_runtime::Dict<crate::EsexprDecodedValue>,
+        #[vararg]
+        fields: ::noble_idl_runtime::List<crate::EsexprDecodedFieldValue>,
     },
     #[constructor = "optional"]
     Optional {

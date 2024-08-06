@@ -71,15 +71,25 @@ export namespace EnumDefinition {
         "esexprOptions": $esexpr.optionalKeywordFieldCodec("esexpr-options", nobleidl__core.OptionalField.optionalCodec<EsexprEnumOptions>(EsexprEnumOptions.codec))
     }));
 }
+export interface EsexprDecodedFieldValue {
+    name: nobleidl__core.String;
+    value: EsexprDecodedValue;
+}
+export namespace EsexprDecodedFieldValue {
+    export const codec: $esexpr.ESExprCodec<EsexprDecodedFieldValue> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprDecodedFieldValue>("field-value", {
+        "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
+        "value": $esexpr.positionalFieldCodec(EsexprDecodedValue.codec)
+    }));
+}
 export type EsexprDecodedValue = {
     $type: "record";
     t: TypeExpr;
-    fields: nobleidl__core.Dict<EsexprDecodedValue>;
+    fields: nobleidl__core.List<EsexprDecodedFieldValue>;
 } | {
     $type: "enum";
     t: TypeExpr;
     caseName: nobleidl__core.String;
-    fields: nobleidl__core.Dict<EsexprDecodedValue>;
+    fields: nobleidl__core.List<EsexprDecodedFieldValue>;
 } | {
     $type: "optional";
     t: TypeExpr;
@@ -134,12 +144,12 @@ export namespace EsexprDecodedValue {
     export const codec: $esexpr.ESExprCodec<EsexprDecodedValue> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprDecodedValue>({
         "record": $esexpr.caseCodec("record", {
             "t": $esexpr.positionalFieldCodec(TypeExpr.codec),
-            "fields": $esexpr.dictFieldCodec(nobleidl__core.Dict.dictCodec<EsexprDecodedValue>(EsexprDecodedValue.codec))
+            "fields": $esexpr.varargFieldCodec(nobleidl__core.List.varargCodec<EsexprDecodedFieldValue>(EsexprDecodedFieldValue.codec))
         }),
         "enum": $esexpr.caseCodec("enum", {
             "t": $esexpr.positionalFieldCodec(TypeExpr.codec),
             "caseName": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
-            "fields": $esexpr.dictFieldCodec(nobleidl__core.Dict.dictCodec<EsexprDecodedValue>(EsexprDecodedValue.codec))
+            "fields": $esexpr.varargFieldCodec(nobleidl__core.List.varargCodec<EsexprDecodedFieldValue>(EsexprDecodedFieldValue.codec))
         }),
         "optional": $esexpr.caseCodec("optional", {
             "t": $esexpr.positionalFieldCodec(TypeExpr.codec),

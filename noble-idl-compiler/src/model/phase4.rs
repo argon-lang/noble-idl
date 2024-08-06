@@ -276,8 +276,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 		})
 	}
 
-	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[TypeExpr], fields: &'a [RecordField], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<HashMap<String, EsexprDecodedValue>, CheckError> {
-		let mut parsed = HashMap::new();
+	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[TypeExpr], fields: &'a [RecordField], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<Vec<EsexprDecodedFieldValue>, CheckError> {
+		let mut parsed = Vec::new();
 
 		let mapping = dfn.type_parameters.iter().map(|tp| tp.name()).zip(type_args).collect::<HashMap<_, _>>();
 
@@ -366,7 +366,10 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				},
 			};
 
-			parsed.insert(field.name.clone(), value);
+			parsed.push(EsexprDecodedFieldValue {
+				name: field.name.clone(),
+				value
+			});
 		}
 
 		Ok(parsed)

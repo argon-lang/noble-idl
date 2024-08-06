@@ -331,7 +331,7 @@ class ModEmitter {
 					ts.factory.createStringLiteral(r.esexprOptions.constructor),
 					this.#emitFieldCodecs(r.fields),
 				],
-			)
+			);
 
 			nodes.push(ts.factory.createModuleDeclaration(
 				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
@@ -340,7 +340,7 @@ class ModEmitter {
 					this.#emitCodecDecl(def, codecExpr),
 				]),
 				ts.NodeFlags.Namespace,
-			))
+			));
 		}
 
         return nodes;
@@ -828,8 +828,8 @@ class ModEmitter {
 		switch(value.$type) {
 			case "record":
 				return ts.factory.createObjectLiteralExpression(
-					Array.from(value.fields.entries())
-						.map(([ name, value ]) => ts.factory.createPropertyAssignment(
+					Array.from(value.fields)
+						.map(({ name, value }) => ts.factory.createPropertyAssignment(
 							convertIdCamel(name),
 							this.#emitValue(value),
 						)),
@@ -840,8 +840,8 @@ class ModEmitter {
 				return ts.factory.createObjectLiteralExpression(
 					[
 						ts.factory.createPropertyAssignment(ts.factory.createStringLiteral("$type"), ts.factory.createStringLiteral(value.caseName)),
-						...Array.from(value.fields.entries())
-							.map(([ name, value ]) => ts.factory.createPropertyAssignment(
+						...Array.from(value.fields)
+							.map(({ name, value }) => ts.factory.createPropertyAssignment(
 								convertIdCamel(name),
 								this.#emitValue(value),
 							)),
@@ -1180,7 +1180,6 @@ interface JSModule {
 function convertIdPascal(kebab: string): string {
     return kebab
         .split('-')
-        .map(segment => (segment.match(/^\d/) ? "-" : "") + segment)
         .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
         .join('');
 }

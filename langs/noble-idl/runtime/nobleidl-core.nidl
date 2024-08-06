@@ -1,45 +1,55 @@
 package nobleidl.core;
 
 @esexpr:(derive-codec)
+@java:(mapped-to "dev.argon.esexpr.ESExpr")
 extern type esexpr;
 
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-str: #true)
+@java:(mapped-to "java.lang.String")
 extern type string;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-binary: #true)
+@java:(mapped-to (array "byte"))
 extern type binary;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true)
+@java:(mapped-to "java.math.BigInteger")
 extern type int;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0)
+@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "java.math.BigInteger"))
 extern type nat;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-bool: #true)
+@java:(mapped-to "bool")
 extern type bool;
 
 
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -128 max-int: 127)
+@java:(mapped-to "byte")
 extern type i8;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 255)
+@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "byte"))
 extern type u8;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -32768 max-int: 32767)
+@java:(mapped-to "short")
 extern type i16;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 65535)
+@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "short"))
 extern type u16;
 
 @esexpr:(derive-codec)
@@ -48,44 +58,54 @@ extern type i32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 4294967295)
+@java:(mapped-to "int")
+@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "int"))
 extern type u32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -9223372036854775808 max-int: 9223372036854775807)
+@java:(mapped-to "long")
 extern type i64;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 18446744073709551615)
+@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "long"))
 extern type u64;
 
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-float32: #true)
+@java:(mapped-to "float")
 extern type f32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-float32: #true)
+@java:(mapped-to "double")
 extern type f64;
 
-
+@java:(mapped-to "void")
 extern type unit;
 
 @esexpr:(derive-codec)
 @esexpr:(allow-vararg (type-parameter "a"))
+@java:(mapped-to (apply "java.util.List" (type-parameter "a")))
 extern type list[
     @rust:(boxed-usage)
     a,
 ];
 
 @esexpr:(derive-codec)
+@java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))
 extern type option[a];
 
 
 @esexpr:(allow-optional (type-parameter "a"))
+@java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))
 extern type optional-field[a];
 
 @esexpr:(derive-codec)
 @esexpr:(allow-dict (type-parameter "a"))
+@java:(mapped-to (apply "dev.argon.esexpr.KeywordMapping" (type-parameter "a")))
 extern type dict[
     @rust:(boxed-usage)
     a,
