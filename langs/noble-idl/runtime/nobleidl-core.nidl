@@ -22,12 +22,12 @@ extern type int;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0)
-@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "java.math.BigInteger"))
+@java:(mapped-to (annotated "java.math.BigInteger" "dev.argon.esexpr.Unsigned"))
 extern type nat;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-bool: #true)
-@java:(mapped-to "bool")
+@java:(mapped-to "boolean")
 extern type bool;
 
 
@@ -39,7 +39,7 @@ extern type i8;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 255)
-@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "byte"))
+@java:(mapped-to (annotated "byte" "dev.argon.esexpr.Unsigned"))
 extern type u8;
 
 @esexpr:(derive-codec)
@@ -49,7 +49,7 @@ extern type i16;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 65535)
-@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "short"))
+@java:(mapped-to (annotated "short" "dev.argon.esexpr.Unsigned"))
 extern type u16;
 
 @esexpr:(derive-codec)
@@ -59,7 +59,7 @@ extern type i32;
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 4294967295)
 @java:(mapped-to "int")
-@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "int"))
+@java:(mapped-to (annotated "int" "dev.argon.esexpr.Unsigned"))
 extern type u32;
 
 @esexpr:(derive-codec)
@@ -69,7 +69,7 @@ extern type i64;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 18446744073709551615)
-@java:(mapped-to (annotated "dev.argon.esexpr.Unsigned" "long"))
+@java:(mapped-to (annotated "long" "dev.argon.esexpr.Unsigned"))
 extern type u64;
 
 

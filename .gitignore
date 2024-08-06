@@ -2,6 +2,7 @@
 .metals/
 .scala-build/
 .vscode/
+.idea/
 target/
 node_modules/
 
