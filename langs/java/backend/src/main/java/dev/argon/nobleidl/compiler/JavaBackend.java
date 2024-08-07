@@ -65,7 +65,7 @@ class JavaBackend {
 	}
 
 	private CodeWriter openFile(DefinitionInfo dfn) throws IOException, NobleIDLCompileErrorException {
-		var idlPackageName = dfn.name().packageName();
+		var idlPackageName = dfn.name()._package();
 		var javaPackageName = getJavaPackage(idlPackageName);
 
 		var path = Path.of(languageOptions.outputDir());
@@ -86,7 +86,7 @@ class JavaBackend {
 	private void emitRecord(DefinitionInfo dfn, RecordDefinition r) throws IOException, NobleIDLCompileErrorException {
 		try(var w = openFile(dfn)) {
 			w.print("package ");
-			w.print(getJavaPackage(dfn.name().packageName()));
+			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
 
 			var esexprOptions = r.esexprOptions().orElse(null);
@@ -115,7 +115,7 @@ class JavaBackend {
 	private void emitEnum(DefinitionInfo dfn, EnumDefinition e) throws IOException, NobleIDLCompileErrorException {
 		try(var w = openFile(dfn)) {
 			w.print("package ");
-			w.print(getJavaPackage(dfn.name().packageName()));
+			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
 
 
@@ -153,7 +153,7 @@ class JavaBackend {
 				writeTypeParameters(w, dfn.typeParameters());
 				writeRecordParameters(w, c.fields());
 				w.print(" implements ");
-				w.print(getJavaPackage(dfn.name().packageName()));
+				w.print(getJavaPackage(dfn.name()._package()));
 				w.print(".");
 				w.print(convertIdPascal(dfn.name().name()));
 				writeTypeParametersAsArguments(w, dfn.typeParameters());
@@ -170,7 +170,7 @@ class JavaBackend {
 	private void emitInterface(DefinitionInfo dfn, InterfaceDefinition iface) throws IOException, NobleIDLCompileErrorException {
 		try(var w = openFile(dfn)) {
 			w.print("package ");
-			w.print(getJavaPackage(dfn.name().packageName()));
+			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
 
 			w.print("public interface ");
@@ -296,7 +296,7 @@ class JavaBackend {
 			w.print(" ");
 		}
 		w.print("dev.argon.esexpr.ESExprCodec<");
-		w.print(getJavaPackage(dfn.name().packageName()));
+		w.print(getJavaPackage(dfn.name()._package()));
 		w.print(".");
 		w.print(convertIdPascal(dfn.name().name()));
 		writeTypeParametersAsArguments(w, dfn.typeParameters());
@@ -323,14 +323,14 @@ class JavaBackend {
 
 		w.print("return ");
 		if(dfn.typeParameters().isEmpty()) {
-			w.print(getJavaPackage(dfn.name().packageName()));
+			w.print(getJavaPackage(dfn.name()._package()));
 			w.print(".");
 			w.print(convertIdPascal(dfn.name().name()));
 			w.print("_CodecImpl.INSTANCE");
 		}
 		else {
 			w.print("new ");
-			w.print(getJavaPackage(dfn.name().packageName()));
+			w.print(getJavaPackage(dfn.name()._package()));
 			w.print(".");
 			w.print(convertIdPascal(dfn.name().name()));
 			w.print("_CodecImpl");
@@ -721,7 +721,7 @@ class JavaBackend {
 			case TypeExpr.DefinedType(var name, var args) -> {
 				var mappedType = ignoreMapping ? null : getMappedType(name).orElse(null);
 				if(mappedType == null) {
-					var className = getJavaPackage(name.packageName()) + "." + convertIdPascal(name.name());
+					var className = getJavaPackage(name._package()) + "." + convertIdPascal(name.name());
 					var javaArgs = new ArrayList<JavaTypeExpr>();
 					for(var arg : args) {
 						javaArgs.add(typeExprToJava(arg));

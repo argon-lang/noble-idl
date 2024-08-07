@@ -26,6 +26,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(22)
     }
+
+    sourceSets["main"].java.srcDir("src/gen/java")
 }
 
 tasks.named<Test>("test") {
