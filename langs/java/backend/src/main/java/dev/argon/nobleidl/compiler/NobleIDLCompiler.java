@@ -131,7 +131,6 @@ class NobleIDLCompiler implements AutoCloseable {
 			var resultBuffer = compileModule(optionsBuffer);
 			try {
 				var expr = bufferToExpr(resultBuffer);
-				NobleIdlCompileModelResult compileModelResult;
 				try {
 					return NobleIdlCompileModelResult.codec().decode(expr);
 				}

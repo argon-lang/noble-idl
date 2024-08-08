@@ -13,3 +13,7 @@ node_modules/
 /langs/js/*/out/
 /langs/js/*/src-gen/
 
+
+
+*.nidl
+!nible-idl/**/*.nidl

@@ -13,3 +13,5 @@ plugins {
 rootProject.name = "noble-idl-java"
 include("runtime")
 include("backend")
+include("example")
+include("util")
