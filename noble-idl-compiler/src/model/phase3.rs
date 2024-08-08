@@ -45,6 +45,9 @@ impl <'a> ESExprOptionParser<'a> {
 			Definition::Enum(e) =>
 				self.scan_enum(&dfn.name, &dfn.annotations, e)?,
 
+			Definition::SimpleEnum(e) =>
+				self.scan_simple_enum(&dfn.name, &dfn.annotations, e)?,
+
 			Definition::ExternType(et) => {
 				self.esexpr_codecs.insert(dfn.name.clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
 			},
@@ -103,7 +106,6 @@ impl <'a> ESExprOptionParser<'a> {
 
 	fn scan_enum(&mut self, def_name: &QualifiedName, annotations: &[Annotation], e: &mut EnumDefinition) -> Result<(), CheckError> {
 		let mut has_derive_codec = false;
-		let mut has_simple_enum = false;
 		for ann in annotations {
 			if ann.scope != "esexpr" {
 				continue;
@@ -120,24 +122,11 @@ impl <'a> ESExprOptionParser<'a> {
 
 					has_derive_codec = true;
 				},
-				EsexprAnnEnum::SimpleEnum => {
-					if has_simple_enum {
-						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "simple-enum".to_owned()));
-					}
-
-					has_simple_enum = true;
-				},
 			}
 		}
 
-		if !has_derive_codec && has_simple_enum {
-			return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
-		}
-
 		if has_derive_codec {
-			e.esexpr_options = Some(EsexprEnumOptions {
-				simple_enum: has_simple_enum,
-			});
+			e.esexpr_options = Some(EsexprEnumOptions {});
 		}
 
 		for c in &mut e.cases {
@@ -200,6 +189,72 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			self.scan_fields(&mut c.fields, def_name, Some(&c.name), has_derive_codec)?;
+		}
+
+		self.esexpr_codecs.insert(def_name.clone(), has_derive_codec);
+
+		Ok(())
+	}
+
+	fn scan_simple_enum(&mut self, def_name: &QualifiedName, annotations: &[Annotation], e: &mut SimpleEnumDefinition) -> Result<(), CheckError> {
+		let mut has_derive_codec = false;
+		for ann in annotations {
+			if ann.scope != "esexpr" {
+				continue;
+			}
+
+			let esexpr_rec = EsexprAnnSimpleEnum::decode_esexpr(ann.value.clone())
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+			match esexpr_rec {
+				EsexprAnnSimpleEnum::DeriveCodec => {
+					if has_derive_codec {
+						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
+					}
+
+					has_derive_codec = true;
+				},
+			}
+		}
+
+		if has_derive_codec {
+			e.esexpr_options = Some(EsexprSimpleEnumOptions {});
+		}
+
+		for c in &mut e.cases {
+			let mut constructor = None;
+			for ann in &c.annotations {
+				if ann.scope != "esexpr" {
+					continue;
+				}
+
+				if !has_derive_codec {
+					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![ c.name.clone() ]));
+				}
+
+				let esexpr_rec = EsexprAnnSimpleEnumCase::decode_esexpr(ann.value.clone())
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+				match esexpr_rec {
+					EsexprAnnSimpleEnumCase::Constructor(constructor_name) => {
+						if constructor.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
+						}
+
+						constructor = Some(constructor_name);
+					},
+				}
+			}
+
+			if !has_derive_codec && constructor.is_some() {
+				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
+			}
+
+			if has_derive_codec {
+				c.esexpr_options = Some(EsexprSimpleEnumCaseOptions {
+					name: constructor.unwrap_or_else(|| c.name.clone()),
+				});
+			}
 		}
 
 		self.esexpr_codecs.insert(def_name.clone(), has_derive_codec);

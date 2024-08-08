@@ -54,6 +54,7 @@ extern type u16;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -2147483648 max-int: 2147483647)
+@java:(mapped-to "int")
 extern type i32;
 
 @esexpr:(derive-codec)

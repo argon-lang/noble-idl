@@ -2,6 +2,7 @@ package dev.argon.nobleidl.compiler;
 
 import dev.argon.esexpr.ESExprBinaryWriter;
 import dev.argon.esexpr.KeywordMapping;
+import dev.argon.esexpr.codecs.ListCodec;
 import dev.argon.nobleidl.compiler.api.*;
 
 import java.io.IOException;

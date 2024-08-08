@@ -47,6 +47,7 @@ impl <'a> ESExprChecker<'a> {
 		match &def.definition {
 			noble_idl_api::Definition::Record(r) => self.check_record(def, r),
 			noble_idl_api::Definition::Enum(e) => self.check_enum(def, e),
+			noble_idl_api::Definition::SimpleEnum(e) => self.check_simple_enum(def, e),
 			noble_idl_api::Definition::ExternType(et) => self.check_extern_type(def, et),
 			noble_idl_api::Definition::Interface(_) => Ok(()),
 		}
@@ -98,6 +99,31 @@ impl <'a> ESExprChecker<'a> {
 			}
 
 			self.check_fields(&c.fields, &def.name, Some(&c.name))?;
+		}
+
+		Ok(())
+	}
+
+	fn check_simple_enum(&mut self, def: &DefinitionInfo, e: &'a SimpleEnumDefinition) -> Result<(), CheckError> {
+		if !e.esexpr_options.is_some() {
+			return Ok(())
+		}
+
+		let mut tags = HashSet::new();
+
+		let mut add_tag = |tag| {
+			if let Some(tag) = tags.replace(tag) {
+				return Err(CheckError::ESExprDuplicateTag(def.name.clone(), tag));
+			}
+			else {
+				return Ok(())
+			}
+		};
+
+		for c in &e.cases {
+			let Some(esexpr_options) = c.esexpr_options.as_ref() else { continue; };
+
+			add_tag(ESExprTag::Constructor(esexpr_options.name.clone()))?;
 		}
 
 		Ok(())

@@ -82,6 +82,13 @@ enum string-or-int {
     },
 }
 
+@esexpr:(derive-codec)
+simple enum my-simple-enum {
+    a,
+    b,
+    c,
+}
+
 
 @esexpr:(derive-codec)
 record many-values {

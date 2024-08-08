@@ -59,6 +59,7 @@ class JavaBackend {
 		switch(dfn.definition()) {
 			case Definition.Record(var r) -> emitRecord(dfn, r);
 			case Definition.Enum(var e) -> emitEnum(dfn, e);
+			case Definition.SimpleEnum(var e) -> emitSimpleEnum(dfn, e);
 			case Definition.ExternType(_) -> {}
 			case Definition.Interface(var iface) -> emitInterface(dfn, iface);
 		}
@@ -104,8 +105,9 @@ class JavaBackend {
 			w.println(" {");
 			w.indent();
 
-
-			writeCodecMethod(w, dfn);
+			if(r.esexprOptions().isPresent()) {
+				writeCodecMethod(w, dfn);
+			}
 
 			w.dedent();
 			w.println("}");
@@ -160,7 +162,53 @@ class JavaBackend {
 				w.println(" {}");
 			}
 
-			writeCodecMethod(w, dfn);
+			if(e.esexprOptions().isPresent()) {
+				writeCodecMethod(w, dfn);
+			}
+
+			w.dedent();
+			w.println("}");
+		}
+	}
+
+	private void emitSimpleEnum(DefinitionInfo dfn, SimpleEnumDefinition e) throws IOException, NobleIDLCompileErrorException {
+		try(var w = openFile(dfn)) {
+			w.print("package ");
+			w.print(getJavaPackage(dfn.name()._package()));
+			w.println(";");
+
+
+			{
+				var esexprOptions = e.esexprOptions().orElse(null);
+				if(esexprOptions != null) {
+					w.println("@dev.argon.esexpr.ESExprCodecGen");
+				}
+			}
+
+			w.print("public enum ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.println(" {");
+			w.indent();
+
+			for(var c : e.cases()) {
+				{
+					var esexprOptions = c.esexprOptions().orElse(null);
+					if(esexprOptions != null) {
+						w.print("@dev.argon.esexpr.Constructor(\"");
+						w.print(StringEscapeUtils.escapeJava(esexprOptions.name()));
+						w.println("\")");
+					}
+				}
+
+				w.print(convertIdConst(c.name()));
+				w.println(",");
+			}
+
+			w.println(";");
+
+			if(e.esexprOptions().isPresent()) {
+				writeCodecMethod(w, dfn);
+			}
 
 			w.dedent();
 			w.println("}");
@@ -180,7 +228,7 @@ class JavaBackend {
 			w.indent();
 
 			for(var m : iface.methods()) {
-				writeTypeExpr(w, m.returnType());
+				writeReturnType(w, m.returnType());
 				w.print(" ");
 				w.print(convertIdCamel(m.name()));
 				writeTypeParameters(w, m.typeParameters());
@@ -364,7 +412,7 @@ class JavaBackend {
 			case EsexprDecodedValue.Record record -> {
 				var javaType = (JavaTypeExpr.NormalType)typeExprToJava(record.t());
 				w.write("new ");
-				javaType.writeClassName(w);
+				javaType.writeQualifiedClassName(w);
 				javaType.writeArgs(w);
 				w.write("(");
 
@@ -383,7 +431,7 @@ class JavaBackend {
 			case EsexprDecodedValue.Enum enumValue -> {
 				var javaType = (JavaTypeExpr.NormalType)typeExprToJava(enumValue.t());
 				w.write("new ");
-				javaType.writeClassName(w);
+				javaType.writeQualifiedClassName(w);
 				w.write(".");
 				w.write(enumValue.caseName());
 				javaType.writeArgs(w);
@@ -606,70 +654,188 @@ class JavaBackend {
 
 
 	private void writeTypeExpr(Writer w, TypeExpr t) throws IOException, NobleIDLCompileErrorException {
+		typeExprToJava(t).nonReturnType().writeType(w);
+	}
+
+	private void writeReturnType(Writer w, TypeExpr t) throws IOException, NobleIDLCompileErrorException {
 		typeExprToJava(t).writeType(w);
 	}
+
+
+	private enum TypeMode {
+		UNBOXED,
+		BOXED,
+		RETURN,
+	}
+
 
 	private sealed interface JavaTypeExpr {
 		// Have to ensure that array type annotations are in the right position.
 		default void writeType(Writer w) throws IOException {
-			var annStack = new ArrayList<ArrayList<String>>();
-			annStack.add(new ArrayList<>());
+			var arrayAnnStack = new ArrayList<ArrayList<String>>();
+			var currentTypeAnn = new ArrayList<String>();
 
 			JavaTypeExpr t = this;
 			typeLoop:
 			while(true) {
 				switch(t) {
-					case  NormalType normalType -> {
-						for(var ann : annStack.getLast()) {
-							w.write(ann);
-							w.write(" ");
-						}
-						annStack.removeLast();
+					case PrimitiveType primitiveType -> {
+						writeAnns(w, currentTypeAnn);
 
-						normalType.writeClassName(w);
-						normalType.writeArgs(w);
+						w.write(switch(primitiveType) {
+							case BOOLEAN -> "boolean";
+							case CHAR -> "char";
+							case BYTE -> "byte";
+							case SHORT -> "short";
+							case INT -> "int";
+							case LONG -> "long";
+							case FLOAT -> "float";
+							case DOUBLE -> "double";
+							case VOID -> "void";
+						});
 
-						for(var arrayPart : annStack) {
-							for(var ann : arrayPart) {
-								w.write(ann);
-								w.write(" ");
-							}
-
-							w.write("[]");
-						}
+						writeArrayParts(w, arrayAnnStack);
 
 						break typeLoop;
 					}
+
+					case NormalType normalType -> {
+						normalType.writePackagePrefix(w);
+
+						writeAnns(w, currentTypeAnn);
+
+						normalType.writeSimpleClassName(w);
+						normalType.writeArgs(w);
+
+						writeArrayParts(w, arrayAnnStack);
+
+						break typeLoop;
+					}
+
 					case Annotated(var ann, var inner) -> {
-						annStack.getLast().addAll(ann);
+						currentTypeAnn.addAll(ann);
 						t = inner;
 					}
 					case ArrayType(var elementType) -> {
-						annStack.add(new ArrayList<>());
+						arrayAnnStack.add(currentTypeAnn);
+						currentTypeAnn = new ArrayList<>();
 						t = elementType;
 					}
 				}
 			}
 		}
 
+		private void writeAnns(Writer w, List<String> anns) throws IOException {
+			for(var ann : anns) {
+				w.write("@");
+				w.write(ann);
+				w.write(" ");
+			}
+		}
+
+		private void writeArrayParts(Writer w, List<? extends List<String>> arrayAnnStack) throws IOException {
+			for(var arrayPart : arrayAnnStack) {
+				for(var ann : arrayPart) {
+					w.write("@");
+					w.write(ann);
+					w.write(" ");
+				}
+
+				w.write("[]");
+			}
+		}
+
+
 		void writeStaticMethod(Writer w, String methodName) throws IOException;
 
+		JavaTypeExpr boxed();
+		JavaTypeExpr nonReturnType();
+
+		enum PrimitiveType implements JavaTypeExpr {
+			BOOLEAN,
+			CHAR,
+			BYTE,
+			SHORT,
+			INT,
+			LONG,
+			FLOAT,
+			DOUBLE,
+			VOID,
+
+			;
+
+
+			@Override
+			public void writeStaticMethod(Writer w, String methodName) throws IOException {
+				throw new IllegalStateException();
+			}
+
+			@Override
+			public JavaTypeExpr boxed() {
+				var className = switch(this) {
+					case BOOLEAN -> "Boolean";
+					case CHAR -> "Character";
+					case BYTE -> "Byte";
+					case SHORT -> "Short";
+					case INT -> "Integer";
+					case LONG -> "Long";
+					case FLOAT -> "Float";
+					case DOUBLE -> "Double";
+					case VOID -> "Object";
+				};
+
+				return new NormalType(Optional.of("java.lang"), className, List.of());
+			}
+
+			@Override
+			public JavaTypeExpr nonReturnType() {
+				if(this == VOID) {
+					return boxed();
+				}
+				else {
+					return this;
+				}
+			}
+		}
 
 		record NormalType(
+			Optional<String> packageName,
 			String className,
 
-			List<JavaBackend.JavaTypeExpr> args
+			List<JavaTypeExpr> args
 		) implements JavaTypeExpr {
 			@Override
 			public void writeStaticMethod(Writer w, String methodName) throws IOException {
-				writeClassName(w);
+				writeQualifiedClassName(w);
 				w.write(".");
 				writeArgs(w);
 				w.write(methodName);
 			}
 
-			public void writeClassName(Writer w) throws IOException {
+			@Override
+			public JavaTypeExpr boxed() {
+				return this;
+			}
+
+			@Override
+			public JavaTypeExpr nonReturnType() {
+				return this;
+			}
+
+			public void writePackagePrefix(Writer w) throws IOException {
+				if(packageName.isPresent()) {
+					w.write(packageName.get());
+					w.write(".");
+				}
+			}
+
+			public void writeSimpleClassName(Writer w) throws IOException {
 				w.write(className);
+			}
+
+			public void writeQualifiedClassName(Writer w) throws IOException {
+				writePackagePrefix(w);
+				writeSimpleClassName(w);
 			}
 
 			public void writeArgs(Writer w) throws IOException {
@@ -697,6 +863,16 @@ class JavaBackend {
 			public void writeStaticMethod(Writer w, String methodName) throws IOException {
 				throw new IllegalStateException();
 			}
+
+			@Override
+			public JavaTypeExpr boxed() {
+				return this;
+			}
+
+			@Override
+			public JavaTypeExpr nonReturnType() {
+				return this;
+			}
 		}
 
 		record Annotated(
@@ -707,6 +883,16 @@ class JavaBackend {
 			@Override
 			public void writeStaticMethod(Writer w, String methodName) throws IOException {
 				inner.writeStaticMethod(w, methodName);
+			}
+
+			@Override
+			public JavaTypeExpr boxed() {
+				return new Annotated(annotations, inner.boxed());
+			}
+
+			@Override
+			public JavaTypeExpr nonReturnType() {
+				return new Annotated(annotations, inner.nonReturnType());
 			}
 		}
 	}
@@ -721,26 +907,34 @@ class JavaBackend {
 			case TypeExpr.DefinedType(var name, var args) -> {
 				var mappedType = ignoreMapping ? null : getMappedType(name).orElse(null);
 				if(mappedType == null) {
-					var className = getJavaPackage(name._package()) + "." + convertIdPascal(name.name());
+					var packageName = Optional.of(getJavaPackage(name._package())).filter(String::isEmpty);
+					var className = convertIdPascal(name.name());
 					var javaArgs = new ArrayList<JavaTypeExpr>();
 					for(var arg : args) {
-						javaArgs.add(typeExprToJava(arg));
+						javaArgs.add(typeExprToJava(arg, ignoreMapping).boxed());
 					}
-					yield new JavaTypeExpr.NormalType(className, javaArgs);
+					yield new JavaTypeExpr.NormalType(packageName, className, javaArgs);
 				}
 				else {
 					var typeParamMap = getTypeParameterMapping(t);
 					yield mappedTypeToJava(typeParamMap, mappedType);
 				}
 			}
-			case TypeExpr.TypeParameter(var name) -> new JavaTypeExpr.NormalType(convertIdPascal(name), List.of());
+			case TypeExpr.TypeParameter(var name) -> new JavaTypeExpr.NormalType(Optional.empty(), convertIdPascal(name), List.of());
 		};
 	}
 
 	private JavaTypeExpr mappedTypeToJava(Map<String, TypeExpr> typeParameters, JavaMappedType mappedType) throws NobleIDLCompileErrorException {
 		return switch(mappedType) {
-			case JavaMappedType.TypeName(var name) ->
-				new JavaTypeExpr.NormalType(name, List.of());
+			case JavaMappedType.TypeName(var name) -> {
+				var primType = getPrimitiveType(name);
+				if(primType.isPresent()) {
+					yield primType.get();
+				}
+				else {
+					yield getJavaType(name, List.of());
+				}
+			}
 
 			case JavaMappedType.Annotated(var t, var ann) ->
 				new JavaTypeExpr.Annotated(ann, mappedTypeToJava(typeParameters, t));
@@ -748,10 +942,10 @@ class JavaBackend {
 			case JavaMappedType.Apply(var name, var args) -> {
 				var javaArgs = new ArrayList<JavaTypeExpr>(args.size());
 				for(var arg : args) {
-					javaArgs.add(mappedTypeToJava(typeParameters, arg));
+					javaArgs.add(mappedTypeToJava(typeParameters, arg).boxed());
 				}
 
-				yield new JavaTypeExpr.NormalType(name, javaArgs);
+				yield getJavaType(name, javaArgs);
 			}
 
 			case JavaMappedType.TypeParameter(var name) -> {
@@ -765,6 +959,32 @@ class JavaBackend {
 
 			case JavaMappedType.Array(var elementType) ->
 				new JavaTypeExpr.ArrayType(mappedTypeToJava(typeParameters, elementType));
+		};
+	}
+
+	private JavaTypeExpr.NormalType getJavaType(String className, List<JavaTypeExpr> args) {
+		var lastDot = className.lastIndexOf('.');
+		if(lastDot >= 0) {
+			return new JavaTypeExpr.NormalType(Optional.of(className.substring(0, lastDot)), className.substring(lastDot + 1), args);
+		}
+		else {
+			return new JavaTypeExpr.NormalType(Optional.empty(), className, args);
+		}
+
+	}
+
+	private Optional<JavaTypeExpr.PrimitiveType> getPrimitiveType(String name) {
+		return switch(name) {
+			case "boolean" -> Optional.of(JavaTypeExpr.PrimitiveType.BOOLEAN);
+			case "char" -> Optional.of(JavaTypeExpr.PrimitiveType.CHAR);
+			case "byte" -> Optional.of(JavaTypeExpr.PrimitiveType.BYTE);
+			case "short" -> Optional.of(JavaTypeExpr.PrimitiveType.SHORT);
+			case "int" -> Optional.of(JavaTypeExpr.PrimitiveType.INT);
+			case "long" -> Optional.of(JavaTypeExpr.PrimitiveType.LONG);
+			case "float" -> Optional.of(JavaTypeExpr.PrimitiveType.FLOAT);
+			case "double" -> Optional.of(JavaTypeExpr.PrimitiveType.DOUBLE);
+			case "void" -> Optional.of(JavaTypeExpr.PrimitiveType.VOID);
+			default -> Optional.empty();
 		};
 	}
 
@@ -857,5 +1077,9 @@ class JavaBackend {
 		}
 
 		return camel;
+	}
+
+	private static String convertIdConst(String kebab) {
+		return kebab.replace("-", "_").toUpperCase(Locale.ROOT);
 	}
 }

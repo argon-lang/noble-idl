@@ -105,6 +105,12 @@ enum definition {
 
     @esexpr: (inline-value)
     @rust: (tuple)
+    simple-enum {
+        e: simple-enum-definition;
+    },
+
+    @esexpr: (inline-value)
+    @rust: (tuple)
     extern-type {
         et: extern-type-definition;
     },
@@ -160,6 +166,28 @@ record enum-case {
     @esexpr: (keyword)
     @esexpr: (optional)
     esexpr-options: optional-field[esexpr-enum-case-options];
+
+    @esexpr: (keyword)
+    annotations: list[annotation];
+}
+
+@esexpr: (derive-codec)
+record simple-enum-definition {
+    @esexpr: (vararg)
+    cases: list[simple-enum-case];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-simple-enum-options];
+}
+
+@esexpr: (derive-codec)
+record simple-enum-case {
+    name: string;
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    esexpr-options: optional-field[esexpr-simple-enum-case-options];
 
     @esexpr: (keyword)
     annotations: list[annotation];
@@ -250,9 +278,6 @@ record esexpr-record-options {
 @esexpr: (derive-codec)
 @esexpr: (constructor "enum-options")
 record esexpr-enum-options {
-    @esexpr: (keyword)
-    @esexpr: (default-value #false)
-    simple-enum: bool;
 }
 
 @esexpr: (derive-codec)
@@ -270,6 +295,17 @@ enum esexpr-enum-case-type {
 
     @rust: (unit)
     inline-value,
+}
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "simple-enum-options")
+record esexpr-simple-enum-options {
+}
+
+@esexpr: (derive-codec)
+@esexpr: (constructor "simple-enum-case-options")
+record esexpr-simple-enum-case-options {
+    name: string;
 }
 
 

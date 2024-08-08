@@ -74,13 +74,22 @@ pub enum EsexprAnnRecord {
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum EsexprAnnEnum {
     DeriveCodec,
-    SimpleEnum,
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]
 pub enum EsexprAnnEnumCase {
     Constructor(String),
     InlineValue,
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum EsexprAnnSimpleEnum {
+    DeriveCodec,
+}
+
+#[derive(ESExprCodec, Debug, PartialEq, Clone)]
+pub enum EsexprAnnSimpleEnumCase {
+    Constructor(String),
 }
 
 #[derive(ESExprCodec, Debug, PartialEq, Clone)]

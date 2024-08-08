@@ -20,6 +20,7 @@ fn remove_definition(dfn: &mut DefinitionInfo) {
 	match &mut dfn.definition {
 		Definition::Record(r) => remove_record(r),
 		Definition::Enum(e) => remove_enum(e),
+		Definition::SimpleEnum(e) => remove_simple_enum(e),
 		Definition::ExternType(_) => {},
 		Definition::Interface(_) => {},
 	}
@@ -33,6 +34,12 @@ fn remove_enum(e: &mut EnumDefinition) {
 	for c in &mut e.cases {
 		c.annotations.retain(non_esexpr_ann);
 		remove_fields(&mut c.fields);
+	}
+}
+
+fn remove_simple_enum(e: &mut SimpleEnumDefinition) {
+	for c in &mut e.cases {
+		c.annotations.retain(non_esexpr_ann);
 	}
 }
 

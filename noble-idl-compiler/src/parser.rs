@@ -131,6 +131,7 @@ fn definition(input: &str) -> IResult<&str, ast::Definition> {
     alt((
         map(record_def, ast::Definition::Record),
         map(enum_def, ast::Definition::Enum),
+        map(simple_enum_def, ast::Definition::SimpleEnum),
         map(extern_type, ast::Definition::ExternType),
         map(interface_def, ast::Definition::Interface),
     ))(input)
@@ -212,6 +213,37 @@ fn enum_case_body(input: &str) -> IResult<&str, Vec<ast::RecordField>> {
         cut(many0(record_field)),
         cut(sym("}")),
     )(input)
+}
+
+fn simple_enum_def(input: &str) -> IResult<&str, ast::SimpleEnumDefinition> {
+    map(tuple((
+        annotations,
+        keyword("simple"),
+        keyword("enum"),
+        cut(identifier),
+        cut(sym("{")),
+        separated_list1(sym(","), simple_enum_case),
+        opt(sym(",")),
+        cut(sym("}")),
+    )), |(annotations, _, _, name, _, cases, _, _)| {
+        ast::SimpleEnumDefinition {
+            name: name.to_owned(),
+            cases,
+            annotations,
+        }
+    })(input)
+}
+
+fn simple_enum_case(input: &str) -> IResult<&str, ast::SimpleEnumCase> {
+    map(tuple((
+        annotations,
+        identifier,
+    )), |(annotations, name)| {
+        ast::SimpleEnumCase {
+            name: name.to_owned(),
+            annotations,
+        }
+    })(input)
 }
 
 fn extern_type(input: &str) -> IResult<&str, ast::ExternTypeDefinition> {

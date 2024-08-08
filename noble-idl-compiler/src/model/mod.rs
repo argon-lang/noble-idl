@@ -72,6 +72,7 @@ impl DefinitionInfo {
         match self.def {
             Definition::Record(r) => r.into_api(self.package, self.is_library),
             Definition::Enum(e) => e.into_api(self.package, self.is_library),
+			Definition::SimpleEnum(e) => e.into_api(self.package, self.is_library),
             Definition::ExternType(ext) => ext.into_api(self.package, self.is_library),
             Definition::Interface(iface) => iface.into_api(self.package, self.is_library),
         }
@@ -143,6 +144,7 @@ fn get_type_metadata(def: &Definition) -> TypeMetadata {
     match def {
         Definition::Record(rec) => TypeMetadata { parameter_count: rec.type_parameters.len() },
         Definition::Enum(e) => TypeMetadata { parameter_count: e.type_parameters.len() },
+        Definition::SimpleEnum(_) => TypeMetadata { parameter_count: 0 },
         Definition::ExternType(et) => TypeMetadata { parameter_count: et.type_parameters.len() },
         Definition::Interface(iface) => TypeMetadata { parameter_count: iface.type_parameters.len() },
     }

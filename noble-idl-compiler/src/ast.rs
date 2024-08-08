@@ -11,6 +11,7 @@ pub struct DefinitionFile {
 pub enum Definition {
     Record(RecordDefinition),
     Enum(EnumDefinition),
+    SimpleEnum(SimpleEnumDefinition),
     ExternType(ExternTypeDefinition),
     Interface(InterfaceDefinition),
 }
@@ -20,6 +21,7 @@ impl Definition {
         match self {
             Definition::Record(rec) => &rec.name,
             Definition::Enum(e) => &e.name,
+            Definition::SimpleEnum(e) => &e.name,
             Definition::ExternType(et) => &et.name,
             Definition::Interface(iface) => &iface.name,
         }
@@ -103,6 +105,45 @@ impl EnumCase {
         noble_idl_api::EnumCase {
             name: self.name,
             fields: self.fields.into_iter().map(RecordField::into_api).collect(),
+            annotations: self.annotations,
+			esexpr_options: None,
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct SimpleEnumDefinition {
+    pub name: String,
+    pub cases: Vec<SimpleEnumCase>,
+    pub annotations: Vec<Annotation>,
+}
+
+impl SimpleEnumDefinition {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
+        noble_idl_api::DefinitionInfo {
+            name: QualifiedName(package, self.name),
+            type_parameters: Vec::new(),
+            definition: noble_idl_api::Definition::SimpleEnum(noble_idl_api::SimpleEnumDefinition {
+                cases: self.cases.into_iter().map(SimpleEnumCase::into_api).collect(),
+				esexpr_options: None,
+            }),
+            annotations: self.annotations,
+			is_library,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct SimpleEnumCase {
+    pub name: String,
+    pub annotations: Vec<Annotation>,
+}
+
+impl SimpleEnumCase {
+    pub fn into_api(self) -> noble_idl_api::SimpleEnumCase {
+        noble_idl_api::SimpleEnumCase {
+            name: self.name,
             annotations: self.annotations,
 			esexpr_options: None,
         }

@@ -25,6 +25,7 @@ pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, types: &Has
 		match &mut def.def {
 			Definition::Record(rec) => checker.check_record(rec)?,
 			Definition::Enum(e) => checker.check_enum(e)?,
+			Definition::SimpleEnum(e) => checker.check_simple_enum(e)?,
 			Definition::ExternType(et) => checker.check_extern_type(et)?,
 			Definition::Interface(iface) => checker.check_interface(iface)?,
 		}
@@ -201,6 +202,17 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 		Ok(())
 	}
 
+	fn check_simple_enum(&self, e: &mut SimpleEnumDefinition) -> Result<(), CheckError> {
+		let mut case_names = HashSet::new();
+
+		for c in &mut e.cases {
+			if let Some(name) = case_names.replace(c.name.clone()) {
+				return Err(CheckError::DuplicateEnumCase(self.definition_name.clone(), name));
+			}
+		}
+
+		Ok(())
+	}
 
 	fn check_fields(&self, case_name: Option<&str>, fields: &mut [RecordField]) -> Result<(), CheckError> {
 		let mut field_names = HashSet::new();

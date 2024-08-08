@@ -21,6 +21,8 @@ pub enum Definition {
     #[inline_value]
     Enum(crate::EnumDefinition),
     #[inline_value]
+    SimpleEnum(crate::SimpleEnumDefinition),
+    #[inline_value]
     ExternType(crate::ExternTypeDefinition),
     #[inline_value]
     Interface(crate::InterfaceDefinition),
@@ -188,11 +190,7 @@ pub enum EsexprEnumCaseType {
     ::esexpr::ESExprCodec
 )]
 #[constructor = "enum-options"]
-pub struct EsexprEnumOptions {
-    #[keyword = "simple-enum"]
-    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
-    pub simple_enum: ::noble_idl_runtime::Bool,
-}
+pub struct EsexprEnumOptions {}
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -318,6 +316,24 @@ pub enum EsexprRecordPositionalMode {
     #[constructor = "optional"]
     Optional(crate::TypeExpr),
 }
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[constructor = "simple-enum-case-options"]
+pub struct EsexprSimpleEnumCaseOptions {
+    pub name: ::noble_idl_runtime::String,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[constructor = "simple-enum-options"]
+pub struct EsexprSimpleEnumOptions {}
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -492,6 +508,39 @@ pub struct RecordField {
     #[optional]
     pub esexpr_options: ::noble_idl_runtime::OptionalField<
         crate::EsexprRecordFieldOptions,
+    >,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[constructor = "simple-enum-case"]
+pub struct SimpleEnumCase {
+    pub name: ::noble_idl_runtime::String,
+    #[keyword = "esexpr-options"]
+    #[optional]
+    pub esexpr_options: ::noble_idl_runtime::OptionalField<
+        crate::EsexprSimpleEnumCaseOptions,
+    >,
+    #[keyword = "annotations"]
+    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[constructor = "simple-enum-definition"]
+pub struct SimpleEnumDefinition {
+    #[vararg]
+    pub cases: ::noble_idl_runtime::List<crate::SimpleEnumCase>,
+    #[keyword = "esexpr-options"]
+    #[optional]
+    pub esexpr_options: ::noble_idl_runtime::OptionalField<
+        crate::EsexprSimpleEnumOptions,
     >,
 }
 #[derive(

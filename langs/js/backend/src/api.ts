@@ -17,6 +17,9 @@ export type Definition = {
     $type: "enum";
     e: EnumDefinition;
 } | {
+    $type: "simple-enum";
+    e: SimpleEnumDefinition;
+} | {
     $type: "extern-type";
     et: ExternTypeDefinition;
 } | {
@@ -27,6 +30,7 @@ export namespace Definition {
     export const codec: $esexpr.ESExprCodec<Definition> = $esexpr.lazyCodec(() => $esexpr.enumCodec<Definition>({
         "record": $esexpr.inlineCaseCodec("r", RecordDefinition.codec),
         "enum": $esexpr.inlineCaseCodec("e", EnumDefinition.codec),
+        "simple-enum": $esexpr.inlineCaseCodec("e", SimpleEnumDefinition.codec),
         "extern-type": $esexpr.inlineCaseCodec("et", ExternTypeDefinition.codec),
         "interface": $esexpr.inlineCaseCodec("iface", InterfaceDefinition.codec)
     }));
@@ -225,12 +229,9 @@ export namespace EsexprEnumCaseType {
     }));
 }
 export interface EsexprEnumOptions {
-    simpleEnum: nobleidl__core.Bool;
 }
 export namespace EsexprEnumOptions {
-    export const codec: $esexpr.ESExprCodec<EsexprEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprEnumOptions>("enum-options", {
-        "simpleEnum": $esexpr.defaultKeywordFieldCodec("simple-enum", () => nobleidl__core.Bool.fromBoolean(false), nobleidl__core.Bool.codec)
-    }));
+    export const codec: $esexpr.ESExprCodec<EsexprEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprEnumOptions>("enum-options", {}));
 }
 export interface EsexprExternTypeLiterals {
     allowBool: nobleidl__core.Bool;
@@ -354,6 +355,19 @@ export namespace EsexprRecordPositionalMode {
             "elementType": $esexpr.positionalFieldCodec(TypeExpr.codec)
         })
     }));
+}
+export interface EsexprSimpleEnumCaseOptions {
+    name: nobleidl__core.String;
+}
+export namespace EsexprSimpleEnumCaseOptions {
+    export const codec: $esexpr.ESExprCodec<EsexprSimpleEnumCaseOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprSimpleEnumCaseOptions>("simple-enum-case-options", {
+        "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec)
+    }));
+}
+export interface EsexprSimpleEnumOptions {
+}
+export namespace EsexprSimpleEnumOptions {
+    export const codec: $esexpr.ESExprCodec<EsexprSimpleEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprSimpleEnumOptions>("simple-enum-options", {}));
 }
 export interface ExternTypeDefinition {
     esexprOptions: nobleidl__core.OptionalField<EsexprExternTypeOptions>;
@@ -492,6 +506,28 @@ export namespace RecordField {
         "fieldType": $esexpr.positionalFieldCodec(TypeExpr.codec),
         "annotations": $esexpr.keywordFieldCodec("annotations", nobleidl__core.List.codec<Annotation>(Annotation.codec)),
         "esexprOptions": $esexpr.optionalKeywordFieldCodec("esexpr-options", nobleidl__core.OptionalField.optionalCodec<EsexprRecordFieldOptions>(EsexprRecordFieldOptions.codec))
+    }));
+}
+export interface SimpleEnumCase {
+    name: nobleidl__core.String;
+    esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumCaseOptions>;
+    annotations: nobleidl__core.List<Annotation>;
+}
+export namespace SimpleEnumCase {
+    export const codec: $esexpr.ESExprCodec<SimpleEnumCase> = $esexpr.lazyCodec(() => $esexpr.recordCodec<SimpleEnumCase>("simple-enum-case", {
+        "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
+        "esexprOptions": $esexpr.optionalKeywordFieldCodec("esexpr-options", nobleidl__core.OptionalField.optionalCodec<EsexprSimpleEnumCaseOptions>(EsexprSimpleEnumCaseOptions.codec)),
+        "annotations": $esexpr.keywordFieldCodec("annotations", nobleidl__core.List.codec<Annotation>(Annotation.codec))
+    }));
+}
+export interface SimpleEnumDefinition {
+    cases: nobleidl__core.List<SimpleEnumCase>;
+    esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumOptions>;
+}
+export namespace SimpleEnumDefinition {
+    export const codec: $esexpr.ESExprCodec<SimpleEnumDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<SimpleEnumDefinition>("simple-enum-definition", {
+        "cases": $esexpr.varargFieldCodec(nobleidl__core.List.varargCodec<SimpleEnumCase>(SimpleEnumCase.codec)),
+        "esexprOptions": $esexpr.optionalKeywordFieldCodec("esexpr-options", nobleidl__core.OptionalField.optionalCodec<EsexprSimpleEnumOptions>(EsexprSimpleEnumOptions.codec))
     }));
 }
 export type TypeExpr = {

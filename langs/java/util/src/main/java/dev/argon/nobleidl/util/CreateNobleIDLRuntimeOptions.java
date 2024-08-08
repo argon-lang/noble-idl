@@ -20,7 +20,7 @@ public class CreateNobleIDLRuntimeOptions {
 			))
 		);
 
-		try(var os = Files.newOutputStream(Path.of("../runtime/src/main/resources/noble-idl-options.esxb"))) {
+		try(var os = Files.newOutputStream(Path.of("../runtime/src/main/resources/nobleidl-options.esxb"))) {
 			ESExprBinaryWriter.writeWithSymbolTable(os, NobleIdlJarOptions.codec().encode(options));
 		}
 	}

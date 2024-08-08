@@ -32,6 +32,7 @@ impl ESExprOptionParseExtern {
 		match &mut dfn.definition {
 			Definition::Record(_) => {},
 			Definition::Enum(_) => {},
+			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(et) => self.scan_extern_type(&dfn.name, &dfn.annotations, et)?,
 			Definition::Interface(_) => {},
 		}

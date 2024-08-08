@@ -49,6 +49,7 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 			Definition::Enum(e) =>
 				self.scan_enum(dfn, e)?,
 
+			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(_) => {},
 			Definition::Interface(_) => {},
 		}
@@ -163,6 +164,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				match &dfn.definition {
 					Definition::Record(r) => self.parse_record_value(dfn, r, t, args, value),
 					Definition::Enum(e) => self.parse_enum_value(dfn, e, t, args, value),
+					Definition::SimpleEnum(_) => todo!(),
 					Definition::ExternType(et) => self.parse_extern_type_value(dfn, et, t, args, value),
 					Definition::Interface(_) => self.fail(),
 				}
@@ -407,6 +409,7 @@ impl DefaultUpdater {
 				let Some(case_name) = key.case_name.as_ref() else { return; };
 				self.update_enum(e, case_name, &key.field_name, value);
 			},
+			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(_) => {},
 			Definition::Interface(_) => {},
 		}

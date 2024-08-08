@@ -100,6 +100,7 @@ impl <'a, QualName: Borrow<QualifiedName> + Eq + Hash, DefInfo: Borrow<Definitio
 		let result = match &dfn.definition {
 			Definition::Record(r) => self.scan_record(state, r),
 			Definition::Enum(e) => self.scan_enum(state, e),
+			Definition::SimpleEnum(_) => HashSet::new(),
 			Definition::ExternType(_) => self.scan_extern_type(dfn),
 			Definition::Interface(_) => HashSet::new(),
 		};

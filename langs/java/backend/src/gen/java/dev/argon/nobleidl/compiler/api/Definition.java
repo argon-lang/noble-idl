@@ -10,6 +10,10 @@ public sealed interface Definition {
 		dev.argon.nobleidl.compiler.api.EnumDefinition e
 	) implements dev.argon.nobleidl.compiler.api.Definition {}
 	@dev.argon.esexpr.InlineValue
+	record SimpleEnum(
+		dev.argon.nobleidl.compiler.api.SimpleEnumDefinition e
+	) implements dev.argon.nobleidl.compiler.api.Definition {}
+	@dev.argon.esexpr.InlineValue
 	record ExternType(
 		dev.argon.nobleidl.compiler.api.ExternTypeDefinition et
 	) implements dev.argon.nobleidl.compiler.api.Definition {}

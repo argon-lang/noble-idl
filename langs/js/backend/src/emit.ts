@@ -1,4 +1,4 @@
-import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName } from "./api.js";
+import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition } from "./api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
@@ -278,6 +278,10 @@ class ModEmitter {
 				nodes = this.#emitEnum(def, def.definition.e);
 				break;
 
+			case "simple-enum":
+				nodes = this.#emitSimpleEnum(def, def.definition.e);
+				break;
+
             case "extern-type":
 				nodes = [];
 				break;
@@ -357,10 +361,6 @@ class ModEmitter {
         ));
 
 		if(e.esexprOptions !== undefined) {
-			if(e.esexprOptions.simpleEnum) {
-				throw new Error("Not implemented");
-			}
-
 			const codecExpr = ts.factory.createCallExpression(
 				ts.factory.createPropertyAccessExpression(
 					ts.factory.createIdentifier("$esexpr"),
@@ -433,6 +433,8 @@ class ModEmitter {
         return nodes;
     }
 
+
+
     #emitEnumCase(c: EnumCase): ts.TypeNode {
         return ts.factory.createTypeLiteralNode([
             ts.factory.createPropertySignature(
@@ -444,6 +446,57 @@ class ModEmitter {
 
             ...c.fields.map(field => this.#emitField(field)),
         ]);
+    }
+
+    #emitSimpleEnum(def: DefinitionInfo, e: SimpleEnumDefinition): ts.Node[] {
+		const nodes: ts.Node[] = [];
+
+        nodes.push(ts.factory.createTypeAliasDeclaration(
+            [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+            convertIdPascal(def.name.name),
+            undefined,
+            ts.factory.createUnionTypeNode(e.cases.map(c =>
+				ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name))
+			)),
+        ));
+
+		if(e.esexprOptions !== undefined) {
+			const codecExpr = ts.factory.createCallExpression(
+				ts.factory.createPropertyAccessExpression(
+					ts.factory.createIdentifier("$esexpr"),
+					"simpleEnumCodec",
+				),
+				[
+					this.#emitTypeExpr(this.#defAsType(def)),
+				],
+				[
+					ts.factory.createObjectLiteralExpression(
+						e.cases.map(c => {
+							if(c.esexprOptions === undefined) {
+								throw new Error("Missing esexpr-options for case of enum with esexpr-options");
+							}
+
+							return ts.factory.createPropertyAssignment(
+								ts.factory.createStringLiteral(c.name),
+								ts.factory.createStringLiteral(c.esexprOptions.name),
+							);
+						}),
+						true,
+					),
+				],
+			)
+
+			nodes.push(ts.factory.createModuleDeclaration(
+				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
+				ts.factory.createModuleBlock([
+					this.#emitCodecDecl(def, codecExpr),
+				]),
+				ts.NodeFlags.Namespace,
+			))
+		}
+
+        return nodes;
     }
 
     #emitInterface(def: DefinitionInfo, i: InterfaceDefinition): ts.Node[] {
@@ -1054,12 +1107,12 @@ class ModuleScanner {
 				this.#scanEnum(def, def.definition.e);
 				break;
 
-			// Extern types are scanned first
-            case "extern-type":
-				break;
-
             case "interface":
 				this.#scanInterface(def, def.definition.iface);
+				break;
+
+			case "simple-enum": // Simple enums can't reference other types.
+			case "extern-type": // Extern types are scanned first.
 				break;
         }
     }

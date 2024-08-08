@@ -179,6 +179,7 @@ impl <'a> ModEmitter<'a> {
         match &dfn.definition {
             Definition::Record(r) => self.emit_record(dfn, r),
             Definition::Enum(e) => self.emit_enum(dfn, e),
+            Definition::SimpleEnum(e) => self.emit_simple_enum(dfn, e),
             Definition::ExternType(_) => Ok(quote! {}),
             Definition::Interface(i) => self.emit_interface(dfn, i),
         }
@@ -272,20 +273,17 @@ impl <'a> ModEmitter<'a> {
         let cases: TokenStream = e.cases.iter().map(|c| self.emit_enum_case(dfn, c)).collect::<Result<_, _>>()?;
 
         let mut derives = Vec::new();
-        let mut attrs = Vec::new();
-        self.process_enum_ann(dfn, e, &mut derives, &mut attrs)?;
-        let attrs = attrs.into_iter().collect::<TokenStream>();
+        self.process_enum_ann(dfn, e, &mut derives)?;
 
         Ok(quote! {
             #[derive(#(#derives),*)]
-            #attrs
             pub enum #enum_name #type_parameters {
                 #cases
             }
         })
     }
 
-    fn process_enum_ann(&self, dfn: &DefinitionInfo, e: &EnumDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+    fn process_enum_ann(&self, dfn: &DefinitionInfo, e: &EnumDefinition, derives: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
         derives.push(quote! { ::std::cmp::PartialEq });
@@ -304,12 +302,8 @@ impl <'a> ModEmitter<'a> {
 			}
 		}
 
-		if let Some(esexpr_options) = &e.esexpr_options {
+		if e.esexpr_options.is_some() {
 			derives.push(quote! { ::esexpr::ESExprCodec });
-
-			if esexpr_options.simple_enum {
-				attrs.push(quote! { #[simple_enum] });
-			}
 		}
 
         Ok(())
@@ -364,6 +358,60 @@ impl <'a> ModEmitter<'a> {
 				EsexprEnumCaseType::Constructor(name) => attrs.push(quote! { #[constructor = #name] }),
 				EsexprEnumCaseType::InlineValue => attrs.push(quote! { #[inline_value] }),
 			}
+		}
+
+        Ok(())
+    }
+
+    fn emit_simple_enum(&mut self, dfn: &'a DefinitionInfo, e: &'a SimpleEnumDefinition) -> Result<TokenStream, EmitError> {
+        let enum_name = convert_id_pascal(dfn.name.name());
+
+        let cases: TokenStream = e.cases.iter().map(|c| {
+			let id = convert_id_pascal(&c.name);
+
+			if let Some(esexpr_options) = &c.esexpr_options {
+				let name = esexpr_options.name.as_str();
+				quote! { #[constructor = #name] #id, }
+			}
+			else {
+				quote! { #id, }
+			}
+
+		}).collect();
+
+        let mut derives = Vec::new();
+        self.process_simple_enum_ann(dfn, e, &mut derives)?;
+
+        Ok(quote! {
+            #[derive(#(#derives),*)]
+			#[simple_enum]
+            pub enum #enum_name {
+                #cases
+            }
+        })
+    }
+
+    fn process_simple_enum_ann(&self, dfn: &DefinitionInfo, e: &SimpleEnumDefinition, derives: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
+        derives.push(quote! { ::std::fmt::Debug });
+        derives.push(quote! { ::std::clone::Clone });
+        derives.push(quote! { ::std::cmp::PartialEq });
+
+		for ann in &dfn.annotations {
+			if ann.scope != "rust" {
+				continue;
+			}
+
+			let Ok(ann) = RustAnnEnum::decode_esexpr(ann.value.clone()) else { continue; };
+
+			match ann {
+				RustAnnEnum::Derive(derive) => {
+					derives.push(syn::parse_str(&derive)?);
+				},
+			}
+		}
+
+		if e.esexpr_options.is_some() {
+			derives.push(quote! { ::esexpr::ESExprCodec });
 		}
 
         Ok(())

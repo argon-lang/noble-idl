@@ -30,6 +30,7 @@ impl <'a> TagScanner<'a> {
 		let tags = match &def.definition {
 			Definition::Record(_) => self.scan_record(def),
 			Definition::Enum(e) => self.scan_enum(state, def, e),
+			Definition::SimpleEnum(_) => self.scan_simple_enum(),
 			Definition::ExternType(_) => self.scan_extern_type(state, def),
 			Definition::Interface(_) => HashSet::new(),
 		};
@@ -101,6 +102,10 @@ impl <'a> TagScanner<'a> {
 		}
 
 		tags
+	}
+
+	fn scan_simple_enum<'c>(&mut self) -> HashSet<ESExprTag> where 'a: 'c {
+		HashSet::from([ ESExprTag::Str ])
 	}
 
 	fn scan_extern_type<'c>(&mut self, state: &mut ScanState<'c>, def: &DefinitionInfo) -> HashSet<ESExprTag> where 'a: 'c {

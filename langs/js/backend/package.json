@@ -24,7 +24,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.10",
+    "@argon-lang/esexpr": "^0.1.11",
     "@argon-lang/noble-idl-core": "file:../runtime",
     "typescript": "^5.5.4",
     "validate-npm-package-name": "^5.0.1"

@@ -31,6 +31,7 @@ class LibraryAnalyzer implements Closeable {
 	public final List<String> sourceFiles = new ArrayList<>();
 
 	public static LibraryAnalyzer fromPath(Path libraryPath) throws IOException {
+		System.err.println(libraryPath);
 		if(Files.isDirectory(libraryPath)) {
 			return new LibraryAnalyzer(null, libraryPath);
 		}
@@ -53,7 +54,7 @@ class LibraryAnalyzer implements Closeable {
 		}
 
 		ESExpr optionsExpr;
-		try(var is = Files.newInputStream(optionsEsxFile)) {
+		try(var is = fs.provider().newInputStream(optionsEsxFile)) {
 			var optionsExprOpt = ESExprBinaryReader.readEmbeddedStringTable(is).findFirst();
 			if(optionsExprOpt.isEmpty()) {
 				return;
@@ -80,7 +81,7 @@ class LibraryAnalyzer implements Closeable {
 		}
 
 		packageMapping.putAll(options.packageMapping().map());
-
+		System.err.println(options.idlFiles());
 		for(var path : options.idlFiles()) {
 			var subPath = libraryPath.resolve(path);
 			if(!subPath.toAbsolutePath().startsWith(libraryPath.toAbsolutePath())) {
