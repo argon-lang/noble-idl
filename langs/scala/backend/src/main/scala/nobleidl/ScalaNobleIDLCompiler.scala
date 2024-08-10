@@ -16,7 +16,7 @@ import java.util.Set as JSet
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
-object ScalaNobleIDLCompiler extends PlatformAppBase {
+object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
   def compile(options: JavaIDLCompilerOptions): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
     val modelOptions = NobleIdlCompileModelOptions(
@@ -49,14 +49,15 @@ object ScalaNobleIDLCompiler extends PlatformAppBase {
       )
 
       files <- backend.emit
-        .mapZIO { file =>
+        .mapZIOParUnordered(java.lang.Runtime.getRuntime.nn.availableProcessors()) { file =>
           val fileName = file.path.foldLeft(Path.of(options.languageOptions().nn.outputDir()).nn)(_.resolve(_).nn)
-          file.content
-            .via(ZPipeline.utf8Encode.orDie)
-            .run[Any, IOException | NobleIDLCompileErrorException, Long](ZSink.fromPath(fileName).refineOrDie {
-              case ex: IOException => ex
-            })
-            .as(fileName.toString)
+          ZIO.attempt { Files.createDirectories(fileName.getParent) }.refineToOrDie[IOException] *>
+            file.content
+              .via(ZPipeline.utf8Encode.orDie)
+              .run[Any, IOException | NobleIDLCompileErrorException, Long](ZSink.fromPath(fileName).refineOrDie {
+                case ex: IOException => ex
+              })
+              .as(fileName.toString)
         }
         .runCollect
       
@@ -73,7 +74,7 @@ object ScalaNobleIDLCompiler extends PlatformAppBase {
     packageMapping: Map[String, String] = Map(),
   )
 
-  override def runImpl: ZIO[ZIOAppArgs & Scope, Any, ExitCode] =
+  override def run: ZIO[ZIOAppArgs & Scope, Any, Any] =
     ZIOAppArgs.getArgs.flatMap { args =>
       val parser =
         val builder = OParser.builder[Config]
@@ -148,7 +149,7 @@ object ScalaNobleIDLCompiler extends PlatformAppBase {
           
       )
       
-    }
+    }.flatMap(exit)
 
   private def scanInputDirs(dirs: Seq[Path], resourceOutputDir: Path): IO[IOException, Map[String, String]] =
     ZIO.attempt {

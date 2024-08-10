@@ -58,7 +58,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
         for
           _ <- write("@_root_.esexpr.constructor(\"")
           _ <- write(StringEscapeUtils.escapeJava(esexprOptions.constructor()))
-          _ <- write("\")")
+          _ <- writeln("\")")
         yield ()
       }
       _ <- write("final case class ")
@@ -90,7 +90,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
                 for
                   _ <- write("@_root_.esexpr.constructor(\"")
                   _ <- write(StringEscapeUtils.escapeJava(constructor.name()))
-                  _ <- write("\")")
+                  _ <- writeln("\")")
                 yield ()
 
               case _: EsexprEnumCaseType.InlineValue =>
@@ -101,7 +101,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
           }
 
           _ <- write("case ")
-          _ <- write(convertIdPascal(dfn.name().name()))
+          _ <- write(convertIdPascal(c.name))
           _ <- writeCaseClassParameters(c.fields().asScala.toSeq)
           _ <- writeln()
         yield ()
@@ -136,7 +136,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
           }
 
           _ <- write("case ")
-          _ <- write(convertIdPascal(dfn.name().name()))
+          _ <- write(convertIdPascal(c.name))
           _ <- writeln()
         yield ()
       }
@@ -183,21 +183,23 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
     yield ()
 
   private def writeTypeParameters(tps: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    for
-      _ <- writeln("[")
+    (
+      for
+        _ <- writeln("[")
 
-      _ <- ZIO.foreachDiscard(tps.zipWithIndex) {
-        case (tp: TypeParameter.Type, index) =>
-          for
-            _ <- write(", ").when(index > 0)
-            _ <- write(convertIdPascal(tp.name()))
-          yield ()
+        _ <- ZIO.foreachDiscard(tps.zipWithIndex) {
+          case (tp: TypeParameter.Type, index) =>
+            for
+              _ <- write(", ").when(index > 0)
+              _ <- write(convertIdPascal(tp.name()))
+            yield ()
 
-        case tpi => throw new MatchError(tpi)
-      }
+          case tpi => throw new MatchError(tpi)
+        }
 
-      _ <- write("]")
-    yield ()
+        _ <- write("]")
+      yield ()
+    ).when(tps.nonEmpty).unit
 
   private def writeCaseClassParameters(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
@@ -226,7 +228,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
                     case _: EsexprRecordKeywordMode.Required => ZIO.unit
 
                     case _: EsexprRecordKeywordMode.Optional =>
-                      write("@_root_.esexpr.optional")
+                      writeln("@_root_.esexpr.optional")
                     case _: EsexprRecordKeywordMode.DefaultValue => ZIO.unit
                     case mode => throw new MatchError(mode)
                   }
@@ -258,6 +260,8 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
               case _ => ZIO.unit
             }
           }
+
+          _ <- writeln(",")
         yield ()
       }
 
@@ -270,7 +274,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
       case value: EsexprDecodedValue.FromBool =>
         for
           _ <- writeTypeExpr(value.t())
-          _ <- write("(")
+          _ <- write(".fromBool(")
           _ <- write(value.b().toString)
           _ <- write(")")
         yield ()

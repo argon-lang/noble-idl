@@ -19,9 +19,9 @@ object CodeWriter {
       .flatMap { queue =>
         ZStream.unwrap(
           for
-            task <- op.onExit(_ => queue.offer(None)).fork.provideSomeLayer[R](liveFromQueue(queue))
+            task <- op.onExit(_ => queue.offer(None)).provideSomeLayer[R](liveFromQueue(queue)).fork
 
-          yield ZStream.fromQueue(queue).collectSome ++ ZStream.fromZIO(task.join).drain
+          yield ZStream.fromQueue(queue).takeWhile(_.isDefined).collectSome ++ ZStream.fromZIO(task.join).drain
         )
       }
 
@@ -39,9 +39,9 @@ object CodeWriter {
 
         override def write(s: String): UIO[Unit] =
           indentLevel.get.flatMap { level =>
-            queue.offer(Some(s * level)) *>
+            queue.offer(Some("  " * level)) *>
               atLineStart.set(false)
-          } *> queue.offer(Some(s)).unit
+          }.whenZIO(atLineStart.get) *> queue.offer(Some(s)).unit
 
         override def writeln(s: String): UIO[Unit] =
           write(s) *> writeln()
