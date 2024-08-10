@@ -3,6 +3,7 @@
 .scala-build/
 .vscode/
 .idea/
+.bloop/
 target/
 node_modules/
 
