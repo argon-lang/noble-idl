@@ -15,7 +15,6 @@ import dev.argon.esexpr.SyntaxException;
 import dev.argon.nobleidl.compiler.api.PackageName;
 import dev.argon.nobleidl.compiler.api.PackageNameUtil;
 import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
-import org.apache.commons.io.FilenameUtils;
 
 class LibraryAnalyzer implements Closeable {
 	private LibraryAnalyzer(FileSystem fs, Path libraryPath) {
@@ -31,7 +30,6 @@ class LibraryAnalyzer implements Closeable {
 	public final List<String> sourceFiles = new ArrayList<>();
 
 	public static LibraryAnalyzer fromPath(Path libraryPath) throws IOException {
-		System.err.println(libraryPath);
 		if(Files.isDirectory(libraryPath)) {
 			return new LibraryAnalyzer(null, libraryPath);
 		}
@@ -76,11 +74,13 @@ class LibraryAnalyzer implements Closeable {
 			return;
 		}
 
-		if(!options.backends().contains("java")) {
+		var javaOptions = options.backends().mapping().map().get("java");
+
+		if(javaOptions == null) {
 			return;
 		}
 
-		packageMapping.putAll(options.packageMapping().map());
+		packageMapping.putAll(javaOptions.packageMapping().map());
 		System.err.println(options.idlFiles());
 		for(var path : options.idlFiles()) {
 			var subPath = libraryPath.resolve(path);

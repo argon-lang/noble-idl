@@ -8,13 +8,10 @@ import java.util.List;
 @Constructor("noble-idl-options")
 public record NobleIdlJarOptions(
 	@Keyword
-	List<String> backends,
-
-	@Keyword
 	List<String> idlFiles,
 
 	@Keyword
-	KeywordMapping<String> packageMapping
+	BackendMapping backends
 ) {
 	public static ESExprCodec<NobleIdlJarOptions> codec() {
 		return NobleIdlJarOptions_CodecImpl.INSTANCE;

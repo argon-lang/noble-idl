@@ -662,13 +662,6 @@ class JavaBackend {
 	}
 
 
-	private enum TypeMode {
-		UNBOXED,
-		BOXED,
-		RETURN,
-	}
-
-
 	private sealed interface JavaTypeExpr {
 		// Have to ensure that array type annotations are in the right position.
 		default void writeType(Writer w) throws IOException {

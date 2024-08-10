@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-class NobleIDLCompiler implements AutoCloseable {
+public class NobleIDLCompiler implements AutoCloseable {
 
 	public NobleIDLCompiler() {
 		module = loadModule(engine);

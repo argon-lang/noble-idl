@@ -13,5 +13,3 @@ esexpr-runtime = { module = "dev.argon:esexpr-java-runtime" , version.ref = "ese
 jvmwasm-engine = { module = "dev.argon.jvmwasm:wasm-engine", version.ref = "jvmwasm" }
 apache-commons-text = { module = "org.apache.commons:commons-text", version.ref = "apache-commons-text" }
 apache-commons-cli = { module = "commons-cli:commons-cli", version = "1.8.0" }
-apache-commons-io = { module = "commons-io:commons-io", version = "2.16.1" }
-asm = { module = "org.ow2.asm:asm", version.ref = "asm" }

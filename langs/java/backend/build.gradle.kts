@@ -21,8 +21,6 @@ dependencies {
     implementation(libs.jvmwasm.engine)
     implementation(libs.apache.commons.text)
     implementation(libs.apache.commons.cli)
-    implementation(libs.apache.commons.io)
-    implementation(libs.asm)
     api(libs.esexpr.runtime)
     annotationProcessor(libs.esexpr.generator)
     api(project(":runtime"))

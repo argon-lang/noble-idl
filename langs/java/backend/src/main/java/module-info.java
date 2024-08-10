@@ -4,8 +4,6 @@ module dev.argon.nobleidl.compiler {
 	requires dev.argon.jvmwasm.engine;
 	requires org.apache.commons.text;
 	requires org.apache.commons.cli;
-	requires org.apache.commons.io;
-	requires org.objectweb.asm;
 	requires java.compiler;
 
 	exports dev.argon.nobleidl.compiler;

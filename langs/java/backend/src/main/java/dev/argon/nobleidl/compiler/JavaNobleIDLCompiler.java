@@ -10,6 +10,8 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
+import dev.argon.nobleidl.compiler.format.BackendMapping;
+import dev.argon.nobleidl.compiler.format.BackendOptions;
 import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
 import org.apache.commons.cli.*;
 
@@ -158,9 +160,14 @@ public class JavaNobleIDLCompiler {
 		));
 
 		var jarOptions = new NobleIdlJarOptions(
-			List.of("java"),
 			libraryPaths,
-			new KeywordMapping<>(currentPackageMapping)
+			new BackendMapping(
+				new KeywordMapping<>(Map.of(
+					"java", new BackendOptions(
+						new KeywordMapping<>(currentPackageMapping)
+					)
+				))
+			)
 		);
 
 		Files.createDirectories(resourceOutputDirPath);
