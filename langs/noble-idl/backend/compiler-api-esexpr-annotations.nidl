@@ -1,0 +1,98 @@
+
+package nobleidl.compiler.api;
+
+import nobleidl.core;
+
+
+@esexpr:(derive-codec)
+enum esexpr-ann-record {
+    @rust:(unit)
+    derive-codec,
+    @rust:(tuple)
+    constructor {
+        name: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-enum {
+    @rust:(unit)
+    derive-codec,
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-enum-case {
+    @rust:(tuple)
+    constructor {
+        name: string;
+    },
+    @rust:(unit)
+    inline-value,
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-simple-enum {
+    @rust:(unit)
+    derive-codec,
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-simple-enum-case {
+    @rust:(tuple)
+    constructor {
+        name: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-record-field {
+    @rust:(tuple)
+    keyword {
+        @esexpr:(optional)
+        name: optional-field[string];
+    },
+
+    @rust:(unit)
+    dict,
+    @rust:(unit)
+    vararg,
+    
+
+    @rust:(unit)
+    optional,
+    @rust:(tuple)
+    default-value {
+        value: esexpr;
+    }
+}
+
+@esexpr:(derive-codec)
+enum esexpr-ann-extern-type {
+    @rust:(unit)
+    derive-codec,
+
+    @rust:(tuple)
+    allow-optional {
+        element-type: type-expr;
+    },
+
+    @rust:(tuple)
+    allow-vararg {
+        element-type: type-expr;
+    },
+
+    @rust:(tuple)
+    allow-dict {
+        element-type: type-expr;
+    },
+
+    @esexpr:(inline-value)
+    @rust:(tuple)
+    literals {
+        name: esexpr-extern-type-literals;
+    },
+}
+
+
+
+

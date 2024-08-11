@@ -1,5 +1,3 @@
-use esexpr::*;
-
 use std::{borrow::Borrow, collections::HashMap, fmt::Debug, hash::Hash};
 
 pub trait NobleIDLPluginExecutor {
@@ -61,54 +59,3 @@ impl TypeParameter {
     }
 }
 
-
-
-
-// ESExpr annotations
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnRecord {
-    DeriveCodec,
-    Constructor(String),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnEnum {
-    DeriveCodec,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnEnumCase {
-    Constructor(String),
-    InlineValue,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnSimpleEnum {
-    DeriveCodec,
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnSimpleEnumCase {
-    Constructor(String),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnRecordField {
-    Keyword(#[optional] Option<String>),
-
-    Dict,
-    Vararg,
-
-	Optional,
-	DefaultValue(ESExpr),
-}
-
-#[derive(ESExprCodec, Debug, PartialEq, Clone)]
-pub enum EsexprAnnExternType {
-    DeriveCodec,
-	AllowOptional(TypeExpr),
-	AllowVararg(TypeExpr),
-	AllowDict(TypeExpr),
-	#[inline_value]
-	Literals(EsexprExternTypeLiterals),
-}

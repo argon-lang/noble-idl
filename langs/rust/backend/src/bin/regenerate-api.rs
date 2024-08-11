@@ -36,6 +36,7 @@ fn main() {
 
 		files: vec![
 			dir.join("../../../../noble-idl/backend/compiler-api.nidl"),
+			dir.join("../../../../noble-idl/backend/compiler-api-esexpr-annotations.nidl"),
 		],
 
 		library_files: vec![

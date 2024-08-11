@@ -83,6 +83,96 @@ pub struct EnumDefinition {
     ::std::cmp::PartialEq,
     ::esexpr::ESExprCodec
 )]
+pub enum EsexprAnnEnum {
+    #[constructor = "derive-codec"]
+    DeriveCodec,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnEnumCase {
+    #[constructor = "constructor"]
+    Constructor(::noble_idl_runtime::String),
+    #[constructor = "inline-value"]
+    InlineValue,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnExternType {
+    #[constructor = "derive-codec"]
+    DeriveCodec,
+    #[constructor = "allow-optional"]
+    AllowOptional(crate::TypeExpr),
+    #[constructor = "allow-vararg"]
+    AllowVararg(crate::TypeExpr),
+    #[constructor = "allow-dict"]
+    AllowDict(crate::TypeExpr),
+    #[inline_value]
+    Literals(crate::EsexprExternTypeLiterals),
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnRecord {
+    #[constructor = "derive-codec"]
+    DeriveCodec,
+    #[constructor = "constructor"]
+    Constructor(::noble_idl_runtime::String),
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnRecordField {
+    #[constructor = "keyword"]
+    Keyword(#[optional] ::noble_idl_runtime::OptionalField<::noble_idl_runtime::String>),
+    #[constructor = "dict"]
+    Dict,
+    #[constructor = "vararg"]
+    Vararg,
+    #[constructor = "optional"]
+    Optional,
+    #[constructor = "default-value"]
+    DefaultValue(::noble_idl_runtime::Esexpr),
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnSimpleEnum {
+    #[constructor = "derive-codec"]
+    DeriveCodec,
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum EsexprAnnSimpleEnumCase {
+    #[constructor = "constructor"]
+    Constructor(::noble_idl_runtime::String),
+}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
 #[constructor = "field-value"]
 pub struct EsexprDecodedFieldValue {
     pub name: ::noble_idl_runtime::String,
