@@ -1,4 +1,4 @@
-package nobleidl
+package nobleidl.compiler
 
 import cats.Monoid
 import cats.data.OptionT
@@ -6,13 +6,13 @@ import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions
 import dev.argon.util.async.ErrorWrapper
 import esexpr.{ESExpr, ESExprBinaryDecoder, ESExprFormatException}
 import zio.*
-import zio.stream.*
 import zio.interop.catz.core.given
+import zio.stream.*
 
 import java.io.IOException
 import java.nio.file.{FileSystems, Files, Path}
-import scala.reflect.TypeTest
 import scala.jdk.CollectionConverters.*
+import scala.reflect.TypeTest
 
 object LibraryAnalyzer {
 

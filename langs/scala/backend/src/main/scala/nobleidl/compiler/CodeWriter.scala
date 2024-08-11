@@ -1,4 +1,4 @@
-package nobleidl
+package nobleidl.compiler
 
 import zio.*
 import zio.stream.*
@@ -15,15 +15,13 @@ trait CodeWriter {
 object CodeWriter {
 
   def withWriter[R, E](op: ZIO[R & CodeWriter, E, Unit]): ZStream[R, E, String] =
-    ZStream.fromZIO(Queue.bounded[Option[String]](10))
-      .flatMap { queue =>
-        ZStream.unwrap(
-          for
-            task <- op.onExit(_ => queue.offer(None)).provideSomeLayer[R](liveFromQueue(queue)).fork
-
-          yield ZStream.fromQueue(queue).takeWhile(_.isDefined).collectSome ++ ZStream.fromZIO(task.join).drain
-        )
-      }
+    ZStream.unwrapScoped(
+      for
+        queue <- Queue.bounded[Option[String]](2).withFinalizer(_.shutdown)
+        task <- op.onExit(_ => queue.offer(None)).provideSomeLayer[R](liveFromQueue(queue)).fork
+      yield ZStream.fromQueue(queue).takeWhile(_.isDefined).collectSome ++
+        ZStream.fromZIO(task.join).drain
+    )
 
   private def liveFromQueue(queue: Enqueue[Option[String]]): ULayer[CodeWriter] =
     ZLayer.fromZIO(

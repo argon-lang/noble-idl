@@ -1,6 +1,8 @@
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.linker.interface.ESVersion
 
+import scala.sys.process.Process
+
 
 val zioVersion = "2.0.21"
 
@@ -67,6 +69,29 @@ lazy val backend = project.in(file("backend"))
       "org.apache.commons" % "commons-text" % "1.12.0",
       "commons-cli" % "commons-cli" % "1.8.0",
     ),
+
+    Compile / resourceGenerators += Def.task {
+      val outputFile = (Compile / resourceManaged).value / "nobleidl/compiler/noble-idl-compiler.wasm"
+
+      val cargoProject = "noble-idl-compiler"
+      val cargoDirectory = baseDirectory.value / "../../.."
+      val compiledFile = cargoDirectory / "target/wasm32-unknown-unknown/release" / (cargoProject.replace("-", "_") + ".wasm")
+
+
+      val exitCode = Process(
+        Seq("cargo", "build", "-p", cargoProject, "--target=wasm32-unknown-unknown", "--release"),
+        cargoDirectory,
+        "RUSTFLAGS" -> "-C target-feature=+multivalue",
+      ).!
+      if(exitCode != 0) {
+        throw new RuntimeException(s"Cargo failed with exit code $exitCode")
+      }
+
+
+      IO.copyFile(compiledFile, outputFile)
+
+      Seq(outputFile)
+    },
 
     name := "nobleidl-scala-compiler",
   )

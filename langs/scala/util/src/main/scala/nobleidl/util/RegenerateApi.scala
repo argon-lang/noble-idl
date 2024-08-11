@@ -2,7 +2,7 @@ package nobleidl.util
 
 import dev.argon.esexpr.KeywordMapping
 import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions, PackageMapping}
-import nobleidl.ScalaNobleIDLCompiler
+import nobleidl.compiler.ScalaNobleIDLCompiler
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import scala.jdk.CollectionConverters.*

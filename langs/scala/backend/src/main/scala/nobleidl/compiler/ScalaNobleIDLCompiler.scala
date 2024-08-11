@@ -1,18 +1,18 @@
-package nobleidl
+package nobleidl.compiler
 
 import dev.argon.esexpr.{ESExprBinaryWriter, KeywordMapping}
-import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions, PackageMapping}
-import dev.argon.nobleidl.compiler.api.{java as _, *}
 import dev.argon.nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions}
+import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions, PackageMapping}
+import nobleidl.compiler.api.*
 import scopt.{OEffect, OParser}
 import zio.*
 import zio.stream.*
 
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitOption, FileVisitResult, Files, Path, SimpleFileVisitor}
-import scala.collection.mutable
+import java.nio.file.*
 import java.util.Set as JSet
+import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
@@ -20,30 +20,25 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
   def compile(options: JavaIDLCompilerOptions): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
     val modelOptions = NobleIdlCompileModelOptions(
-      options.libraryFileData,
-      options.inputFileData
+      options.libraryFileData.nn.asScala.toSeq,
+      options.inputFileData.nn.asScala.toSeq,
     )
 
     for
-      result <-
-        ZIO.attempt {
-          Using.resource(new NobleIDLCompiler()) { compiler =>
-            compiler.loadModel(modelOptions)
-          }
-        }
-        .refineToOrDie[dev.argon.nobleidl.compiler.NobleIDLCompileErrorException]
-        .mapError(e => NobleIDLCompileErrorException(e.getMessage, e.getCause))
+      result <- ZIO.scoped {
+        NobleIDLCompiler.make
+          .flatMap(_.loadModel(modelOptions))
+      }
 
       model <-
         result match {
-          case result: NobleIdlCompileModelResult.Success => ZIO.succeed(result.model)
-          case result: NobleIdlCompileModelResult.Failure => ZIO.fail(new NobleIDLCompileErrorException(result.errors.nn.asScala.mkString("\n")))
-          case _ => throw new MatchError(result)
+          case NobleIdlCompileModelResult.Success(model) => ZIO.succeed(model)
+          case NobleIdlCompileModelResult.Failure(errors) => ZIO.fail(new NobleIDLCompileErrorException(errors.mkString("\n")))
         }
 
       backend = ScalaBackend(
         NobleIdlGenerationRequest[JavaLanguageOptions](
-          options.languageOptions(),
+          options.languageOptions().nn,
           model,
         ),
       )
@@ -62,7 +57,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
         .runCollect
       
     yield NobleIdlGenerationResult(
-      files.asJava
+      files
     )
   end compile
 
