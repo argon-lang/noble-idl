@@ -45,11 +45,6 @@ lazy val backend = project.in(file("backend"))
   .dependsOn(runtimeJVM)
   .settings(
 
-    Compile / unmanagedJars ++= Seq(
-      file("../java/backend/build/libs/backend.jar"),
-      file("../java/runtime/build/libs/runtime.jar"),
-    ),
-
     Compile / unmanagedSourceDirectories += baseDirectory.value / "src/gen/scala",
 
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -57,7 +52,7 @@ lazy val backend = project.in(file("backend"))
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio" % zioVersion,
       "dev.zio" %%% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-interop-cats" % "23.1.0.3",
+      "dev.zio" %%% "zio-interop-cats" % "23.1.0.3",
 
       "dev.zio" %%% "zio-test" % zioVersion % "test",
       "dev.zio" %%% "zio-test-sbt" % zioVersion % "test",
@@ -65,9 +60,7 @@ lazy val backend = project.in(file("backend"))
       "com.github.scopt" %%% "scopt" % "4.1.0",
 
       "dev.argon.jvmwasm" % "wasm-engine" % "0.1.0",
-      "dev.argon" % "esexpr-java-runtime" % "0.1.0",
       "org.apache.commons" % "commons-text" % "1.12.0",
-      "commons-cli" % "commons-cli" % "1.8.0",
     ),
 
     Compile / resourceGenerators += Def.task {

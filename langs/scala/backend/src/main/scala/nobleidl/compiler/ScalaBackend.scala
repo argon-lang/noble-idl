@@ -1,6 +1,5 @@
 package nobleidl.compiler
 
-import dev.argon.nobleidl.compiler.JavaLanguageOptions
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.*
 import org.apache.commons.text.StringEscapeUtils
@@ -10,12 +9,12 @@ import zio.stream.*
 import java.util.Locale
 import scala.jdk.CollectionConverters.*
 
-private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaLanguageOptions]) {
+private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOptions]) {
   import ScalaBackend.*
 
-  private val options: JavaLanguageOptions = genRequest.languageOptions
+  private val options: ScalaLanguageOptions = genRequest.languageOptions
   private val model = genRequest.model
-  private val packageMapping = options.packageMapping.nn.mapping.nn.map.nn.asScala
+  private val packageMapping = options.packageMapping.mapping.dict
     .view
     .map { (k, v) => PackageName.fromString(k) -> v }
     .toMap
@@ -220,7 +219,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
 
                     case EsexprRecordKeywordMode.Optional(_) =>
                       writeln("@_root_.esexpr.optional")
-                      
+
                     case EsexprRecordKeywordMode.DefaultValue(_) => ZIO.unit
                   }
                 yield ()

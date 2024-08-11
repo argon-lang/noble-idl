@@ -1,8 +1,9 @@
 package nobleidl.util
 
 import dev.argon.esexpr.KeywordMapping
-import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions}
-import dev.argon.nobleidl.compiler.format.PackageMapping
+import esexpr.Dictionary
+import nobleidl.compiler.{ScalaIDLCompilerOptions, ScalaLanguageOptions}
+import nobleidl.compiler.format.PackageMapping
 import nobleidl.compiler.ScalaNobleIDLCompiler
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
@@ -17,17 +18,17 @@ object RegenerateApi extends ZIOAppDefault {
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
       jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
 
-      _ <- ScalaNobleIDLCompiler.compile(JavaIDLCompilerOptions(
-        JavaLanguageOptions(
-          "backend/src/gen/scala",
-          PackageMapping(KeywordMapping(Map(
+      _ <- ScalaNobleIDLCompiler.compile(ScalaIDLCompilerOptions(
+        languageOptions = ScalaLanguageOptions(
+          outputDir = "backend/src/gen/scala",
+          packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.core",
             "nobleidl.compiler.api" -> "nobleidl.compiler.api",
             "nobleidl.compiler.jar-metadata" -> "nobleidl.compiler.format",
-          ).asJava)),
+          ))),
         ),
-        Seq(compilerApi, jarMetadata).asJava,
-        Seq(coreLib).asJava,
+        inputFileData = Seq(compilerApi, jarMetadata),
+        libraryFileData = Seq(coreLib),
       ))
     yield ()
 }

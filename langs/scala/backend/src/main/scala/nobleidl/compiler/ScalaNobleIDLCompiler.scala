@@ -1,8 +1,7 @@
 package nobleidl.compiler
 
-import dev.argon.esexpr.{ESExprBinaryWriter, KeywordMapping}
-import dev.argon.nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions, PackageMapping}
-import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions}
+import nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions, PackageMapping}
+import esexpr.{ESExprCodec, Dictionary, ESExprBinaryEncoder}
 import nobleidl.compiler.api.*
 import scopt.{OEffect, OParser}
 import zio.*
@@ -18,10 +17,10 @@ import scala.util.Using
 
 object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
-  def compile(options: JavaIDLCompilerOptions): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
+  def compile(options: ScalaIDLCompilerOptions): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
     val modelOptions = NobleIdlCompileModelOptions(
-      options.libraryFileData.nn.asScala.toSeq,
-      options.inputFileData.nn.asScala.toSeq,
+      libraryFiles = options.libraryFileData,
+      files = options.inputFileData,
     )
 
     for
@@ -37,15 +36,15 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
         }
 
       backend = ScalaBackend(
-        NobleIdlGenerationRequest[JavaLanguageOptions](
-          options.languageOptions().nn,
-          model,
+        NobleIdlGenerationRequest[ScalaLanguageOptions](
+          languageOptions = options.languageOptions,
+          model = model,
         ),
       )
 
       files <- backend.emit
         .mapZIOParUnordered(java.lang.Runtime.getRuntime.nn.availableProcessors()) { file =>
-          val fileName = file.path.foldLeft(Path.of(options.languageOptions().nn.outputDir()).nn)(_.resolve(_).nn)
+          val fileName = file.path.foldLeft(Path.of(options.languageOptions.outputDir).nn)(_.resolve(_).nn)
           ZIO.attempt { Files.createDirectories(fileName.getParent) }.refineToOrDie[IOException] *>
             file.content
               .via(ZPipeline.utf8Encode.orDie)
@@ -112,34 +111,33 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             libRes <- LibraryAnalyzer.scan(config.libraries)
             inputMap <- scanInputDirs(config.inputDirs, resourceOutputDir)
 
-            _ <- compile(JavaIDLCompilerOptions(
-              JavaLanguageOptions(
-                config.outputDir.get,
-                new PackageMapping(new KeywordMapping(
-                  (libRes.packageMapping ++ config.packageMapping).asJava
-                )),
+            _ <- compile(ScalaIDLCompilerOptions(
+              languageOptions = ScalaLanguageOptions(
+                outputDir = config.outputDir.get,
+                packageMapping = PackageMapping(
+                  mapping = Dictionary(
+                    (libRes.packageMapping ++ config.packageMapping)
+                  ),
+                ),
               ),
-              inputMap.values.toSeq.asJava,
-              libRes.sourceFiles.asJava,
+              inputFileData = inputMap.values.toSeq,
+              libraryFileData = libRes.sourceFiles,
             ))
 
-            _ <- ZIO.attempt {
-              val jarOptions = NobleIdlJarOptions(
-                inputMap.keys.toSeq.asJava,
-                BackendMapping(KeywordMapping(Map(
-                  "java" -> BackendOptions(PackageMapping(
-                    KeywordMapping[String](config.packageMapping.asJava)
-                  )),
-                ).asJava))
-              )
-
-              Files.createDirectories(resourceOutputDir)
-              Using.resource(Files.newOutputStream(resourceOutputDir.resolve("nobleidl-options.esxb")).nn) { os =>
-                ESExprBinaryWriter.writeWithSymbolTable(os, NobleIdlJarOptions.codec.nn.encode(jarOptions))
-              }
-
-
-            }.refineToOrDie[IOException]
+            jarOptions = NobleIdlJarOptions(
+              idlFiles = inputMap.keys.toSeq,
+              backends = BackendMapping(Dictionary(Map(
+                "java" -> BackendOptions(
+                  packageMapping = PackageMapping(
+                    Dictionary(config.packageMapping),
+                  )
+                ),
+              ))),
+            )
+            
+            _ <- ZIO.attempt { Files.createDirectories(resourceOutputDir) }.refineToOrDie[IOException]
+            _ <- ESExprBinaryEncoder.writeWithSymbolTable(summon[ESExprCodec[NobleIdlJarOptions]].encode(jarOptions))
+              .run(ZSink.fromPath(resourceOutputDir.resolve("nobleidl-options.esxb").nn))
 
           yield ExitCode.success
         }

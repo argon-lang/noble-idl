@@ -2,9 +2,9 @@ package nobleidl.compiler
 
 import cats.Monoid
 import cats.data.OptionT
-import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions
+import nobleidl.compiler.format.NobleIdlJarOptions
 import dev.argon.util.async.ErrorWrapper
-import esexpr.{ESExpr, ESExprBinaryDecoder, ESExprFormatException}
+import esexpr.{ESExpr, ESExprCodec, ESExprBinaryDecoder, ESExprFormatException}
 import zio.*
 import zio.interop.catz.core.given
 import zio.stream.*
@@ -16,7 +16,7 @@ import scala.reflect.TypeTest
 
 object LibraryAnalyzer {
 
-  type Error = IOException | ESExprFormatException | dev.argon.esexpr.DecodeException
+  type Error = IOException | ESExprFormatException | ESExprCodec.DecodeError
 
   final case class LibraryResults(
     packageMapping: Map[String, String],
@@ -60,19 +60,19 @@ object LibraryAnalyzer {
       ).runHead
     )
       .flatMap { optionsExpr =>
-        OptionT.liftF(ZIO.attempt {
-          NobleIdlJarOptions.codec().nn.decode(ESExpr.toJava(optionsExpr))
-        }.refineToOrDie[dev.argon.esexpr.DecodeException])
+        OptionT.liftF(ZIO.fromEither(
+          summon[ESExprCodec[NobleIdlJarOptions]].decode(optionsExpr)
+        ))
       }
-      .filter(_.backends.nn.mapping.nn.map.nn.containsKey("scala"))
+      .filter(_.backends.mapping.dict.contains("scala"))
       .map { options =>
         LibraryResults(
-          packageMapping = options.nn.backends.nn.mapping.nn.map.nn.asScala
+          packageMapping = options.backends.mapping.dict
             .view
-            .mapValues(_.packageMapping.nn.mapping.nn.map.nn.asScala.toMap)
+            .mapValues(_.packageMapping.mapping.dict)
             .getOrElse("scala", Map.empty),
           
-          sourceFiles = options.idlFiles.nn.asScala.toSeq,
+          sourceFiles = options.idlFiles,
         )
       }
       .value
