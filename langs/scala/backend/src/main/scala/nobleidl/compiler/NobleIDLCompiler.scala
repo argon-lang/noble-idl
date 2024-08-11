@@ -7,11 +7,8 @@ import nobleidl.compiler.api.{NobleIdlCompileModelOptions, NobleIdlCompileModelR
 import zio.stream.ZStream
 import zio.*
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException}
-import java.util.concurrent.ExecutionException
-import scala.util.Using
 
-final class NobleIDLCompiler(engine: Engine, module: WasmModule) {
+final class NobleIDLCompiler(module: WasmModule) {
   import NobleIDLCompiler.Buffer
 
 
@@ -88,7 +85,7 @@ object NobleIDLCompiler {
           }
       }
       instModule <- ZIO.succeed { engine.instantiateModule(module, EmptyResolver()).nn }
-    yield NobleIDLCompiler(engine, instModule)
+    yield NobleIDLCompiler(instModule)
 
 
   private class EmptyResolver extends ModuleResolver {
