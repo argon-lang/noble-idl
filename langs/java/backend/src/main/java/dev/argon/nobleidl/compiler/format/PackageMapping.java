@@ -10,7 +10,7 @@ public record PackageMapping(
 	@Dict
 	KeywordMapping<String> mapping
 ) {
-	public static ESExprCodec<NobleIdlJarOptions> codec() {
-		return NobleIdlJarOptions_CodecImpl.INSTANCE;
+	public static ESExprCodec<PackageMapping> codec() {
+		return PackageMapping_CodecImpl.INSTANCE;
 	}
 }

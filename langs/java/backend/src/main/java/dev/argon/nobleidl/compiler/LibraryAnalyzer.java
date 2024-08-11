@@ -12,8 +12,6 @@ import dev.argon.esexpr.DecodeException;
 import dev.argon.esexpr.ESExpr;
 import dev.argon.esexpr.ESExprBinaryReader;
 import dev.argon.esexpr.SyntaxException;
-import dev.argon.nobleidl.compiler.api.PackageName;
-import dev.argon.nobleidl.compiler.api.PackageNameUtil;
 import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
 
 class LibraryAnalyzer implements Closeable {
@@ -80,7 +78,7 @@ class LibraryAnalyzer implements Closeable {
 			return;
 		}
 
-		packageMapping.putAll(javaOptions.packageMapping().map());
+		packageMapping.putAll(javaOptions.packageMapping().mapping().map());
 		System.err.println(options.idlFiles());
 		for(var path : options.idlFiles()) {
 			var subPath = libraryPath.resolve(path);

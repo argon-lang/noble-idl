@@ -5,6 +5,7 @@ import dev.argon.esexpr.KeywordMapping;
 import dev.argon.nobleidl.compiler.format.BackendMapping;
 import dev.argon.nobleidl.compiler.format.BackendOptions;
 import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
+import dev.argon.nobleidl.compiler.format.PackageMapping;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,9 +20,11 @@ public class CreateNobleIDLRuntimeOptions {
 			new BackendMapping(
 				new KeywordMapping<>(Map.of(
 					"java", new BackendOptions(
-						new KeywordMapping<>(Map.of(
-							"nobleidl.core", "dev.argon.nobleidl.runtime"
-						))
+						new PackageMapping(
+							new KeywordMapping<>(Map.of(
+								"nobleidl.core", "dev.argon.nobleidl.runtime"
+							))
+						)
 					)
 				))
 			)

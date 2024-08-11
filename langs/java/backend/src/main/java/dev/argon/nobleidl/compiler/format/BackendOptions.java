@@ -8,7 +8,7 @@ import java.util.List;
 @Constructor("backend-options")
 public record BackendOptions(
 	@Keyword
-	KeywordMapping<String> packageMapping
+	PackageMapping packageMapping
 ) {
 	public static ESExprCodec<BackendOptions> codec() {
 		return BackendOptions_CodecImpl.INSTANCE;

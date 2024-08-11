@@ -4,7 +4,7 @@ import dev.argon.esexpr.KeywordMapping;
 import dev.argon.nobleidl.compiler.JavaIDLCompilerOptions;
 import dev.argon.nobleidl.compiler.JavaLanguageOptions;
 import dev.argon.nobleidl.compiler.JavaNobleIDLCompiler;
-import dev.argon.nobleidl.compiler.PackageMapping;
+import dev.argon.nobleidl.compiler.format.PackageMapping;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

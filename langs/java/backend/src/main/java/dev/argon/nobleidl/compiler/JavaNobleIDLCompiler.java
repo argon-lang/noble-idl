@@ -13,6 +13,7 @@ import java.util.*;
 import dev.argon.nobleidl.compiler.format.BackendMapping;
 import dev.argon.nobleidl.compiler.format.BackendOptions;
 import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
+import dev.argon.nobleidl.compiler.format.PackageMapping;
 import org.apache.commons.cli.*;
 
 public class JavaNobleIDLCompiler {
@@ -164,7 +165,9 @@ public class JavaNobleIDLCompiler {
 			new BackendMapping(
 				new KeywordMapping<>(Map.of(
 					"java", new BackendOptions(
-						new KeywordMapping<>(currentPackageMapping)
+						new PackageMapping(
+							new KeywordMapping<>(currentPackageMapping)
+						)
 					)
 				))
 			)

@@ -34,7 +34,7 @@ class JavaBackend {
 
 	private static Map<PackageName, String> getPackageMapping(JavaLanguageOptions options) {
 		Map<PackageName, String> packageMapping = new HashMap<>();
-		for(var entry : options.packageMapping().packageMapping().map().entrySet()) {
+		for(var entry : options.packageMapping().mapping().map().entrySet()) {
 			packageMapping.put(PackageNameUtil.fromString(entry.getKey()), entry.getValue());
 		}
 		return packageMapping;
