@@ -15,7 +15,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[JavaL
 
   private val options: JavaLanguageOptions = genRequest.languageOptions
   private val model = genRequest.model
-  private val packageMapping = options.packageMapping.nn.packageMapping.nn.map.nn.asScala
+  private val packageMapping = options.packageMapping.nn.mapping.nn.map.nn.asScala
     .view
     .map { (k, v) => PackageName.fromString(k) -> v }
     .toMap

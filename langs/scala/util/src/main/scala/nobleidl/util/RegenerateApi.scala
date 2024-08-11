@@ -1,7 +1,8 @@
 package nobleidl.util
 
 import dev.argon.esexpr.KeywordMapping
-import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions, PackageMapping}
+import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions}
+import dev.argon.nobleidl.compiler.format.PackageMapping
 import nobleidl.compiler.ScalaNobleIDLCompiler
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
@@ -14,6 +15,7 @@ object RegenerateApi extends ZIOAppDefault {
     for
       coreLib <- ZIO.readFile(Path.of("../noble-idl/runtime/nobleidl-core.nidl").nn)
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
+      jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
 
       _ <- ScalaNobleIDLCompiler.compile(JavaIDLCompilerOptions(
         JavaLanguageOptions(
@@ -21,9 +23,10 @@ object RegenerateApi extends ZIOAppDefault {
           PackageMapping(KeywordMapping(Map(
             "nobleidl.core" -> "nobleidl.core",
             "nobleidl.compiler.api" -> "nobleidl.compiler.api",
+            "nobleidl.compiler.jar-metadata" -> "nobleidl.compiler.format",
           ).asJava)),
         ),
-        Seq(compilerApi).asJava,
+        Seq(compilerApi, jarMetadata).asJava,
         Seq(coreLib).asJava,
       ))
     yield ()

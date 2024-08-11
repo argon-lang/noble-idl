@@ -69,7 +69,7 @@ object LibraryAnalyzer {
         LibraryResults(
           packageMapping = options.nn.backends.nn.mapping.nn.map.nn.asScala
             .view
-            .mapValues(_.packageMapping.nn.map.nn.asScala.toMap)
+            .mapValues(_.packageMapping.nn.mapping.nn.map.nn.asScala.toMap)
             .getOrElse("scala", Map.empty),
           
           sourceFiles = options.idlFiles.nn.asScala.toSeq,

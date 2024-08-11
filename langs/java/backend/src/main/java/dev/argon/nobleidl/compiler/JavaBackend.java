@@ -900,7 +900,7 @@ class JavaBackend {
 			case TypeExpr.DefinedType(var name, var args) -> {
 				var mappedType = ignoreMapping ? null : getMappedType(name).orElse(null);
 				if(mappedType == null) {
-					var packageName = Optional.of(getJavaPackage(name._package())).filter(String::isEmpty);
+					var packageName = Optional.of(getJavaPackage(name._package())).filter(pn -> !pn.isEmpty());
 					var className = convertIdPascal(name.name());
 					var javaArgs = new ArrayList<JavaTypeExpr>();
 					for(var arg : args) {

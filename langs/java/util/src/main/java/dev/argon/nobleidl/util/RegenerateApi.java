@@ -16,6 +16,7 @@ public class RegenerateApi {
 	public static void main(String[] args) throws Throwable {
 		String coreLib = Files.readString(Path.of("../../noble-idl/runtime/nobleidl-core.nidl"));
 		String compilerApi = Files.readString(Path.of("../../noble-idl/backend/compiler-api.nidl"));
+		String jarMetadata = Files.readString(Path.of("../../noble-idl/backend/jar-metadata.nidl"));
 
 		JavaNobleIDLCompiler.compile(new JavaIDLCompilerOptions(
 			new JavaLanguageOptions(
@@ -24,11 +25,12 @@ public class RegenerateApi {
 				new PackageMapping(
 					new KeywordMapping<>(Map.of(
 						"nobleidl.core", "dev.argon.nobleidl.runtime",
-						"nobleidl.compiler.api", "dev.argon.nobleidl.compiler.api"
+						"nobleidl.compiler.api", "dev.argon.nobleidl.compiler.api",
+						"nobleidl.compiler.jar-metadata", "dev.argon.nobleidl.compiler.format"
 					))
 				)
 			),
-			List.of(compilerApi),
+			List.of(compilerApi, jarMetadata),
 			List.of(coreLib)
 		));
 	}

@@ -1,8 +1,8 @@
 package nobleidl.compiler
 
 import dev.argon.esexpr.{ESExprBinaryWriter, KeywordMapping}
-import dev.argon.nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions}
-import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions, PackageMapping}
+import dev.argon.nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions, PackageMapping}
+import dev.argon.nobleidl.compiler.{JavaIDLCompilerOptions, JavaLanguageOptions}
 import nobleidl.compiler.api.*
 import scopt.{OEffect, OParser}
 import zio.*
@@ -127,7 +127,9 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
               val jarOptions = NobleIdlJarOptions(
                 inputMap.keys.toSeq.asJava,
                 BackendMapping(KeywordMapping(Map(
-                  "java" -> BackendOptions(KeywordMapping[String](config.packageMapping.asJava)),
+                  "java" -> BackendOptions(PackageMapping(
+                    KeywordMapping[String](config.packageMapping.asJava)
+                  )),
                 ).asJava))
               )
 
