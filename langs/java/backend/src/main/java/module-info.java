@@ -1,7 +1,7 @@
 module dev.argon.nobleidl.compiler {
 	requires dev.argon.esexpr;
 	requires dev.argon.nobleidl.runtime;
-	requires dev.argon.jvmwasm.engine;
+	requires dev.argon.jawawasm.engine;
 	requires org.apache.commons.text;
 	requires org.apache.commons.cli;
 	requires java.compiler;

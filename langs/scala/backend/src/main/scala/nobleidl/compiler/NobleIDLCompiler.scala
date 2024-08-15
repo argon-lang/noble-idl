@@ -1,7 +1,7 @@
 package nobleidl.compiler
 
-import dev.argon.jvmwasm.engine.*
-import dev.argon.jvmwasm.format.binary.ModuleReader
+import dev.argon.jawawasm.engine.*
+import dev.argon.jawawasm.format.binary.ModuleReader
 import esexpr.{ESExpr, ESExprBinaryDecoder, ESExprBinaryEncoder, ESExprCodec}
 import nobleidl.compiler.api.{NobleIdlCompileModelOptions, NobleIdlCompileModelResult}
 import zio.stream.ZStream

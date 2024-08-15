@@ -1,10 +1,10 @@
 package dev.argon.nobleidl.compiler;
 
 import dev.argon.esexpr.*;
-import dev.argon.jvmwasm.engine.*;
-import dev.argon.jvmwasm.format.ModuleFormatException;
-import dev.argon.jvmwasm.format.binary.ModuleReader;
-import dev.argon.jvmwasm.format.modules.Data;
+import dev.argon.jawawasm.engine.*;
+import dev.argon.jawawasm.format.ModuleFormatException;
+import dev.argon.jawawasm.format.binary.ModuleReader;
+import dev.argon.jawawasm.format.modules.Data;
 import dev.argon.nobleidl.compiler.api.*;
 
 import java.io.ByteArrayInputStream;

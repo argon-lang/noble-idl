@@ -59,7 +59,7 @@ lazy val backend = project.in(file("backend"))
 
       "com.github.scopt" %%% "scopt" % "4.1.0",
 
-      "dev.argon.jvmwasm" % "wasm-engine" % "0.1.0",
+      "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
       "org.apache.commons" % "commons-text" % "1.12.0",
     ),
 

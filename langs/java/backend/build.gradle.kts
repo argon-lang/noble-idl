@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    implementation(libs.jvmwasm.engine)
+    implementation(libs.jawawasm.engine)
     implementation(libs.apache.commons.text)
     implementation(libs.apache.commons.cli)
     api(libs.esexpr.runtime)
