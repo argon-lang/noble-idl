@@ -52,7 +52,7 @@ impl TypeParameter {
         }
     }
 
-    pub fn annotations(&self) -> &Vec<Annotation> {
+    pub fn annotations(&self) -> &Vec<Box<Annotation>> {
         match self {
             TypeParameter::Type { annotations, .. } => annotations,
         }

@@ -27,7 +27,7 @@ impl <'a> TagScanner<'a> {
 			return HashSet::new();
 		}
 
-		let tags = match &def.definition {
+		let tags = match def.definition.as_ref() {
 			Definition::Record(_) => self.scan_record(def),
 			Definition::Enum(e) => self.scan_enum(state, def, e),
 			Definition::SimpleEnum(_) => self.scan_simple_enum(),
@@ -117,7 +117,7 @@ impl <'a> TagScanner<'a> {
 				EsexprAnnExternType::Literals(literals) => Some(literals),
 				_ => None,
 			})
-			.unwrap_or(EsexprExternTypeLiterals {
+			.unwrap_or_else(|| Box::new(EsexprExternTypeLiterals {
 				allow_bool: false,
 				allow_int: false,
 				min_int: None,
@@ -128,12 +128,12 @@ impl <'a> TagScanner<'a> {
 				allow_float64: false,
 				allow_null: false,
 				build_literal_from: None,
-			});
+			}));
 
 		let mut tags = HashSet::new();
 
 		if let Some(build_literal_from) = literals.build_literal_from {
-			let build_from_type_name = match build_literal_from {
+			let build_from_type_name = match build_literal_from.as_ref() {
 				TypeExpr::DefinedType(name, _) => name,
 				TypeExpr::TypeParameter(_) => return tags,
 			};

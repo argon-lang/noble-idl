@@ -128,7 +128,7 @@ pub fn compile<P: NobleIDLPluginExecutor>(p: &P, options: &NobleIDLOptions<P::La
     let model = model.check()?;
     let request = NobleIdlGenerationRequest {
         language_options: options.plugin_options.clone(),
-        model,
+        model: Box::new(model),
     };
 
     p.generate(request).map_err(Error::PluginError)
@@ -197,7 +197,7 @@ pub unsafe extern "C" fn nobleidl_compile_model(options: Buffer) -> Buffer {
 
 fn compile_model_serialized(options: &[u8]) -> Vec<u8> {
     serialize_result(match compile_model_options_ser(options) {
-        Ok(model) => NobleIdlCompileModelResult::Success(model),
+        Ok(model) => NobleIdlCompileModelResult::Success(Box::new(model)),
         Err(e) => NobleIdlCompileModelResult::Failure {
             errors: vec![ format!("{:?}", e) ],
         },

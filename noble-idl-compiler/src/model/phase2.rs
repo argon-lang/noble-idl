@@ -29,7 +29,7 @@ pub struct ESExprOptionParseExtern {
 impl ESExprOptionParseExtern {
 
 	fn scan_definition(&mut self, dfn: &mut DefinitionInfo) -> Result<(), CheckError> {
-		match &mut dfn.definition {
+		match dfn.definition.as_mut() {
 			Definition::Record(_) => {},
 			Definition::Enum(_) => {},
 			Definition::SimpleEnum(_) => {},
@@ -40,7 +40,7 @@ impl ESExprOptionParseExtern {
 		Ok(())
 	}
 
-	fn scan_extern_type(&mut self, def_name: &QualifiedName, annotations: &[Annotation], et: &mut ExternTypeDefinition) -> Result<(), CheckError> {
+	fn scan_extern_type(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], et: &mut ExternTypeDefinition) -> Result<(), CheckError> {
 		let mut has_derive_codec = false;
 		let mut allow_optional = None;
 		let mut allow_vararg = None;
@@ -71,7 +71,7 @@ impl ESExprOptionParseExtern {
 					allow_optional = Some(element_type.clone());
 
 					self.optional_container_types.insert(def_name.clone(), ContainerTypeMetadata {
-						element_type,
+						element_type: *element_type,
 					});
 				},
 				EsexprAnnExternType::AllowVararg(element_type) => {
@@ -82,7 +82,7 @@ impl ESExprOptionParseExtern {
 					allow_vararg = Some(element_type.clone());
 
 					self.vararg_container_types.insert(def_name.clone(), ContainerTypeMetadata {
-						element_type,
+						element_type: *element_type,
 					});
 				},
 				EsexprAnnExternType::AllowDict(element_type) => {
@@ -93,7 +93,7 @@ impl ESExprOptionParseExtern {
 					allow_dict = Some(element_type.clone());
 
 					self.dict_container_types.insert(def_name.clone(), ContainerTypeMetadata {
-						element_type,
+						element_type: *element_type,
 					});
 
 				},
@@ -108,12 +108,12 @@ impl ESExprOptionParseExtern {
 		}
 
 		if has_derive_codec || allow_optional.is_some() || allow_vararg.is_some() || allow_dict.is_some() {
-			et.esexpr_options = Some(EsexprExternTypeOptions {
+			et.esexpr_options = Some(Box::new(EsexprExternTypeOptions {
 				allow_value: has_derive_codec,
 				allow_optional,
 				allow_vararg,
 				allow_dict,
-				literals: literals.unwrap_or(EsexprExternTypeLiterals {
+				literals: literals.unwrap_or_else(|| Box::new(EsexprExternTypeLiterals {
 					allow_bool: false,
 					allow_int: false,
 					min_int: None,
@@ -124,8 +124,8 @@ impl ESExprOptionParseExtern {
 					allow_float64: false,
 					allow_null: false,
 					build_literal_from: None,
-				}),
-			})
+				})),
+			}))
 		}
 		else if literals.is_some() {
 			return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));

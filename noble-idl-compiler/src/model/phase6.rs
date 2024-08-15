@@ -10,14 +10,14 @@ pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>) {
 }
 
 
-fn non_esexpr_ann(ann: &Annotation) -> bool {
+fn non_esexpr_ann(ann: &Box<Annotation>) -> bool {
 	ann.scope != "esexpr"
 }
 
 fn remove_definition(dfn: &mut DefinitionInfo) {
 	dfn.annotations.retain(non_esexpr_ann);
 
-	match &mut dfn.definition {
+	match dfn.definition.as_mut() {
 		Definition::Record(r) => remove_record(r),
 		Definition::Enum(e) => remove_enum(e),
 		Definition::SimpleEnum(e) => remove_simple_enum(e),
@@ -43,7 +43,7 @@ fn remove_simple_enum(e: &mut SimpleEnumDefinition) {
 	}
 }
 
-fn remove_fields(fields: &mut [RecordField]) {
+fn remove_fields(fields: &mut [Box<RecordField>]) {
 	for field in fields {
 		field.annotations.retain(non_esexpr_ann);
 	}

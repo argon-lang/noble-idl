@@ -44,7 +44,7 @@ impl <'a> ESExprChecker<'a> {
 	}
 
 	fn check_definition(&mut self, def: &'a DefinitionInfo) -> Result<(), CheckError> {
-		match &def.definition {
+		match def.definition.as_ref() {
 			noble_idl_api::Definition::Record(r) => self.check_record(def, r),
 			noble_idl_api::Definition::Enum(e) => self.check_enum(def, e),
 			noble_idl_api::Definition::SimpleEnum(e) => self.check_simple_enum(def, e),
@@ -70,7 +70,7 @@ impl <'a> ESExprChecker<'a> {
 
 		let mut add_tag = |tag| {
 			if let Some(tag) = tags.replace(tag) {
-				return Err(CheckError::ESExprDuplicateTag(def.name.clone(), tag));
+				return Err(CheckError::ESExprDuplicateTag(def.name.as_ref().clone(), tag));
 			}
 			else {
 				return Ok(())
@@ -80,16 +80,16 @@ impl <'a> ESExprChecker<'a> {
 		for c in &e.cases {
 			let Some(esexpr_options) = c.esexpr_options.as_ref() else { continue; };
 
-			match &esexpr_options.case_type {
+			match esexpr_options.case_type.as_ref() {
 				EsexprEnumCaseType::Constructor(name) => add_tag(ESExprTag::Constructor(name.clone()))?,
 				EsexprEnumCaseType::InlineValue => {
 					let [field] = &c.fields[..] else {
-						return Err(CheckError::ESExprInlineValueNotSingleField(def.name.clone(), c.name.clone()));
+						return Err(CheckError::ESExprInlineValueNotSingleField(def.name.as_ref().clone(), c.name.clone()));
 					};
 
 					let iv_tags = self.tag_scanner.scan_type_for(&field.field_type, &def.name);
 					if iv_tags.is_empty() {
-						return Err(CheckError::ESExprInlineValueInvalidTags(def.name.clone(), field.name.clone()));
+						return Err(CheckError::ESExprInlineValueInvalidTags(def.name.as_ref().clone(), field.name.clone()));
 					}
 
 					for tag in iv_tags {
@@ -113,7 +113,7 @@ impl <'a> ESExprChecker<'a> {
 
 		let mut add_tag = |tag| {
 			if let Some(tag) = tags.replace(tag) {
-				return Err(CheckError::ESExprDuplicateTag(def.name.clone(), tag));
+				return Err(CheckError::ESExprDuplicateTag(def.name.as_ref().clone(), tag));
 			}
 			else {
 				return Ok(())
@@ -136,47 +136,67 @@ impl <'a> ESExprChecker<'a> {
 
 		if let Some(element_type) = &esexpr_options.allow_optional {
 			if !self.check_type(element_type) {
-				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.clone()));
+				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.as_ref().clone()));
 			}
 		}
 
 		if let Some(element_type) = &esexpr_options.allow_vararg {
 			if !self.check_type(element_type) {
-				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.clone()));
+				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.as_ref().clone()));
 			}
 		}
 
 		if let Some(element_type) = &esexpr_options.allow_dict {
 			if !self.check_type(element_type) {
-				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.clone()));
+				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.as_ref().clone()));
 			}
 		}
 
 		if let Some(build_from) = &esexpr_options.literals.build_literal_from {
 			if !self.check_type(build_from) {
-				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.clone()));
+				return Err(CheckError::ESExprExternTypeCodecMissing(def.name.as_ref().clone()));
 			}
 		}
 
 		Ok(())
 	}
 
-	fn check_fields(&mut self, fields: &[RecordField], def_name: &QualifiedName, case_name: Option<&str>) -> Result<(), CheckError> {
+	fn check_fields(&mut self, fields: &[Box<RecordField>], def_name: &QualifiedName, case_name: Option<&str>) -> Result<(), CheckError> {
 		for field in fields {
 			let Some(esexpr_options) = &field.esexpr_options else {
 				continue;
 			};
 
-			match &esexpr_options.kind {
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Required) | EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Required | EsexprRecordKeywordMode::DefaultValue(_)) => {
-					if !self.check_type(&field.field_type) {
-						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			match esexpr_options.kind.as_ref() {
+				EsexprRecordFieldKind::Positional(mode) => {
+					match mode.as_ref() {
+						EsexprRecordPositionalMode::Required => {
+							if !self.check_type(&field.field_type) {
+								return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+							}
+						},
+
+						EsexprRecordPositionalMode::Optional(element_type) => {
+							if !self.check_type(&element_type) {
+								return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+							}
+						}
 					}
 				},
 
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(element_type)) | EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(element_type)) => {
-					if !self.check_type(&element_type) {
-						return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+				EsexprRecordFieldKind::Keyword(_, mode) => {
+					match mode.as_ref() {
+						EsexprRecordKeywordMode::Required | EsexprRecordKeywordMode::DefaultValue(_) => {
+							if !self.check_type(&field.field_type) {
+								return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+							}
+						},
+
+						EsexprRecordKeywordMode::Optional(element_type) => {
+							if !self.check_type(&element_type) {
+								return Err(CheckError::ESExprMemberCodecMissing(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+							}
+						}
 					}
 				},
 

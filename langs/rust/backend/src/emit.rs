@@ -9,7 +9,7 @@ use esexpr::ESExprCodec;
 use noble_idl_api::*;
 use syn::{parse_quote, punctuated::Punctuated};
 
-use crate::{annotations::{RustAnnEnum, RustAnnEnumCase, RustAnnRecord}, cycle::CycleScanner, RustLanguageOptions};
+use crate::{annotations::{RustAnnEnum, RustAnnEnumCase, RustAnnRecord}, RustLanguageOptions};
 
 #[derive(derive_more::From, Debug)]
 pub enum EmitError {
@@ -36,7 +36,7 @@ pub fn emit(request: NobleIdlGenerationRequest<RustLanguageOptions>) -> Result<N
 
 	let definition_map = request.model.definitions
 		.iter()
-		.map(|dfn| (&dfn.name, dfn))
+		.map(|dfn| (&*dfn.name, &**dfn))
 		.collect::<HashMap<_, _>>();
 
     let mut emitter = ModEmitter {
@@ -46,7 +46,8 @@ pub fn emit(request: NobleIdlGenerationRequest<RustLanguageOptions>) -> Result<N
 
         output_dir: PathBuf::from(&request.language_options.output_dir),
         output_files: Vec::new(),
-		cycle: CycleScanner::new(&definition_map),
+
+		definition_map,
     };
 
     emitter.emit_modules()?;
@@ -90,14 +91,14 @@ struct RustModule<'a> {
 }
 
 struct ModEmitter<'a> {
-	definitions: &'a Vec<DefinitionInfo>,
+	definitions: &'a Vec<Box<DefinitionInfo>>,
     pkg_mapping: HashMap<PackageName, RustModule<'a>>,
 	current_crate: &'a str,
 
     output_dir: PathBuf,
     output_files: Vec<String>,
 
-	cycle: CycleScanner<'a, &'a QualifiedName, &'a DefinitionInfo>,
+	definition_map: HashMap<&'a QualifiedName, &'a DefinitionInfo>,
 }
 
 impl <'a> ModEmitter<'a> {
@@ -111,7 +112,7 @@ impl <'a> ModEmitter<'a> {
             let dfns = package_groups.entry(dfn.name.package_name())
                 .or_insert_with(|| Vec::new());
 
-            dfns.push(dfn);
+            dfns.push(&**dfn);
         }
 
         for (pkg, dfns) in package_groups {
@@ -176,7 +177,7 @@ impl <'a> ModEmitter<'a> {
 
 
     fn emit_definition(&mut self, dfn: &'a DefinitionInfo) -> Result<TokenStream, EmitError> {
-        match &dfn.definition {
+        match dfn.definition.as_ref() {
             Definition::Record(r) => self.emit_record(dfn, r),
             Definition::Enum(e) => self.emit_enum(dfn, e),
             Definition::SimpleEnum(e) => self.emit_simple_enum(dfn, e),
@@ -194,7 +195,7 @@ impl <'a> ModEmitter<'a> {
 		let is_tuple = self.is_record_tuple(dfn);
 
 		if is_unit && is_tuple {
-			return Err(EmitError::TupleAndUnit(dfn.name.clone(), None));
+			return Err(EmitError::TupleAndUnit(dfn.name.as_ref().clone(), None));
 		}
 
         let mut derives = Vec::new();
@@ -204,34 +205,39 @@ impl <'a> ModEmitter<'a> {
 
 		if is_unit {
 			if !r.fields.is_empty() {
-				return Err(EmitError::UnitWithFields(dfn.name.clone(), None));
+				return Err(EmitError::UnitWithFields(dfn.name.as_ref().clone(), None));
 			}
 
 			return Ok(quote! {
+				#[allow(non_camel_case_types)]
 				#[derive(#(#derives),*)]
 				#attrs
 				pub struct #rec_name #type_parameters;
 			});
 		}
 
-        let fields = self.emit_fields(true, dfn, is_tuple, &r.fields)?;
+        let fields = self.emit_fields(true, is_tuple, &r.fields)?;
 
-		if is_tuple {
-			Ok(quote! {
-				#[derive(#(#derives),*)]
-				#attrs
-				pub struct #rec_name #type_parameters(#fields);
-			})
-		}
-		else {
-			Ok(quote! {
-				#[derive(#(#derives),*)]
-				#attrs
-				pub struct #rec_name #type_parameters {
-					#fields
+		let struct_type =
+			if is_tuple {
+				quote! {
+					#[derive(#(#derives),*)]
+					#attrs
+					pub struct #rec_name #type_parameters(#fields);
 				}
-			})
-		}
+			}
+			else {
+				quote! {
+					#[derive(#(#derives),*)]
+					#attrs
+					pub struct #rec_name #type_parameters {
+						#fields
+					}
+				}
+			};
+
+		Ok(struct_type)
+
     }
 
     fn process_record_ann(&self, dfn: &DefinitionInfo, r: &RecordDefinition, derives: &mut Vec<TokenStream>, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
@@ -276,6 +282,7 @@ impl <'a> ModEmitter<'a> {
         self.process_enum_ann(dfn, e, &mut derives)?;
 
         Ok(quote! {
+			#[allow(non_camel_case_types)]
             #[derive(#(#derives),*)]
             pub enum #enum_name #type_parameters {
                 #cases
@@ -316,7 +323,7 @@ impl <'a> ModEmitter<'a> {
 		let is_tuple = self.is_enum_case_tuple(c);
 
 		if is_unit && is_tuple {
-			return Err(EmitError::TupleAndUnit(dfn.name.clone(), Some(c.name.clone())));
+			return Err(EmitError::TupleAndUnit(dfn.name.as_ref().clone(), Some(c.name.clone())));
 		}
 
         let mut attrs = Vec::new();
@@ -325,7 +332,7 @@ impl <'a> ModEmitter<'a> {
 
 		if is_unit {
 			if !c.fields.is_empty() {
-				return Err(EmitError::UnitWithFields(dfn.name.clone(), None));
+				return Err(EmitError::UnitWithFields(dfn.name.as_ref().clone(), None));
 			}
 
 			return Ok(quote! {
@@ -334,7 +341,7 @@ impl <'a> ModEmitter<'a> {
 			})
 		}
 
-        let fields = self.emit_fields(false, dfn, is_tuple, &c.fields)?;
+        let fields = self.emit_fields(false, is_tuple, &c.fields)?;
 
 		if is_tuple {
 			Ok(quote! {
@@ -354,7 +361,7 @@ impl <'a> ModEmitter<'a> {
 
     fn process_enum_case_ann(&self, c: &EnumCase, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
 		if let Some(esexpr_options) = &c.esexpr_options {
-			match &esexpr_options.case_type {
+			match esexpr_options.case_type.as_ref() {
 				EsexprEnumCaseType::Constructor(name) => attrs.push(quote! { #[constructor = #name] }),
 				EsexprEnumCaseType::InlineValue => attrs.push(quote! { #[inline_value] }),
 			}
@@ -383,6 +390,7 @@ impl <'a> ModEmitter<'a> {
         self.process_simple_enum_ann(dfn, e, &mut derives)?;
 
         Ok(quote! {
+			#[allow(non_camel_case_types)]
             #[derive(#(#derives),*)]
 			#[simple_enum]
             pub enum #enum_name {
@@ -425,6 +433,7 @@ impl <'a> ModEmitter<'a> {
         let methods: TokenStream = i.methods.iter().map(|m| self.emit_method(m)).collect::<Result<_, _>>()?;
 
         Ok(quote! {
+			#[allow(non_camel_case_types)]
             pub trait #if_name #type_parameters {
                 #methods
             }
@@ -432,15 +441,16 @@ impl <'a> ModEmitter<'a> {
     }
 
 
-    fn emit_type_parameters(&self, type_params: &[TypeParameter]) -> TokenStream {
+    fn emit_type_parameters(&self, type_params: &[Box<TypeParameter>]) -> TokenStream {
         if type_params.is_empty() {
             quote! {}
         } else {
             let type_params: Vec<syn::TypeParam> = type_params
                 .into_iter()
-                .map(|param| match param {
-                    TypeParameter::Type { name: param, .. } =>
-                        syn::TypeParam::from(convert_id_pascal(param)),
+                .map(|param| match param.as_ref() {
+                    TypeParameter::Type { name: param, .. } => {
+						syn::TypeParam::from(convert_id_pascal(param))
+					},
                 })
                 .collect();
 
@@ -450,18 +460,13 @@ impl <'a> ModEmitter<'a> {
         }
     }
 
-    fn emit_fields(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, is_tuple: bool, fields: &'a [RecordField]) -> Result<TokenStream, EmitError> {
-        fields.iter().map(|f| self.emit_field(use_pub, dfn, is_tuple, f)).collect()
+    fn emit_fields(&mut self, use_pub: bool, is_tuple: bool, fields: &'a [Box<RecordField>]) -> Result<TokenStream, EmitError> {
+        fields.iter().map(|f| self.emit_field(use_pub, is_tuple, f)).collect()
     }
 
-    fn emit_field(&mut self, use_pub: bool, dfn: &'a DefinitionInfo, is_tuple: bool, field: &'a RecordField) -> Result<TokenStream, EmitError> {
+    fn emit_field(&mut self, use_pub: bool, is_tuple: bool, field: &'a RecordField) -> Result<TokenStream, EmitError> {
         let field_name = convert_id_snake(&field.name);
-        let mut field_type = self.emit_type_expr(&field.field_type)?;
-
-		if self.cycle.field_contains_cycle(&dfn.name, &field.field_type) {
-			field_type = parse_quote! { ::std::boxed::Box<#field_type> };
-		}
-
+        let field_type = self.emit_type_expr(&field.field_type)?;
 
         let mut attrs = Vec::new();
         self.process_field_ann(field, &mut attrs)?;
@@ -485,26 +490,32 @@ impl <'a> ModEmitter<'a> {
 
     fn process_field_ann(&self, field: &RecordField, attrs: &mut Vec<TokenStream>) -> Result<(), EmitError> {
 		if let Some(esexpr_options) = &field.esexpr_options {
-			match &esexpr_options.kind {
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Required) => {},
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(_)) => {
-					attrs.push(quote! { #[optional] });
+			match esexpr_options.kind.as_ref() {
+				EsexprRecordFieldKind::Positional(mode) => {
+					match mode.as_ref() {
+						EsexprRecordPositionalMode::Required => {},
+						EsexprRecordPositionalMode::Optional(_) => {
+							attrs.push(quote! { #[optional] });
+						}
+					}
 				},
-				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::Required) => {
-					attrs.push(quote! { #[keyword = #name] });
-				},
-				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::DefaultValue(default_value)) => {
+				EsexprRecordFieldKind::Keyword(name, mode) => {
 					attrs.push(quote! { #[keyword = #name] });
 
-					let value = self.emit_value(default_value)?;
-					let value_str = value.into_token_stream().to_string();
+					match mode.as_ref() {
+						EsexprRecordKeywordMode::Required => {},
 
-					attrs.push(quote! { #[default_value = #value_str] });
-				},
-				EsexprRecordFieldKind::Keyword(name, EsexprRecordKeywordMode::Optional(_)) => {
-					attrs.push(quote! { #[keyword = #name] });
-					attrs.push(quote! { #[optional] });
+						EsexprRecordKeywordMode::DefaultValue(default_value) => {
+							let value = self.emit_value(default_value)?;
+							let value_str = value.into_token_stream().to_string();
 
+							attrs.push(quote! { #[default_value = #value_str] });
+						}
+
+						EsexprRecordKeywordMode::Optional(_) => {
+							attrs.push(quote! { #[optional] });
+						}
+					}
 				},
 				EsexprRecordFieldKind::Dict(_) => attrs.push(quote! { #[dict] }),
 				EsexprRecordFieldKind::Vararg(_) => attrs.push(quote! { #[vararg] }),
@@ -525,7 +536,7 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
-    fn emit_method_parameters(&self, parameters: &[InterfaceMethodParameter]) -> Result<TokenStream, EmitError> {
+    fn emit_method_parameters(&self, parameters: &[Box<InterfaceMethodParameter>]) -> Result<TokenStream, EmitError> {
         let params = parameters.iter().map(|param| -> Result<TokenStream, EmitError> {
             let param_name = idstr(&param.name);
             let param_type = self.emit_type_expr(&param.parameter_type)?;
@@ -539,13 +550,42 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
+
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
 		let path = self.get_type_path(t)?;
 
-        Ok(syn::Type::Path(syn::TypePath {
-			qself: None,
-			path,
-		}))
+		let boxing = match t {
+			TypeExpr::DefinedType(name, _) => {
+				self.definition_map.get(name.as_ref())
+					.map(|dfn| match dfn.definition.as_ref() {
+						Definition::Record(_) | Definition::Enum(_) => TypeBoxing::Box,
+						Definition::SimpleEnum(_) | Definition::ExternType(_) => TypeBoxing::None,
+						Definition::Interface(_) => TypeBoxing::Arc,
+					})
+					.unwrap_or(TypeBoxing::None)
+			}
+
+			_ => TypeBoxing::None,
+		};
+
+		Ok(
+			match boxing {
+				TypeBoxing::None => {
+					syn::Type::Path(syn::TypePath {
+						qself: None,
+						path,
+					})
+				},
+
+				TypeBoxing::Box => {
+					parse_quote! { ::std::boxed::Box<#path> }
+				},
+
+				TypeBoxing::Arc => {
+					parse_quote! { ::std::sync::Arc<dyn #path> }
+				},
+			}
+		)
     }
 
 	fn get_type_path(&self, t: &TypeExpr) -> Result<syn::Path, EmitError> {
@@ -607,7 +647,7 @@ impl <'a> ModEmitter<'a> {
 		match value {
 			EsexprDecodedValue::Record { t, fields } => self.emit_record_value(t, fields),
 			EsexprDecodedValue::Enum { t, case_name, fields } => self.emit_enum_value(t, case_name, fields),
-			EsexprDecodedValue::Optional { t, element_type, value } => self.emit_optional_value(t, element_type, value.as_ref().as_ref()),
+			EsexprDecodedValue::Optional { t, element_type, value } => self.emit_optional_value(t, element_type, value.as_deref()),
 			EsexprDecodedValue::Vararg { t, element_type, values } => self.emit_vararg_value(t, element_type, values),
 			EsexprDecodedValue::Dict { t, element_type, values } => self.emit_dict_value(t, element_type, values),
 			EsexprDecodedValue::BuildFrom { t, from_type, from_value } => self.emit_build_from(t, from_type, &**from_value),
@@ -621,7 +661,7 @@ impl <'a> ModEmitter<'a> {
 		}
 	}
 
-	fn emit_record_value(&self, t: &TypeExpr, field_values: &[EsexprDecodedFieldValue]) -> Result<syn::Expr, EmitError> {
+	fn emit_record_value(&self, t: &TypeExpr, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<syn::Expr, EmitError> {
 		Ok(syn::Expr::Struct(syn::ExprStruct {
 			attrs: vec![],
 			qself: None,
@@ -633,7 +673,7 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &[EsexprDecodedFieldValue]) -> Result<syn::Expr, EmitError> {
+	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<syn::Expr, EmitError> {
 		let mut path = self.get_type_path(t)?;
 		path.segments.push(syn::PathSegment {
 			ident: convert_id_pascal(case_name),
@@ -651,7 +691,7 @@ impl <'a> ModEmitter<'a> {
 		}))
 	}
 
-	fn emit_field_values(&self, field_values: &[EsexprDecodedFieldValue]) -> Result<Vec<syn::FieldValue>, EmitError> {
+	fn emit_field_values(&self, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<Vec<syn::FieldValue>, EmitError> {
 		field_values.iter().map(|fv| {
 			let value = self.emit_value(&fv.value)?;
 			Ok(syn::FieldValue {
@@ -677,7 +717,7 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_vararg_value(&self, vararg_type: &TypeExpr, element_type: &TypeExpr, values: &[EsexprDecodedValue]) -> Result<syn::Expr, EmitError> {
+	fn emit_vararg_value(&self, vararg_type: &TypeExpr, element_type: &TypeExpr, values: &[Box<EsexprDecodedValue>]) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(vararg_type)?;
 		let et = self.emit_type_expr(element_type)?;
 		let v = values.iter().map(|v| self.emit_value(v)).collect::<Result<Vec<_>, _>>()?;
@@ -690,7 +730,7 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_dict_value(&self, dict_type: &TypeExpr, element_type: &TypeExpr, values: &HashMap<String, EsexprDecodedValue>) -> Result<syn::Expr, EmitError> {
+	fn emit_dict_value(&self, dict_type: &TypeExpr, element_type: &TypeExpr, values: &HashMap<String, Box<EsexprDecodedValue>>) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(dict_type)?;
 		let et = self.emit_type_expr(element_type)?;
 		let v = values.iter().map(|(k, v)| {
@@ -853,6 +893,13 @@ impl <'a> ModEmitter<'a> {
 }
 
 
+enum TypeBoxing {
+	None,
+	Box,
+	Arc,
+}
+
+
 fn convert_id_snake(s: &str) -> syn::Ident {
     idstr(&s.replace("-", "_"))
 }
@@ -861,8 +908,17 @@ fn convert_id_pascal(s: &str) -> syn::Ident {
     idstr(&s.split("-").map(|seg| {
         let mut seg = seg.to_owned();
         if !seg.is_empty() {
-            str::make_ascii_uppercase(&mut seg[0..1]);
+			let start = &mut seg[0..1];
+
+			if start.chars().all(char::is_alphabetic) {
+				str::make_ascii_uppercase(start);
+			}
+			else {
+				seg.insert(0, '_');
+			}
+
         }
+
         seg
     }).join(""))
 }

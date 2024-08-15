@@ -88,7 +88,7 @@ fn package_name(input: &str) -> IResult<&str, ast::PackageName> {
 fn qual_name(input: &str) -> IResult<&str, ast::QualifiedName> {
     map(package_name, |mut package_name| {
         let name = package_name.0.pop().unwrap();
-        ast::QualifiedName(package_name, name)
+        ast::QualifiedName(Box::new(package_name), name)
     })(input)
 }
 
@@ -353,7 +353,10 @@ fn type_parameter(input: &str) -> IResult<&str, ast::TypeParameter> {
 			annotations,
 			identifier,
 		),
-		|(annotations, name)| ast::TypeParameter::Type { name: name.to_owned(), annotations }
+		|(annotations, name)| ast::TypeParameter::Type {
+			name: name.to_owned(),
+			annotations: annotations.into_iter().map(Box::new).collect(),
+		}
 	)(input)
 }
 

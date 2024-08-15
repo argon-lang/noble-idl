@@ -26,9 +26,4 @@ pub enum RustAnnEnumCase {
 	Tuple,
 }
 
-#[derive(ESExprCodec, PartialEq, Clone, Debug)]
-pub enum RustAnnExternTypeParameter {
-	BoxedUsage,
-}
-
 

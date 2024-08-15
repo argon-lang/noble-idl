@@ -65,7 +65,7 @@ pub(crate) struct DefinitionInfo {
 
 impl DefinitionInfo {
     fn qualified_name(&self) -> QualifiedName {
-        QualifiedName(self.package.clone(), self.def.name().to_owned())
+        QualifiedName(Box::new(self.package.clone()), self.def.name().to_owned())
     }
 
     fn into_api(self) -> noble_idl_api::DefinitionInfo {
@@ -131,7 +131,7 @@ impl ModelBuilder {
 		phase5::run(&definitions, &phase3_state, &mut tag_scan_state)?;
 		phase6::run(&mut definitions);
 
-        let mut model_definitions = definitions.into_values().collect_vec();
+        let mut model_definitions = definitions.into_values().map(Box::new).collect_vec();
 		model_definitions.sort_by_key(|dfn| dfn.name.clone());
 
         Ok(NobleIdlModel {

@@ -9,6 +9,7 @@ pub struct Annotation {
     pub scope: ::noble_idl_runtime::String,
     pub value: ::noble_idl_runtime::Esexpr,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -17,15 +18,15 @@ pub struct Annotation {
 )]
 pub enum Definition {
     #[inline_value]
-    Record(crate::RecordDefinition),
+    Record(::std::boxed::Box<crate::RecordDefinition>),
     #[inline_value]
-    Enum(crate::EnumDefinition),
+    Enum(::std::boxed::Box<crate::EnumDefinition>),
     #[inline_value]
-    SimpleEnum(crate::SimpleEnumDefinition),
+    SimpleEnum(::std::boxed::Box<crate::SimpleEnumDefinition>),
     #[inline_value]
-    ExternType(crate::ExternTypeDefinition),
+    ExternType(::std::boxed::Box<crate::ExternTypeDefinition>),
     #[inline_value]
-    Interface(crate::InterfaceDefinition),
+    Interface(::std::boxed::Box<crate::InterfaceDefinition>),
 }
 #[derive(
     ::std::fmt::Debug,
@@ -36,13 +37,15 @@ pub enum Definition {
 #[constructor = "definition-info"]
 pub struct DefinitionInfo {
     #[keyword = "name"]
-    pub name: crate::QualifiedName,
+    pub name: ::std::boxed::Box<crate::QualifiedName>,
     #[keyword = "type-parameters"]
-    pub type_parameters: ::noble_idl_runtime::List<crate::TypeParameter>,
+    pub type_parameters: ::noble_idl_runtime::List<
+        ::std::boxed::Box<crate::TypeParameter>,
+    >,
     #[keyword = "definition"]
-    pub definition: crate::Definition,
+    pub definition: ::std::boxed::Box<crate::Definition>,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
     #[keyword = "is-library"]
     pub is_library: ::noble_idl_runtime::Bool,
 }
@@ -56,12 +59,14 @@ pub struct DefinitionInfo {
 pub struct EnumCase {
     pub name: ::noble_idl_runtime::String,
     #[vararg]
-    pub fields: ::noble_idl_runtime::List<crate::RecordField>,
+    pub fields: ::noble_idl_runtime::List<::std::boxed::Box<crate::RecordField>>,
     #[keyword = "esexpr-options"]
     #[optional]
-    pub esexpr_options: ::noble_idl_runtime::OptionalField<crate::EsexprEnumCaseOptions>,
+    pub esexpr_options: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::EsexprEnumCaseOptions>,
+    >,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -72,11 +77,14 @@ pub struct EnumCase {
 #[constructor = "enum-definition"]
 pub struct EnumDefinition {
     #[vararg]
-    pub cases: ::noble_idl_runtime::List<crate::EnumCase>,
+    pub cases: ::noble_idl_runtime::List<::std::boxed::Box<crate::EnumCase>>,
     #[keyword = "esexpr-options"]
     #[optional]
-    pub esexpr_options: ::noble_idl_runtime::OptionalField<crate::EsexprEnumOptions>,
+    pub esexpr_options: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::EsexprEnumOptions>,
+    >,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -87,6 +95,7 @@ pub enum EsexprAnnEnum {
     #[constructor = "derive-codec"]
     DeriveCodec,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -99,6 +108,7 @@ pub enum EsexprAnnEnumCase {
     #[constructor = "inline-value"]
     InlineValue,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -109,14 +119,15 @@ pub enum EsexprAnnExternType {
     #[constructor = "derive-codec"]
     DeriveCodec,
     #[constructor = "allow-optional"]
-    AllowOptional(crate::TypeExpr),
+    AllowOptional(::std::boxed::Box<crate::TypeExpr>),
     #[constructor = "allow-vararg"]
-    AllowVararg(crate::TypeExpr),
+    AllowVararg(::std::boxed::Box<crate::TypeExpr>),
     #[constructor = "allow-dict"]
-    AllowDict(crate::TypeExpr),
+    AllowDict(::std::boxed::Box<crate::TypeExpr>),
     #[inline_value]
-    Literals(crate::EsexprExternTypeLiterals),
+    Literals(::std::boxed::Box<crate::EsexprExternTypeLiterals>),
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -129,6 +140,7 @@ pub enum EsexprAnnRecord {
     #[constructor = "constructor"]
     Constructor(::noble_idl_runtime::String),
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -147,6 +159,7 @@ pub enum EsexprAnnRecordField {
     #[constructor = "default-value"]
     DefaultValue(::noble_idl_runtime::Esexpr),
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -157,6 +170,7 @@ pub enum EsexprAnnSimpleEnum {
     #[constructor = "derive-codec"]
     DeriveCodec,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -176,8 +190,9 @@ pub enum EsexprAnnSimpleEnumCase {
 #[constructor = "field-value"]
 pub struct EsexprDecodedFieldValue {
     pub name: ::noble_idl_runtime::String,
-    pub value: crate::EsexprDecodedValue,
+    pub value: ::std::boxed::Box<crate::EsexprDecodedValue>,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -187,51 +202,55 @@ pub struct EsexprDecodedFieldValue {
 pub enum EsexprDecodedValue {
     #[constructor = "record"]
     Record {
-        t: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
         #[vararg]
-        fields: ::noble_idl_runtime::List<crate::EsexprDecodedFieldValue>,
+        fields: ::noble_idl_runtime::List<
+            ::std::boxed::Box<crate::EsexprDecodedFieldValue>,
+        >,
     },
     #[constructor = "enum"]
     Enum {
-        t: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
         case_name: ::noble_idl_runtime::String,
         #[vararg]
-        fields: ::noble_idl_runtime::List<crate::EsexprDecodedFieldValue>,
+        fields: ::noble_idl_runtime::List<
+            ::std::boxed::Box<crate::EsexprDecodedFieldValue>,
+        >,
     },
     #[constructor = "optional"]
     Optional {
-        t: crate::TypeExpr,
-        element_type: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        element_type: ::std::boxed::Box<crate::TypeExpr>,
         #[optional]
-        value: ::std::boxed::Box<
-            ::noble_idl_runtime::OptionalField<crate::EsexprDecodedValue>,
+        value: ::noble_idl_runtime::OptionalField<
+            ::std::boxed::Box<crate::EsexprDecodedValue>,
         >,
     },
     #[constructor = "vararg"]
     Vararg {
-        t: crate::TypeExpr,
-        element_type: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        element_type: ::std::boxed::Box<crate::TypeExpr>,
         #[vararg]
-        values: ::noble_idl_runtime::List<crate::EsexprDecodedValue>,
+        values: ::noble_idl_runtime::List<::std::boxed::Box<crate::EsexprDecodedValue>>,
     },
     #[constructor = "dict"]
     Dict {
-        t: crate::TypeExpr,
-        element_type: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        element_type: ::std::boxed::Box<crate::TypeExpr>,
         #[dict]
-        values: ::noble_idl_runtime::Dict<crate::EsexprDecodedValue>,
+        values: ::noble_idl_runtime::Dict<::std::boxed::Box<crate::EsexprDecodedValue>>,
     },
     #[constructor = "build-from"]
     BuildFrom {
-        t: crate::TypeExpr,
-        from_type: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        from_type: ::std::boxed::Box<crate::TypeExpr>,
         from_value: ::std::boxed::Box<crate::EsexprDecodedValue>,
     },
     #[constructor = "from-bool"]
-    FromBool { t: crate::TypeExpr, b: ::noble_idl_runtime::Bool },
+    FromBool { t: ::std::boxed::Box<crate::TypeExpr>, b: ::noble_idl_runtime::Bool },
     #[constructor = "from-int"]
     FromInt {
-        t: crate::TypeExpr,
+        t: ::std::boxed::Box<crate::TypeExpr>,
         i: ::noble_idl_runtime::Int,
         #[keyword = "min-int"]
         #[optional]
@@ -241,15 +260,15 @@ pub enum EsexprDecodedValue {
         max_int: ::noble_idl_runtime::OptionalField<::noble_idl_runtime::Int>,
     },
     #[constructor = "from-str"]
-    FromStr { t: crate::TypeExpr, s: ::noble_idl_runtime::String },
+    FromStr { t: ::std::boxed::Box<crate::TypeExpr>, s: ::noble_idl_runtime::String },
     #[constructor = "from-binary"]
-    FromBinary { t: crate::TypeExpr, b: ::noble_idl_runtime::Binary },
+    FromBinary { t: ::std::boxed::Box<crate::TypeExpr>, b: ::noble_idl_runtime::Binary },
     #[constructor = "from-float32"]
-    FromFloat32 { t: crate::TypeExpr, f: ::noble_idl_runtime::F32 },
+    FromFloat32 { t: ::std::boxed::Box<crate::TypeExpr>, f: ::noble_idl_runtime::F32 },
     #[constructor = "from-float64"]
-    FromFloat64 { t: crate::TypeExpr, f: ::noble_idl_runtime::F64 },
+    FromFloat64 { t: ::std::boxed::Box<crate::TypeExpr>, f: ::noble_idl_runtime::F64 },
     #[constructor = "from-null"]
-    FromNull { t: crate::TypeExpr },
+    FromNull { t: ::std::boxed::Box<crate::TypeExpr> },
 }
 #[derive(
     ::std::fmt::Debug,
@@ -259,8 +278,9 @@ pub enum EsexprDecodedValue {
 )]
 #[constructor = "enum-case-options"]
 pub struct EsexprEnumCaseOptions {
-    pub case_type: crate::EsexprEnumCaseType,
+    pub case_type: ::std::boxed::Box<crate::EsexprEnumCaseType>,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -318,7 +338,9 @@ pub struct EsexprExternTypeLiterals {
     pub allow_null: ::noble_idl_runtime::Bool,
     #[keyword = "build-literal-from"]
     #[optional]
-    pub build_literal_from: ::noble_idl_runtime::OptionalField<crate::TypeExpr>,
+    pub build_literal_from: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::TypeExpr>,
+    >,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -333,16 +355,23 @@ pub struct EsexprExternTypeOptions {
     pub allow_value: ::noble_idl_runtime::Bool,
     #[keyword = "allow-optional"]
     #[optional]
-    pub allow_optional: ::noble_idl_runtime::OptionalField<crate::TypeExpr>,
+    pub allow_optional: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::TypeExpr>,
+    >,
     #[keyword = "allow-vararg"]
     #[optional]
-    pub allow_vararg: ::noble_idl_runtime::OptionalField<crate::TypeExpr>,
+    pub allow_vararg: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::TypeExpr>,
+    >,
     #[keyword = "allow-dict"]
     #[optional]
-    pub allow_dict: ::noble_idl_runtime::OptionalField<crate::TypeExpr>,
+    pub allow_dict: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::TypeExpr>,
+    >,
     #[keyword = "literals"]
-    pub literals: crate::EsexprExternTypeLiterals,
+    pub literals: ::std::boxed::Box<crate::EsexprExternTypeLiterals>,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -351,13 +380,16 @@ pub struct EsexprExternTypeOptions {
 )]
 pub enum EsexprRecordFieldKind {
     #[constructor = "positional"]
-    Positional(crate::EsexprRecordPositionalMode),
+    Positional(::std::boxed::Box<crate::EsexprRecordPositionalMode>),
     #[constructor = "keyword"]
-    Keyword(::noble_idl_runtime::String, crate::EsexprRecordKeywordMode),
+    Keyword(
+        ::noble_idl_runtime::String,
+        ::std::boxed::Box<crate::EsexprRecordKeywordMode>,
+    ),
     #[constructor = "dict"]
-    Dict(crate::TypeExpr),
+    Dict(::std::boxed::Box<crate::TypeExpr>),
     #[constructor = "vararg"]
-    Vararg(crate::TypeExpr),
+    Vararg(::std::boxed::Box<crate::TypeExpr>),
 }
 #[derive(
     ::std::fmt::Debug,
@@ -367,8 +399,9 @@ pub enum EsexprRecordFieldKind {
 )]
 #[constructor = "field-options"]
 pub struct EsexprRecordFieldOptions {
-    pub kind: crate::EsexprRecordFieldKind,
+    pub kind: ::std::boxed::Box<crate::EsexprRecordFieldKind>,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -379,9 +412,9 @@ pub enum EsexprRecordKeywordMode {
     #[constructor = "required"]
     Required,
     #[constructor = "optional"]
-    Optional(crate::TypeExpr),
+    Optional(::std::boxed::Box<crate::TypeExpr>),
     #[constructor = "default-value"]
-    DefaultValue(crate::EsexprDecodedValue),
+    DefaultValue(::std::boxed::Box<crate::EsexprDecodedValue>),
 }
 #[derive(
     ::std::fmt::Debug,
@@ -394,6 +427,7 @@ pub struct EsexprRecordOptions {
     #[keyword = "constructor"]
     pub constructor: ::noble_idl_runtime::String,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -404,7 +438,7 @@ pub enum EsexprRecordPositionalMode {
     #[constructor = "required"]
     Required,
     #[constructor = "optional"]
-    Optional(crate::TypeExpr),
+    Optional(::std::boxed::Box<crate::TypeExpr>),
 }
 #[derive(
     ::std::fmt::Debug,
@@ -435,7 +469,7 @@ pub struct ExternTypeDefinition {
     #[keyword = "esexpr-options"]
     #[optional]
     pub esexpr_options: ::noble_idl_runtime::OptionalField<
-        crate::EsexprExternTypeOptions,
+        ::std::boxed::Box<crate::EsexprExternTypeOptions>,
     >,
 }
 #[derive(
@@ -447,7 +481,7 @@ pub struct ExternTypeDefinition {
 #[constructor = "interface-definition"]
 pub struct InterfaceDefinition {
     #[vararg]
-    pub methods: ::noble_idl_runtime::List<crate::InterfaceMethod>,
+    pub methods: ::noble_idl_runtime::List<::std::boxed::Box<crate::InterfaceMethod>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -460,13 +494,17 @@ pub struct InterfaceMethod {
     #[keyword = "name"]
     pub name: ::noble_idl_runtime::String,
     #[keyword = "type-parameters"]
-    pub type_parameters: ::noble_idl_runtime::List<crate::TypeParameter>,
+    pub type_parameters: ::noble_idl_runtime::List<
+        ::std::boxed::Box<crate::TypeParameter>,
+    >,
     #[keyword = "parameters"]
-    pub parameters: ::noble_idl_runtime::List<crate::InterfaceMethodParameter>,
+    pub parameters: ::noble_idl_runtime::List<
+        ::std::boxed::Box<crate::InterfaceMethodParameter>,
+    >,
     #[keyword = "return-type"]
-    pub return_type: crate::TypeExpr,
+    pub return_type: ::std::boxed::Box<crate::TypeExpr>,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -477,9 +515,9 @@ pub struct InterfaceMethod {
 #[constructor = "interface-method-parameter"]
 pub struct InterfaceMethodParameter {
     pub name: ::noble_idl_runtime::String,
-    pub parameter_type: crate::TypeExpr,
+    pub parameter_type: ::std::boxed::Box<crate::TypeExpr>,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -494,6 +532,7 @@ pub struct NobleIdlCompileModelOptions {
     #[keyword = "files"]
     pub files: ::noble_idl_runtime::List<::noble_idl_runtime::String>,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -502,7 +541,7 @@ pub struct NobleIdlCompileModelOptions {
 )]
 pub enum NobleIdlCompileModelResult {
     #[constructor = "success"]
-    Success(crate::NobleIdlModel),
+    Success(::std::boxed::Box<crate::NobleIdlModel>),
     #[constructor = "failure"]
     Failure { #[vararg] errors: ::noble_idl_runtime::List<::noble_idl_runtime::String> },
 }
@@ -517,7 +556,7 @@ pub struct NobleIdlGenerationRequest<L> {
     #[keyword = "language-options"]
     pub language_options: L,
     #[keyword = "model"]
-    pub model: crate::NobleIdlModel,
+    pub model: ::std::boxed::Box<crate::NobleIdlModel>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -539,7 +578,7 @@ pub struct NobleIdlGenerationResult {
 #[constructor = "noble-idl-model"]
 pub struct NobleIdlModel {
     #[keyword = "definitions"]
-    pub definitions: ::noble_idl_runtime::List<crate::DefinitionInfo>,
+    pub definitions: ::noble_idl_runtime::List<::std::boxed::Box<crate::DefinitionInfo>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -567,7 +606,10 @@ pub struct PackageName(
     ::esexpr::ESExprCodec
 )]
 #[constructor = "qualified-name"]
-pub struct QualifiedName(pub crate::PackageName, pub ::noble_idl_runtime::String);
+pub struct QualifiedName(
+    pub ::std::boxed::Box<crate::PackageName>,
+    pub ::noble_idl_runtime::String,
+);
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -577,10 +619,12 @@ pub struct QualifiedName(pub crate::PackageName, pub ::noble_idl_runtime::String
 #[constructor = "record-definition"]
 pub struct RecordDefinition {
     #[vararg]
-    pub fields: ::noble_idl_runtime::List<crate::RecordField>,
+    pub fields: ::noble_idl_runtime::List<::std::boxed::Box<crate::RecordField>>,
     #[keyword = "esexpr-options"]
     #[optional]
-    pub esexpr_options: ::noble_idl_runtime::OptionalField<crate::EsexprRecordOptions>,
+    pub esexpr_options: ::noble_idl_runtime::OptionalField<
+        ::std::boxed::Box<crate::EsexprRecordOptions>,
+    >,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -591,13 +635,13 @@ pub struct RecordDefinition {
 #[constructor = "record-field"]
 pub struct RecordField {
     pub name: ::noble_idl_runtime::String,
-    pub field_type: crate::TypeExpr,
+    pub field_type: ::std::boxed::Box<crate::TypeExpr>,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
     #[keyword = "esexpr-options"]
     #[optional]
     pub esexpr_options: ::noble_idl_runtime::OptionalField<
-        crate::EsexprRecordFieldOptions,
+        ::std::boxed::Box<crate::EsexprRecordFieldOptions>,
     >,
 }
 #[derive(
@@ -612,10 +656,10 @@ pub struct SimpleEnumCase {
     #[keyword = "esexpr-options"]
     #[optional]
     pub esexpr_options: ::noble_idl_runtime::OptionalField<
-        crate::EsexprSimpleEnumCaseOptions,
+        ::std::boxed::Box<crate::EsexprSimpleEnumCaseOptions>,
     >,
     #[keyword = "annotations"]
-    pub annotations: ::noble_idl_runtime::List<crate::Annotation>,
+    pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
 }
 #[derive(
     ::std::fmt::Debug,
@@ -626,13 +670,14 @@ pub struct SimpleEnumCase {
 #[constructor = "simple-enum-definition"]
 pub struct SimpleEnumDefinition {
     #[vararg]
-    pub cases: ::noble_idl_runtime::List<crate::SimpleEnumCase>,
+    pub cases: ::noble_idl_runtime::List<::std::boxed::Box<crate::SimpleEnumCase>>,
     #[keyword = "esexpr-options"]
     #[optional]
     pub esexpr_options: ::noble_idl_runtime::OptionalField<
-        crate::EsexprSimpleEnumOptions,
+        ::std::boxed::Box<crate::EsexprSimpleEnumOptions>,
     >,
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -642,13 +687,14 @@ pub struct SimpleEnumDefinition {
 pub enum TypeExpr {
     #[constructor = "defined-type"]
     DefinedType(
-        crate::QualifiedName,
+        ::std::boxed::Box<crate::QualifiedName>,
         #[vararg]
-        ::noble_idl_runtime::List<crate::TypeExpr>,
+        ::noble_idl_runtime::List<::std::boxed::Box<crate::TypeExpr>>,
     ),
     #[constructor = "type-parameter"]
     TypeParameter(::noble_idl_runtime::String),
 }
+#[allow(non_camel_case_types)]
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,
@@ -660,6 +706,6 @@ pub enum TypeParameter {
     Type {
         name: ::noble_idl_runtime::String,
         #[keyword = "annotations"]
-        annotations: ::noble_idl_runtime::List<crate::Annotation>,
+        annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
     },
 }

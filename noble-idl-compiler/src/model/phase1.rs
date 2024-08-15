@@ -55,7 +55,7 @@ pub struct GlobalScope<'a> {
 impl <'a> TypeScope for GlobalScope<'a> {
     fn resolve_type(&self, mut full_name: QualifiedName, args: Vec<TypeExpr>) -> Result<TypeExpr, CheckError> {
         if full_name.0.0.is_empty() {
-            full_name.0 = self.package.clone();
+            *full_name.0 = self.package.clone();
 
             if let Some(metadata) = self.types.definitions.get(&full_name) {
 				let expected = metadata.parameter_count;
@@ -68,7 +68,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
             }
 
             let mut check_import_package = |mut package| {
-                std::mem::swap(&mut package, &mut full_name.0);
+                std::mem::swap(&mut package, full_name.0.as_mut());
 
 				let res = self.types.definitions.get(&full_name).map(|metadata| {
 					let expected = metadata.parameter_count;
@@ -80,13 +80,13 @@ impl <'a> TypeScope for GlobalScope<'a> {
 					return Ok(());
 				});
 
-                std::mem::swap(&mut package, &mut full_name.0);
+                std::mem::swap(&mut package, full_name.0.as_mut());
 
                 res.map(|res| res.map(|_| package))
             };
 
             if let Some(package) = check_import_package(PackageName(vec!())) {
-                full_name.0 = package?;
+                *full_name.0 = package?;
                 return Ok(TypeExpr::DefinedType(full_name, args));
             }
 
@@ -98,7 +98,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
             if matching_defs.len() > 0 {
                 if matching_defs.len() == 1 {
                     let package = matching_defs.swap_remove(0);
-                    full_name.0 = package?;
+                    *full_name.0 = package?;
                     Ok(TypeExpr::DefinedType(full_name, args))
                 }
                 else {

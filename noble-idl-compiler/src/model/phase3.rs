@@ -38,7 +38,7 @@ struct ESExprOptionParser<'a> {
 
 impl <'a> ESExprOptionParser<'a> {
 	fn scan_definition(&mut self, dfn: &mut DefinitionInfo) -> Result<(), CheckError> {
-		match &mut dfn.definition {
+		match dfn.definition.as_mut() {
 			Definition::Record(rec) =>
 				self.scan_record(&dfn.name, &dfn.annotations, rec)?,
 
@@ -49,7 +49,7 @@ impl <'a> ESExprOptionParser<'a> {
 				self.scan_simple_enum(&dfn.name, &dfn.annotations, e)?,
 
 			Definition::ExternType(et) => {
-				self.esexpr_codecs.insert(dfn.name.clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
+				self.esexpr_codecs.insert(dfn.name.as_ref().clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
 			},
 			Definition::Interface(_) => {},
 		}
@@ -57,7 +57,7 @@ impl <'a> ESExprOptionParser<'a> {
 		Ok(())
 	}
 
-	fn scan_record(&mut self, def_name: &QualifiedName, annotations: &[Annotation], rec: &mut RecordDefinition) -> Result<(), CheckError> {
+	fn scan_record(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], rec: &mut RecordDefinition) -> Result<(), CheckError> {
 		let mut has_derive_codec = false;
 		let mut constructor = None;
 		for ann in annotations {
@@ -91,9 +91,9 @@ impl <'a> ESExprOptionParser<'a> {
 		}
 
 		if has_derive_codec {
-			rec.esexpr_options = Some(EsexprRecordOptions {
+			rec.esexpr_options = Some(Box::new(EsexprRecordOptions {
 				constructor: constructor.unwrap_or_else(|| def_name.name().to_owned()),
-			});
+			}));
 		}
 
 		self.scan_fields(&mut rec.fields, def_name, None, has_derive_codec)?;
@@ -104,7 +104,7 @@ impl <'a> ESExprOptionParser<'a> {
 		Ok(())
 	}
 
-	fn scan_enum(&mut self, def_name: &QualifiedName, annotations: &[Annotation], e: &mut EnumDefinition) -> Result<(), CheckError> {
+	fn scan_enum(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], e: &mut EnumDefinition) -> Result<(), CheckError> {
 		let mut has_derive_codec = false;
 		for ann in annotations {
 			if ann.scope != "esexpr" {
@@ -126,7 +126,7 @@ impl <'a> ESExprOptionParser<'a> {
 		}
 
 		if has_derive_codec {
-			e.esexpr_options = Some(EsexprEnumOptions {});
+			e.esexpr_options = Some(Box::new(EsexprEnumOptions {}));
 		}
 
 		for c in &mut e.cases {
@@ -179,13 +179,13 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			if has_derive_codec {
-				c.esexpr_options = Some(EsexprEnumCaseOptions {
+				c.esexpr_options = Some(Box::new(EsexprEnumCaseOptions {
 					case_type:
-						if has_inline_value { EsexprEnumCaseType::InlineValue }
+						if has_inline_value { Box::new(EsexprEnumCaseType::InlineValue) }
 						else {
-							EsexprEnumCaseType::Constructor(constructor.unwrap_or_else(|| c.name.clone()))
+							Box::new(EsexprEnumCaseType::Constructor(constructor.unwrap_or_else(|| c.name.clone())))
 						}
-				})
+				}))
 			}
 
 			self.scan_fields(&mut c.fields, def_name, Some(&c.name), has_derive_codec)?;
@@ -196,7 +196,7 @@ impl <'a> ESExprOptionParser<'a> {
 		Ok(())
 	}
 
-	fn scan_simple_enum(&mut self, def_name: &QualifiedName, annotations: &[Annotation], e: &mut SimpleEnumDefinition) -> Result<(), CheckError> {
+	fn scan_simple_enum(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], e: &mut SimpleEnumDefinition) -> Result<(), CheckError> {
 		let mut has_derive_codec = false;
 		for ann in annotations {
 			if ann.scope != "esexpr" {
@@ -218,7 +218,7 @@ impl <'a> ESExprOptionParser<'a> {
 		}
 
 		if has_derive_codec {
-			e.esexpr_options = Some(EsexprSimpleEnumOptions {});
+			e.esexpr_options = Some(Box::new(EsexprSimpleEnumOptions {}));
 		}
 
 		for c in &mut e.cases {
@@ -251,9 +251,9 @@ impl <'a> ESExprOptionParser<'a> {
 			}
 
 			if has_derive_codec {
-				c.esexpr_options = Some(EsexprSimpleEnumCaseOptions {
+				c.esexpr_options = Some(Box::new(EsexprSimpleEnumCaseOptions {
 					name: constructor.unwrap_or_else(|| c.name.clone()),
-				});
+				}));
 			}
 		}
 
@@ -262,7 +262,7 @@ impl <'a> ESExprOptionParser<'a> {
 		Ok(())
 	}
 
-	fn scan_fields(&self, fields: &mut [RecordField], def_name: &QualifiedName, case_name: Option<&str>, is_esexpr_type: bool) -> Result<(), CheckError> {
+	fn scan_fields(&self, fields: &mut [Box<RecordField>], def_name: &QualifiedName, case_name: Option<&str>, is_esexpr_type: bool) -> Result<(), CheckError> {
 		let mut keywords = HashSet::new();
 
 		let mut has_dict = false;
@@ -389,14 +389,14 @@ impl <'a> ESExprOptionParser<'a> {
 							return Err(CheckError::ESExprInvalidVarargFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 
-						EsexprRecordFieldKind::Vararg(vararg_metadata.element_type.clone())
+						EsexprRecordFieldKind::Vararg(Box::new(vararg_metadata.element_type.clone()))
 					}
 					else if is_dict {
 						let Some(dict_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.dict_container_types.get(ftn)) else {
 							return Err(CheckError::ESExprInvalidDictFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 
-						EsexprRecordFieldKind::Dict(dict_metadata.element_type.clone())
+						EsexprRecordFieldKind::Dict(Box::new(dict_metadata.element_type.clone()))
 					}
 					else if let Some(name) = is_keyword {
 						let mode =
@@ -407,13 +407,13 @@ impl <'a> ESExprOptionParser<'a> {
 									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 								};
 
-								EsexprRecordKeywordMode::Optional(opt_metadata.element_type.clone())
+								EsexprRecordKeywordMode::Optional(Box::new(opt_metadata.element_type.clone()))
 							}
 							else {
 								EsexprRecordKeywordMode::Required
 							};
 
-						EsexprRecordFieldKind::Keyword(name, mode)
+						EsexprRecordFieldKind::Keyword(name, Box::new(mode))
 					}
 					else {
 						let mode =
@@ -428,16 +428,16 @@ impl <'a> ESExprOptionParser<'a> {
 									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 								};
 
-								EsexprRecordPositionalMode::Optional(opt_metadata.element_type.clone())
+								EsexprRecordPositionalMode::Optional(Box::new(opt_metadata.element_type.clone()))
 							}
 							else {
 								EsexprRecordPositionalMode::Required
 							};
 
-						EsexprRecordFieldKind::Positional(mode)
+						EsexprRecordFieldKind::Positional(Box::new(mode))
 					};
 
-				field.esexpr_options = Some(EsexprRecordFieldOptions { kind });
+				field.esexpr_options = Some(Box::new(EsexprRecordFieldOptions { kind: Box::new(kind) }));
 			}
 		}
 

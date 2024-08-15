@@ -42,7 +42,7 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 	}
 
 	fn scan_definition(&mut self, dfn: &'a DefinitionInfo) -> Result<(), CheckError> {
-		match &dfn.definition {
+		match dfn.definition.as_ref() {
 			Definition::Record(rec) =>
 				self.scan_record(dfn, rec)?,
 
@@ -75,31 +75,35 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 		Ok(())
 	}
 
-	fn scan_fields(&mut self, fields: &'a [RecordField], dfn: &'a DefinitionInfo, case_name: Option<&'a str>) -> Result<(), CheckError> {
+	fn scan_fields(&mut self, fields: &'a [Box<RecordField>], dfn: &'a DefinitionInfo, case_name: Option<&'a str>) -> Result<(), CheckError> {
 		for field in fields {
 			let Some(feo) = field.esexpr_options.as_ref() else { continue; };
 
-			match &feo.kind {
+			match feo.kind.as_ref() {
 				EsexprRecordFieldKind::Positional(_) => {},
-				EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(_)) => {},
-				EsexprRecordFieldKind::Keyword(_, _) => {
-					let mut value_parser = ValueParser {
-						outer_parser: self,
-						seen_fields: HashSet::new(),
-						seen_decode_types: HashSet::new(),
+				EsexprRecordFieldKind::Keyword(_, mode) => {
+					match mode.as_ref() {
+						EsexprRecordKeywordMode::Optional(_) => {
+							let mut value_parser = ValueParser {
+								outer_parser: self,
+								seen_fields: HashSet::new(),
+								seen_decode_types: HashSet::new(),
 
-						dfn,
-						case_name,
-						field,
-					};
+								dfn,
+								case_name,
+								field,
+							};
 
-					let key = FieldKey {
-						definition_name: dfn.name.clone(),
-						case_name: case_name.map(str::to_owned),
-						field_name: field.name.clone(),
-					};
+							let key = FieldKey {
+								definition_name: dfn.name.as_ref().clone(),
+								case_name: case_name.map(str::to_owned),
+								field_name: field.name.clone(),
+							};
 
-					value_parser.lookup_default_value(key, field)?;
+							value_parser.lookup_default_value(key, field)?;
+						}
+						_ => {},
+					}
 				},
 				EsexprRecordFieldKind::Dict(_) => {},
 				EsexprRecordFieldKind::Vararg(_) => {},
@@ -124,7 +128,7 @@ struct ValueParser<'a, 'b> {
 
 impl <'a, 'b> ValueParser<'a, 'b> {
 	fn error(&self) -> CheckError {
-		CheckError::ESExprInvalidDefaultValue(self.dfn.name.clone(), self.case_name.map(str::to_owned), self.field.name.clone())
+		CheckError::ESExprInvalidDefaultValue(self.dfn.name.as_ref().clone(), self.case_name.map(str::to_owned), self.field.name.clone())
 	}
 
 	fn fail<A>(&self) -> Result<A, CheckError> {
@@ -161,7 +165,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			TypeExpr::DefinedType(name, args) => {
 				let dfn = self.outer_parser.definitions.get(name).ok_or_else(|| self.error())?;
 
-				match &dfn.definition {
+				match dfn.definition.as_ref() {
 					Definition::Record(r) => self.parse_record_value(dfn, r, t, args, value),
 					Definition::Enum(e) => self.parse_enum_value(dfn, e, t, args, value),
 					Definition::SimpleEnum(_) => todo!(),
@@ -173,7 +177,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 		}
 	}
 
-	fn parse_record_value(&mut self, dfn: &'a DefinitionInfo, r: &'a RecordDefinition, t: &TypeExpr, type_args: &[TypeExpr], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
+	fn parse_record_value(&mut self, dfn: &'a DefinitionInfo, r: &'a RecordDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
 		let ESExpr::Constructor { name, args, kwargs } = value else { self.fail()? };
 
 		if name != dfn.name.name() {
@@ -183,18 +187,18 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 		let fields = self.parse_field_values(dfn, None, type_args, &r.fields, args.into(), kwargs)?;
 
 		Ok(EsexprDecodedValue::Record {
-			t: t.clone(),
+			t: Box::new(t.clone()),
 			fields,
 		})
 	}
 
-	fn parse_enum_value(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition, t: &TypeExpr, type_args: &[TypeExpr], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
+	fn parse_enum_value(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
 		let ESExpr::Constructor { name, args, kwargs } = value else { self.fail()? };
 
 		for c in &e.cases {
 			let case_options = c.esexpr_options.as_ref().ok_or_else(|| self.error())?;
 
-			match &case_options.case_type {
+			match case_options.case_type.as_ref() {
 				EsexprEnumCaseType::InlineValue => {
 					let [field] = &c.fields[..] else { self.fail()? };
 
@@ -215,7 +219,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			let fields = self.parse_field_values(dfn, Some(c.name.as_ref()), type_args, &c.fields, args.into(), kwargs)?;
 
 			return Ok(EsexprDecodedValue::Enum {
-				t: t.clone(),
+				t: Box::new(t.clone()),
 				case_name: c.name.clone(),
 				fields
 			});
@@ -224,10 +228,18 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 		self.fail()?
 	}
 
-	fn parse_extern_type_value(&mut self, dfn: &'a DefinitionInfo, et: &'a ExternTypeDefinition, t: &TypeExpr, type_args: &[TypeExpr], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
+	fn parse_extern_type_value(&mut self, dfn: &'a DefinitionInfo, et: &'a ExternTypeDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
 		let Some(esexpr_options) = et.esexpr_options.as_ref() else { self.fail()? };
 
-		let mapping = dfn.type_parameters.iter().map(|tp| tp.name()).zip(type_args).collect::<HashMap<_, _>>();
+		let mapping = dfn.type_parameters
+			.iter()
+			.map(|tp| tp.name())
+			.zip(
+				type_args
+					.iter()
+					.map(Box::as_ref)
+			)
+			.collect::<HashMap<_, _>>();
 
 		Ok(match &value {
 			ESExpr::Constructor { .. } => {
@@ -236,8 +248,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					self.fail()?
 				}
 
-				let build_from_type_name = match &build_from {
-						TypeExpr::DefinedType(name, _) => name,
+				let build_from_type_name = match build_from.as_ref() {
+						TypeExpr::DefinedType(name, _) => name.as_ref(),
 						TypeExpr::TypeParameter(_) => self.fail()?,
 					};
 
@@ -249,17 +261,17 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				self.seen_decode_types.remove(&build_from_type_name);
 
 				EsexprDecodedValue::BuildFrom {
-					t: t.clone(),
+					t: Box::new(t.clone()),
 					from_type: build_from,
 
 					from_value: Box::new(dec_value),
 				}
 			},
-			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: t.clone(), b: *b } } else { self.fail()? },
+			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: Box::new(t.clone()), b: *b } } else { self.fail()? },
 			ESExpr::Int(i) => {
 				if esexpr_options.literals.allow_int {
 					EsexprDecodedValue::FromInt {
-						t: t.clone(),
+						t: Box::new(t.clone()),
 						i: i.clone(),
 						min_int: esexpr_options.literals.min_int.clone(),
 						max_int: esexpr_options.literals.max_int.clone(),
@@ -270,18 +282,26 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				}
 			},
 
-			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr { t: t.clone(), s: s.clone() } } else { self.fail()? },
-			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: t.clone(), b: Binary(b.clone()) } } else { self.fail()? },
-			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: t.clone(), f: *f } } else { self.fail()? },
-			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: t.clone(), f: *f } } else { self.fail()? },
-			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: t.clone() } } else { self.fail()? },
+			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() } } else { self.fail()? },
+			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail()? },
+			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail()? },
+			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail()? },
+			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail()? },
 		})
 	}
 
-	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[TypeExpr], fields: &'a [RecordField], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<Vec<EsexprDecodedFieldValue>, CheckError> {
+	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[Box<TypeExpr>], fields: &'a [Box<RecordField>], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<Vec<Box<EsexprDecodedFieldValue>>, CheckError> {
 		let mut parsed = Vec::new();
 
-		let mapping = dfn.type_parameters.iter().map(|tp| tp.name()).zip(type_args).collect::<HashMap<_, _>>();
+		let mapping = dfn.type_parameters
+			.iter()
+			.map(|tp| tp.name())
+			.zip(
+				type_args
+					.iter()
+					.map(Box::as_ref)
+			)
+			.collect::<HashMap<_, _>>();
 
 		for field in fields {
 			let options = field.esexpr_options.as_ref().ok_or_else(|| self.error())?;
@@ -291,51 +311,62 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				self.fail()?;
 			}
 
-			let value = match &options.kind {
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Required) => {
-					let arg_value = args.pop_front().ok_or_else(|| self.error())?;
-					self.parse_value(&field_type, arg_value)?
+			let value = match options.kind.as_ref() {
+				EsexprRecordFieldKind::Positional(mode) => {
+					match mode.as_ref() {
+						EsexprRecordPositionalMode::Required => {
+							let arg_value = args.pop_front().ok_or_else(|| self.error())?;
+							self.parse_value(&field_type, arg_value)?
+						},
+
+						EsexprRecordPositionalMode::Optional(element_type) => {
+							EsexprDecodedValue::Optional {
+								t: field_type,
+								element_type: element_type.clone(),
+
+								value:
+									args.pop_front()
+										.map(|value| self.parse_value(element_type.as_ref(), value))
+										.transpose()?
+										.map(Box::new),
+							}
+						},
+					}
+
 				},
 
-				EsexprRecordFieldKind::Positional(EsexprRecordPositionalMode::Optional(element_type)) =>
-					EsexprDecodedValue::Optional {
-						t: field_type,
-						element_type: element_type.clone(),
+				EsexprRecordFieldKind::Keyword(_, mode) => {
+					match mode.as_ref() {
+						EsexprRecordKeywordMode::Optional(element_type) => {
+							EsexprDecodedValue::Optional {
+								t: field_type,
+								element_type: element_type.clone(),
 
-						value: Box::new(
-							args.pop_front()
-								.map(|value| self.parse_value(element_type, value))
-								.transpose()?
-						),
-					},
+								value:
+									kwargs.remove(&field.name)
+										.map(|value| self.parse_value(element_type, value))
+										.transpose()?
+										.map(Box::new),
+							}
+						},
 
-				EsexprRecordFieldKind::Keyword(_, EsexprRecordKeywordMode::Optional(element_type)) =>
-					EsexprDecodedValue::Optional {
-						t: field_type,
-						element_type: element_type.clone(),
+						_ => {
+							if let Some(value) = kwargs.remove(&field.name) {
+								self.parse_value(&field_type, value)?
+							}
+							else {
+								let key = FieldKey {
+									definition_name: dfn.name.as_ref().clone(),
+									case_name: case_name.map(str::to_owned),
+									field_name: field.name.clone(),
+								};
 
-						value: Box::new(
-							kwargs.remove(&field.name)
-								.map(|value| self.parse_value(element_type, value))
-								.transpose()?
-						),
-					},
-
-				EsexprRecordFieldKind::Keyword(_, _) => {
-					if let Some(value) = kwargs.remove(&field.name) {
-						self.parse_value(&field_type, value)?
-					}
-					else {
-						let key = FieldKey {
-							definition_name: dfn.name.clone(),
-							case_name: case_name.map(str::to_owned),
-							field_name: field.name.clone(),
-						};
-
-						match self.lookup_default_value(key, field)? {
-							Some(default_value) => default_value.clone(),
-							None => self.fail()?,
-						}
+								match self.lookup_default_value(key, field)? {
+									Some(default_value) => default_value.clone(),
+									None => self.fail()?,
+								}
+							}
+						},
 					}
 				},
 
@@ -343,7 +374,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					let mut dict = HashMap::new();
 					for (k, v) in kwargs.drain() {
 						let item_value = self.parse_value(element_type, v)?;
-						dict.insert(k, item_value);
+						dict.insert(k, Box::new(item_value));
 					}
 
 					EsexprDecodedValue::Dict {
@@ -357,7 +388,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					let mut vararg = Vec::new();
 					for v in args.drain(..) {
 						let item_value = self.parse_value(element_type, v)?;
-						vararg.push(item_value);
+						vararg.push(Box::new(item_value));
 					}
 
 					EsexprDecodedValue::Vararg {
@@ -368,10 +399,10 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				},
 			};
 
-			parsed.push(EsexprDecodedFieldValue {
+			parsed.push(Box::new(EsexprDecodedFieldValue {
 				name: field.name.clone(),
-				value
-			});
+				value: Box::new(value),
+			}));
 		}
 
 		Ok(parsed)
@@ -402,7 +433,7 @@ impl DefaultUpdater {
 	fn update(&self, definitions: &mut HashMap<QualifiedName, DefinitionInfo>, key: FieldKey, value: EsexprDecodedValue) {
 		let dfn = definitions.get_mut(&key.definition_name).expect("Could not find definition");
 
-		match &mut dfn.definition {
+		match dfn.definition.as_mut() {
 			Definition::Record(r) =>
 				self.update_record(r, &key.field_name, value),
 			Definition::Enum(e) => {
@@ -424,13 +455,13 @@ impl DefaultUpdater {
 		self.update_fields(&mut c.fields, field_name, value)
 	}
 
-	fn update_fields(&self, fields: &mut [RecordField], field_name: &str, value: EsexprDecodedValue) {
+	fn update_fields(&self, fields: &mut [Box<RecordField>], field_name: &str, value: EsexprDecodedValue) {
 		let field = fields.iter_mut().find(|f| f.name == field_name).expect("Could not find field");
 		let esexpr_options = field.esexpr_options.as_mut().expect("esexpr_options are missing");
 
-		match &mut esexpr_options.kind {
+		match esexpr_options.kind.as_mut() {
 			EsexprRecordFieldKind::Keyword(_, mode) =>
-				*mode = EsexprRecordKeywordMode::DefaultValue(value),
+				**mode = EsexprRecordKeywordMode::DefaultValue(Box::new(value)),
 
 			_ => {},
 		}
