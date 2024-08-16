@@ -1,6 +1,8 @@
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.linker.interface.ESVersion
 
+import java.io.File
+import java.nio.charset.StandardCharsets
 import scala.sys.process.Process
 
 
@@ -29,7 +31,7 @@ ThisBuild / scalacOptions ++= Seq(
   "-Wconf:id=E029:e,id=E165:e,id=E190:e,cat=unchecked:e,cat=deprecation:e",
 )
 
-lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Pure).in(file("runtime"))
+lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("runtime"))
   .settings(
     libraryDependencies  ++= Seq(
       "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.0-SNAPSHOT",
@@ -96,4 +98,66 @@ val util = project.in(file("util"))
     run / baseDirectory := file("."),
   )
 
+val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Pure).in(file("example"))
+  .dependsOn(runtime)
+  .settings(
+    Compile / sourceGenerators += Def.task {
+      val s = streams.value
+      val baseDir = baseDirectory.value
+      val managedDir = (Compile / sourceManaged).value
+      val resourceDir = (Compile / resourceManaged).value
 
+      val inputDir = baseDir / "../src/main/nobleidl"
+
+      val javaArgs = javaOptions.value
+      val generatorCP = (backend / Compile / fullClasspath).value.map(_.data.toString).mkString(File.pathSeparator)
+      val depCP = (Compile / dependencyClasspath).value
+
+      val genRunner = (Compile / runner).value
+
+      val f = FileFunction.cached(s.cacheDirectory / "generate-nobleidl") { (in: Set[File]) =>
+        val outDir = managedDir / "generate-nobleidl"
+        IO.delete(outDir)
+        IO.createDirectory(outDir)
+
+        s.log.info(s"Generating sources from NobleIDL schema in ${outDir}")
+
+        IO.createDirectory(outDir)
+        val exitCode = Process(
+          Seq("java") ++
+            javaArgs ++
+            Seq(
+              "-cp",
+              generatorCP,
+              "nobleidl.compiler.ScalaNobleIDLCompiler",
+              "--input",
+              inputDir.toString,
+              "--output",
+              outDir.toString,
+              "--resource-output",
+              resourceDir.toString,
+              "--package-mapping",
+              "nobleidl.core=nobleidl.core",
+              "--package-mapping",
+              "nobleidl.example=nobleidl.example",
+            ) ++
+            depCP.flatMap { f => Seq("--library", f.data.toString) }
+        ).!(s.log)
+
+        if (exitCode != 0) {
+          throw new Exception(s"ESExpr Generator failed with exit code ${exitCode}")
+        }
+
+        outDir.allPaths.filter(_.isFile).get().toSet
+      }
+
+      val inputFiles = inputDir.allPaths.filter(f => f.isFile && f.getName.endsWith(".nidl")).get().toSet
+
+      f(inputFiles).toSeq
+    },
+
+    name := "nobleidl-scala-example",
+  )
+
+lazy val exampleJVM = example.jvm
+lazy val exampleJS = example.js

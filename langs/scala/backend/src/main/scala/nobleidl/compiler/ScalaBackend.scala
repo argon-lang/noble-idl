@@ -2,6 +2,7 @@ package nobleidl.compiler
 
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.*
+import nobleidl.compiler.format.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
@@ -9,42 +10,15 @@ import zio.stream.*
 import java.util.Locale
 import scala.jdk.CollectionConverters.*
 
-private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOptions]) {
-  import ScalaBackend.*
+private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOptions]) extends ScalaBackendBase {
+  import ScalaBackendBase.*
 
   private val options: ScalaLanguageOptions = genRequest.languageOptions
-  private val model = genRequest.model
-  private val packageMapping = options.packageMapping.mapping.dict
-    .view
-    .map { (k, v) => PackageName.fromString(k) -> v }
-    .toMap
 
-  def emit: Stream[NobleIDLCompileErrorException, GeneratedFile] =
-    ZStream.fromIterable(model.definitions)
-      .filterNot(_.isLibrary)
-      .flatMap(emitDefinition)
+  protected override def model: NobleIdlModel = genRequest.model
+  protected override def packageMappingRaw: PackageMapping = options.packageMapping
 
-
-
-  private def emitDefinition(dfn: DefinitionInfo): Stream[NobleIDLCompileErrorException, GeneratedFile] =
-    dfn.definition match {
-      case Definition.Record(r) => writeFile(dfn)(emitRecord(dfn, r))
-      case Definition.Enum(e) => writeFile(dfn)(emitEnum(dfn, e))
-      case Definition.SimpleEnum(e) => writeFile(dfn)(emitSimpleEnum(dfn, e))
-      case Definition.ExternType(_) => ZStream()
-      case Definition.Interface(iface) => writeFile(dfn)(emitInterface(dfn, iface))
-    }
-
-  private def writeFile(dfn: DefinitionInfo)(data: ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]): Stream[NobleIDLCompileErrorException, GeneratedFile] =
-    ZStream.fromZIO(getScalaPackage(dfn.name.`package`))
-      .map { pkg =>
-        GeneratedFile(
-          path = pkg.split("\\.").nn.view.map(_.nn).toSeq :+ (convertIdPascal(dfn.name.name) + ".scala"),
-          content = CodeWriter.withWriter(data)
-        )
-      }
-
-  private def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  protected override def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- write("package ")
       _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
@@ -65,7 +39,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
     yield ()
 
-  private def emitEnum(dfn: DefinitionInfo, e: EnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  protected override def emitEnum(dfn: DefinitionInfo, e: EnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- write("package ")
       _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
@@ -100,12 +74,12 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         yield ()
       }
 
-      _ <- dendent()
+      _ <- dedent()
       _ <- writeln("}")
 
     yield ()
 
-  private def emitSimpleEnum(dfn: DefinitionInfo, e: SimpleEnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  protected override def emitSimpleEnum(dfn: DefinitionInfo, e: SimpleEnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- write("package ")
       _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
@@ -134,12 +108,12 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         yield ()
       }
 
-      _ <- dendent()
+      _ <- dedent()
       _ <- writeln("}")
 
     yield ()
 
-  private def emitInterface(dfn: DefinitionInfo, iface: InterfaceDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  protected override def emitInterface(dfn: DefinitionInfo, iface: InterfaceDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- write("package ")
       _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
@@ -166,31 +140,17 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
             yield ()
           }
 
-          _ <- write(")")
+          _ <- write("): ")
+
+          _ <- writeTypeExpr(m.returnType)
+          _ <- writeln()
         yield ()
       }
 
-      _ <- dendent()
+      _ <- dedent()
       _ <- writeln("}")
 
     yield ()
-
-  private def writeTypeParameters(tps: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    (
-      for
-        _ <- writeln("[")
-
-        _ <- ZIO.foreachDiscard(tps.zipWithIndex) {
-          case (tp: TypeParameter.Type, index) =>
-            for
-              _ <- write(", ").when(index > 0)
-              _ <- write(convertIdPascal(tp.name))
-            yield ()
-        }
-
-        _ <- write("]")
-      yield ()
-    ).when(tps.nonEmpty).unit
 
   private def writeCaseClassParameters(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
@@ -248,7 +208,7 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         yield ()
       }
 
-      _ <- dendent()
+      _ <- dedent()
       _ <- write(")")
     yield ()
 
@@ -264,102 +224,4 @@ private[nobleidl] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
       case _ => ???
     }
-
-  private def writeTypeExpr(expr: TypeExpr): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    expr match {
-      case definedType: TypeExpr.DefinedType =>
-        for
-          _ <- write("_root_.")
-          _ <- getScalaPackage(definedType.name.`package`).flatMap(write)
-          _ <- write(".")
-          _ <- write(convertIdPascal(definedType.name.name))
-          _ <- (
-            for
-              _ <- write("[")
-              _ <- ZIO.foreachDiscard(definedType.args.view.zipWithIndex) { (arg, index) =>
-                write(", ").when(index > 0) *>
-                  writeTypeExpr(arg)
-              }
-              _ <- write("]")
-            yield ()
-          ).when(definedType.args.nonEmpty)
-        yield ()
-
-      case parameter: TypeExpr.TypeParameter =>
-        write(convertIdPascal(parameter.name))
-    }
-
-
-  private def getScalaPackage(packageName: PackageName): IO[NobleIDLCompileErrorException, String] =
-    ZIO.fromEither(
-      packageMapping.get(packageName)
-        .toRight { NobleIDLCompileErrorException("Unmapped package: " + packageName.display) }
-    )
-
-  private def convertIdPascal(kebab: String): String =
-    kebab.split("-")
-      .nn
-      .view
-      .map(_.nn)
-      .map { segment => segment.substring(0, 1).nn.toUpperCase(Locale.ROOT).nn + segment.substring(1).nn }
-      .mkString
-
-  private def convertIdCamel(kebab: String): String =
-    val pascal = convertIdPascal(kebab)
-    var camel = pascal.substring(0, 1).nn.toLowerCase(Locale.ROOT).nn + pascal.substring(1).nn
-
-    if keywords.contains(camel) then
-      s"`$camel`"
-    else
-      camel
-  end convertIdCamel
-
-}
-
-private[nobleidl] object ScalaBackend {
-  final case class GeneratedFile(path: Seq[String], content: Stream[NobleIDLCompileErrorException, String])
-
-  private val keywords = Seq(
-    "abstract",
-    "case",
-    "catch",
-    "class",
-    "def",
-    "do",
-    "else",
-    "enum",
-    "export",
-    "extends",
-    "false",
-    "final",
-    "finally",
-    "for",
-    "given",
-    "if",
-    "implicit",
-    "import",
-    "lazy",
-    "match",
-    "new",
-    "null",
-    "object",
-    "override",
-    "package",
-    "private",
-    "protected",
-    "return",
-    "sealed",
-    "super",
-    "then",
-    "throw",
-    "trait",
-    "true",
-    "try",
-    "type",
-    "val",
-    "var",
-    "while",
-    "with",
-    "yield",
-  )
 }

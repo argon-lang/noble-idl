@@ -79,7 +79,6 @@ class LibraryAnalyzer implements Closeable {
 		}
 
 		packageMapping.putAll(javaOptions.packageMapping().mapping().map());
-		System.err.println(options.idlFiles());
 		for(var path : options.idlFiles()) {
 			var subPath = libraryPath.resolve(path);
 			if(!subPath.toAbsolutePath().startsWith(libraryPath.toAbsolutePath())) {

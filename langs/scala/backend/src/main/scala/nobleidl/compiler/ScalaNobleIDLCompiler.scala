@@ -69,14 +69,27 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
   )
 
   override def run: ZIO[ZIOAppArgs & Scope, Any, Any] =
-    ZIOAppArgs.getArgs.flatMap { args =>
-      val parser =
+    runImpl
+      .catchAll {
+        case exitCode: ExitCode => ZIO.succeed(exitCode)
+        case ex: Throwable => ZIO.fail(ex)
+      }
+      .flatMap(exit(_))
+
+  private def runImpl: ZIO[ZIOAppArgs, ExitCode | Throwable, ExitCode] =
+    for
+      args <- ZIOAppArgs.getArgs
+
+      parser = {
         val builder = OParser.builder[Config]
         import builder.*
-        
+
         OParser.sequence(
           programName("noble-idl-compiler-scala"),
+          
           opt[Seq[Path]]('i', "input")
+            .minOccurs(1)
+            .unbounded()
             .action((x, c) => c.copy(inputDirs = x)),
           opt[String]('o', "output")
             .required()
@@ -85,66 +98,66 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .required()
             .action((x, c) => c.copy(resourceOutputDir = Some(x))),
           opt[Seq[Path]]('d', "library")
-            .action((x, c) => c.copy(libraries = x)),
+            .minOccurs(0)
+            .unbounded()
+            .action((x, c) => c.copy(libraries = c.libraries ++ x)),
           opt[Map[String, String]]('p', "package-mapping")
-            .action((x, c) => c.copy(packageMapping = x)),
+            .minOccurs(0)
+            .unbounded()
+            .action((x, c) => c.copy(packageMapping = c.packageMapping ++ x)),
         )
-      end parser
-        
-      val (result, effects) = OParser.runParser(parser, args, Config())
-      
-      
-      ZIO.foreachDiscard(effects) {
+      }
+
+      (result, effects) = OParser.runParser(parser, args, Config())
+
+      hasError <- Ref.make(false)
+
+      _ <- ZIO.foreachDiscard(effects) {
         case OEffect.DisplayToOut(msg) => Console.printLine(msg).orDie
         case OEffect.DisplayToErr(msg) => Console.printLineError(msg).orDie
-        case OEffect.ReportError(msg) => Console.printLineError("Error: " + msg).orDie
+        case OEffect.ReportError(msg) => hasError.set(true) *> Console.printLineError("Error: " + msg).orDie
         case OEffect.ReportWarning(msg) => Console.printLineError("Warning: " + msg).orDie
         case OEffect.Terminate(exitState) => ZIO.fail(if exitState.isLeft then ExitCode.failure else ExitCode.success)
-      }.foldZIO(
-        failure = exitCode => ZIO.succeed(exitCode),
-        success = _ => {
-          val config = result.get
-
-          val resourceOutputDir = config.resourceOutputDir.get
-
-          for
-            libRes <- LibraryAnalyzer.scan(config.libraries)
-            inputMap <- scanInputDirs(config.inputDirs, resourceOutputDir)
-
-            _ <- compile(ScalaIDLCompilerOptions(
-              languageOptions = ScalaLanguageOptions(
-                outputDir = config.outputDir.get,
-                packageMapping = PackageMapping(
-                  mapping = Dictionary(
-                    (libRes.packageMapping ++ config.packageMapping)
-                  ),
-                ),
-              ),
-              inputFileData = inputMap.values.toSeq,
-              libraryFileData = libRes.sourceFiles,
-            ))
-
-            jarOptions = NobleIdlJarOptions(
-              idlFiles = inputMap.keys.toSeq,
-              backends = BackendMapping(Dictionary(Map(
-                "java" -> BackendOptions(
-                  packageMapping = PackageMapping(
-                    Dictionary(config.packageMapping),
-                  )
-                ),
-              ))),
-            )
-            
-            _ <- ZIO.attempt { Files.createDirectories(resourceOutputDir) }.refineToOrDie[IOException]
-            _ <- ESExprBinaryEncoder.writeWithSymbolTable(summon[ESExprCodec[NobleIdlJarOptions]].encode(jarOptions))
-              .run(ZSink.fromPath(resourceOutputDir.resolve("nobleidl-options.esxb").nn))
-
-          yield ExitCode.success
-        }
-          
-      )
+      }
+        
+      _ <- ZIO.fail(ExitCode.failure).whenZIODiscard(hasError.get)
       
-    }.flatMap(exit)
+      config = result.get
+      resourceOutputDir = config.resourceOutputDir.get
+
+      libRes <- LibraryAnalyzer.scan(config.libraries)
+      inputMap <- scanInputDirs(config.inputDirs, resourceOutputDir)
+
+      _ <- compile(ScalaIDLCompilerOptions(
+        languageOptions = ScalaLanguageOptions(
+          outputDir = config.outputDir.get,
+          packageMapping = PackageMapping(
+            mapping = Dictionary(
+              (libRes.packageMapping ++ config.packageMapping)
+            ),
+          ),
+        ),
+        inputFileData = inputMap.values.toSeq,
+        libraryFileData = libRes.sourceFiles,
+      ))
+
+      jarOptions = NobleIdlJarOptions(
+        idlFiles = inputMap.keys.toSeq,
+        backends = BackendMapping(Dictionary(Map(
+          "scala" -> BackendOptions(
+            packageMapping = PackageMapping(
+              Dictionary(config.packageMapping),
+            )
+          ),
+        ))),
+      )
+
+      _ <- ZIO.attempt { Files.createDirectories(resourceOutputDir) }.refineToOrDie[IOException]
+      _ <- ESExprBinaryEncoder.writeWithSymbolTable(summon[ESExprCodec[NobleIdlJarOptions]].encode(jarOptions))
+        .run(ZSink.fromPath(resourceOutputDir.resolve("nobleidl-options.esxb").nn))
+
+
+    yield ExitCode.success
 
   private def scanInputDirs(dirs: Seq[Path], resourceOutputDir: Path): IO[IOException, Map[String, String]] =
     ZIO.attempt {
@@ -166,7 +179,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
               val outFile = resourceOutputDir.resolve(relPath).nn
               val outDir = outFile.getParent
               Files.createDirectories(outDir)
-              Files.copy(file, outFile)
+              Files.copy(file, outFile, StandardCopyOption.REPLACE_EXISTING)
 
               inputFileMap.addOne(relPath.toString, content)
             }

@@ -52,7 +52,7 @@ object CodeWriter {
 
   object Operations {
     def indent(): URIO[CodeWriter, Unit] = ZIO.serviceWithZIO(_.indent())
-    def dendent(): URIO[CodeWriter, Unit] = ZIO.serviceWithZIO(_.dendent())
+    def dedent(): URIO[CodeWriter, Unit] = ZIO.serviceWithZIO(_.dendent())
 
     def write(s: String): URIO[CodeWriter, Unit] = ZIO.serviceWithZIO(_.write(s))
     def writeln(s: String): URIO[CodeWriter, Unit] = ZIO.serviceWithZIO(_.writeln(s))

@@ -54,9 +54,11 @@ object LibraryAnalyzer {
   }
 
   private def scanLibrary(lib: Path): IO[Error, Option[LibraryResults]] =
+    val optionsEsxFile = lib.resolve("nobleidl-options.esxb").nn
+
     OptionT(
       ESExprBinaryDecoder.readEmbeddedStringTable[Any, Error](
-        ZStream.fromPath(lib).refineToOrDie[IOException]
+        ZStream.fromPath(optionsEsxFile).refineToOrDie[IOException]
       ).runHead
     )
       .flatMap { optionsExpr =>
@@ -65,17 +67,27 @@ object LibraryAnalyzer {
         ))
       }
       .filter(_.backends.mapping.dict.contains("scala"))
-      .map { options =>
-        LibraryResults(
-          packageMapping = options.backends.mapping.dict
-            .view
-            .mapValues(_.packageMapping.mapping.dict)
-            .getOrElse("scala", Map.empty),
-          
-          sourceFiles = options.idlFiles,
-        )
+      .flatMap { options =>
+        OptionT.liftF[[A] =>> IO[Error, A], Seq[String]](ZIO.foreach(options.idlFiles) { idlFile =>
+          val idlFilePath = lib.resolve(idlFile).nn
+          ZIO.readFile(idlFilePath)
+        })
+          .map { fileData =>
+            LibraryResults(
+              packageMapping = options.backends.mapping.dict
+                .view
+                .mapValues(_.packageMapping.mapping.dict)
+                .getOrElse("scala", Map.empty),
+
+              sourceFiles = fileData,
+            )
+          }
+
       }
       .value
+      .whenZIO(ZIO.attempt { Files.exists(optionsEsxFile) }.refineToOrDie[IOException])
+      .map(_.flatten)
+  end scanLibrary
 
   private def libFileSystemRoot(lib: Path): ZIO[Scope, IOException, Path] =
     ZIO.ifZIO(ZIO.attempt { Files.isDirectory(lib) })(
@@ -83,7 +95,9 @@ object LibraryAnalyzer {
       onFalse =
         if lib.getFileName.toString.endsWith(".jar") then
           ZIO.fromAutoCloseable(
-            ZIO.attempt { FileSystems.newFileSystem(lib).nn }
+            ZIO.attempt {
+              FileSystems.newFileSystem(lib).nn
+            }
           )
             .flatMap { zipFS => ZIO.attempt { zipFS.getRootDirectories.nn.iterator.nn.next.nn } }
         else
