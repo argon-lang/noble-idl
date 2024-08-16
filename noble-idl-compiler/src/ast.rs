@@ -1,3 +1,4 @@
+use noble_idl_api::TypeParameterOwner;
 pub use noble_idl_api::{PackageName, QualifiedName, TypeParameter, Annotation};
 
 #[derive(Debug, PartialEq)]
@@ -238,7 +239,7 @@ pub enum TypeExpr {
     UnresolvedName(QualifiedName, Vec<TypeExpr>),
 
     DefinedType(QualifiedName, Vec<TypeExpr>),
-    TypeParameter(String),
+    TypeParameter { name: String, owner: TypeParameterOwner },
 }
 
 impl TypeExpr {
@@ -247,7 +248,7 @@ impl TypeExpr {
             TypeExpr::InvalidType => panic!("An invalid type should have been replaced."),
             TypeExpr::UnresolvedName(..) => panic!("An unresolved name should have been replaced."),
             TypeExpr::DefinedType(name, args) => noble_idl_api::TypeExpr::DefinedType(Box::new(name), args.into_iter().map(TypeExpr::into_api).map(Box::new).collect()),
-            TypeExpr::TypeParameter(name) => noble_idl_api::TypeExpr::TypeParameter(name),
+            TypeExpr::TypeParameter { name, owner } => noble_idl_api::TypeExpr::TypeParameter { name, owner },
         }
     }
 }

@@ -221,7 +221,7 @@ impl <'a> ESExprChecker<'a> {
 		match t {
 			TypeExpr::DefinedType(name, args) =>
 				self.def_has_esexpr_codec(name) && args.iter().all(|arg| self.check_type(arg)),
-			TypeExpr::TypeParameter(_) => true,
+			TypeExpr::TypeParameter { .. } => true,
 		}
 	}
 

@@ -9,7 +9,9 @@ public sealed interface TypeExpr {
 	) implements dev.argon.nobleidl.compiler.api.TypeExpr {}
 	@dev.argon.esexpr.Constructor("type-parameter")
 	record TypeParameter(
-		java.lang.String name
+		java.lang.String name,
+		@dev.argon.esexpr.Keyword("owner")
+		dev.argon.nobleidl.compiler.api.TypeParameterOwner owner
 	) implements dev.argon.nobleidl.compiler.api.TypeExpr {}
 	public static dev.argon.esexpr.ESExprCodec<dev.argon.nobleidl.compiler.api.TypeExpr> codec() {
 		return dev.argon.nobleidl.compiler.api.TypeExpr_CodecImpl.INSTANCE;

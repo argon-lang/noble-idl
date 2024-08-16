@@ -448,7 +448,7 @@ impl <'a> ESExprOptionParser<'a> {
 fn get_type_name(t: &TypeExpr) -> Option<&QualifiedName> {
 	match t {
 		TypeExpr::DefinedType(name, _) => Some(name),
-		TypeExpr::TypeParameter(_) => None,
+		TypeExpr::TypeParameter { .. } => None,
 	}
 }
 

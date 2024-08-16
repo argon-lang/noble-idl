@@ -135,7 +135,7 @@ impl <'a> TagScanner<'a> {
 		if let Some(build_literal_from) = literals.build_literal_from {
 			let build_from_type_name = match build_literal_from.as_ref() {
 				TypeExpr::DefinedType(name, _) => name,
-				TypeExpr::TypeParameter(_) => return tags,
+				TypeExpr::TypeParameter { .. } => return tags,
 			};
 
 			let from_tags = self.scan(state, &build_from_type_name);
@@ -187,7 +187,7 @@ impl <'a> TagScanner<'a> {
 	fn scan_type<'c>(&mut self, state: &mut ScanState<'c>, t: &'a TypeExpr) -> HashSet<ESExprTag> where 'a: 'c {
 		match t {
 			TypeExpr::DefinedType(name, _) => self.scan(state, name),
-			TypeExpr::TypeParameter(_) => HashSet::new(),
+			TypeExpr::TypeParameter { .. } => HashSet::new(),
 		}
 	}
 

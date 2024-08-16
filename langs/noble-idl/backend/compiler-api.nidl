@@ -250,10 +250,18 @@ enum type-expr {
         args: list[type-expr];
     },
 
-    @rust: (tuple)
     type-parameter {
         name: string;
+
+        @esexpr: (keyword)
+        owner: type-parameter-owner;
     },
+}
+
+@esexpr: (derive-codec)
+simple enum type-parameter-owner {
+    by-type,
+    by-method,
 }
 
 @esexpr: (derive-codec)

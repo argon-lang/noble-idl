@@ -913,7 +913,7 @@ class JavaBackend {
 					yield mappedTypeToJava(typeParamMap, mappedType);
 				}
 			}
-			case TypeExpr.TypeParameter(var name) -> new JavaTypeExpr.NormalType(Optional.empty(), convertIdPascal(name), List.of());
+			case TypeExpr.TypeParameter(var name, _) -> new JavaTypeExpr.NormalType(Optional.empty(), convertIdPascal(name), List.of());
 		};
 	}
 
@@ -1009,7 +1009,7 @@ class JavaBackend {
 				}
 				yield map;
 			}
-			case TypeExpr.TypeParameter(_) -> Map.of();
+			case TypeExpr.TypeParameter(_, _) -> Map.of();
 		};
 	}
 

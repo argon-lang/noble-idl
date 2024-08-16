@@ -537,6 +537,7 @@ export type TypeExpr = {
 } | {
     $type: "type-parameter";
     name: nobleidl__core.String;
+    owner: TypeParameterOwner;
 };
 export namespace TypeExpr {
     export const codec: $esexpr.ESExprCodec<TypeExpr> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeExpr>({
@@ -545,7 +546,8 @@ export namespace TypeExpr {
             "args": $esexpr.varargFieldCodec(nobleidl__core.List.varargCodec<TypeExpr>(TypeExpr.codec))
         }),
         "type-parameter": $esexpr.caseCodec("type-parameter", {
-            "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec)
+            "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
+            "owner": $esexpr.keywordFieldCodec("owner", TypeParameterOwner.codec)
         })
     }));
 }
@@ -560,5 +562,12 @@ export namespace TypeParameter {
             "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
             "annotations": $esexpr.keywordFieldCodec("annotations", nobleidl__core.List.codec<Annotation>(Annotation.codec))
         })
+    }));
+}
+export type TypeParameterOwner = "by-type" | "by-method";
+export namespace TypeParameterOwner {
+    export const codec: $esexpr.ESExprCodec<TypeParameterOwner> = $esexpr.lazyCodec(() => $esexpr.simpleEnumCodec<TypeParameterOwner>({
+        "by-type": "by-type",
+        "by-method": "by-method"
     }));
 }

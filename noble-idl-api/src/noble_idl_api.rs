@@ -692,7 +692,11 @@ pub enum TypeExpr {
         ::noble_idl_runtime::List<::std::boxed::Box<crate::TypeExpr>>,
     ),
     #[constructor = "type-parameter"]
-    TypeParameter(::noble_idl_runtime::String),
+    TypeParameter {
+        name: ::noble_idl_runtime::String,
+        #[keyword = "owner"]
+        owner: crate::TypeParameterOwner,
+    },
 }
 #[allow(non_camel_case_types)]
 #[derive(
@@ -708,4 +712,19 @@ pub enum TypeParameter {
         #[keyword = "annotations"]
         annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
     },
+}
+#[allow(non_camel_case_types)]
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::marker::Copy,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[simple_enum]
+pub enum TypeParameterOwner {
+    #[constructor = "by-type"]
+    ByType,
+    #[constructor = "by-method"]
+    ByMethod,
 }

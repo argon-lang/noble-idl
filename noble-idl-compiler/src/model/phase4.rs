@@ -83,7 +83,8 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 				EsexprRecordFieldKind::Positional(_) => {},
 				EsexprRecordFieldKind::Keyword(_, mode) => {
 					match mode.as_ref() {
-						EsexprRecordKeywordMode::Optional(_) => {
+						EsexprRecordKeywordMode::Optional(_) => {},
+						_ => {
 							let mut value_parser = ValueParser {
 								outer_parser: self,
 								seen_fields: HashSet::new(),
@@ -101,8 +102,7 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 							};
 
 							value_parser.lookup_default_value(key, field)?;
-						}
-						_ => {},
+						},
 					}
 				},
 				EsexprRecordFieldKind::Dict(_) => {},
@@ -173,7 +173,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					Definition::Interface(_) => self.fail(),
 				}
 			},
-			TypeExpr::TypeParameter(_) => self.fail(),
+			TypeExpr::TypeParameter { .. } => self.fail(),
 		}
 	}
 
@@ -250,7 +250,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 				let build_from_type_name = match build_from.as_ref() {
 						TypeExpr::DefinedType(name, _) => name.as_ref(),
-						TypeExpr::TypeParameter(_) => self.fail()?,
+						TypeExpr::TypeParameter { .. } => self.fail()?,
 					};
 
 				if !self.seen_decode_types.insert(build_from_type_name.clone()) {

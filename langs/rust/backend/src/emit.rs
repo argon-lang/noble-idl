@@ -2,7 +2,7 @@ use std::{collections::HashMap, io::{Read, Write}, path::PathBuf};
 use esexpr_binary::FixedStringPool;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, Sign};
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 
 use esexpr::ESExprCodec;
@@ -402,6 +402,7 @@ impl <'a> ModEmitter<'a> {
     fn process_simple_enum_ann(&self, dfn: &DefinitionInfo, e: &SimpleEnumDefinition, derives: &mut Vec<TokenStream>) -> Result<(), EmitError>  {
         derives.push(quote! { ::std::fmt::Debug });
         derives.push(quote! { ::std::clone::Clone });
+        derives.push(quote! { ::std::marker::Copy });
         derives.push(quote! { ::std::cmp::PartialEq });
 
 		for ann in &dfn.annotations {
@@ -450,6 +451,32 @@ impl <'a> ModEmitter<'a> {
                 .map(|param| match param.as_ref() {
                     TypeParameter::Type { name: param, .. } => {
 						syn::TypeParam::from(convert_id_pascal(param))
+					},
+                })
+                .collect();
+
+            quote! {
+                <#(#type_params),*>
+            }
+        }
+    }
+
+    fn emit_type_parameters_as_lifetimes(&self, type_params: &[Box<TypeParameter>]) -> TokenStream {
+        if type_params.is_empty() {
+            quote! {}
+        } else {
+            let type_params: Vec<syn::GenericParam> = type_params
+                .into_iter()
+                .map(|param| match param.as_ref() {
+                    TypeParameter::Type { name: param, .. } => {
+						syn::GenericParam::Lifetime(
+							syn::LifetimeParam {
+								attrs: vec![],
+								lifetime: syn::Lifetime::new(&format!("'{}", &convert_id_snake_str(param)), Span::mixed_site()),
+								colon_token: None,
+								bounds: Punctuated::new(),
+							}
+						)
 					},
                 })
                 .collect();
@@ -527,12 +554,12 @@ impl <'a> ModEmitter<'a> {
 
     fn emit_method(&self, m: &InterfaceMethod) -> Result<TokenStream, EmitError> {
         let method_name = convert_id_snake(&m.name);
-        let type_params = self.emit_type_parameters(&m.type_parameters);
+        let type_params = self.emit_type_parameters_as_lifetimes(&m.type_parameters);
         let params = self.emit_method_parameters(&m.parameters)?;
         let return_type = self.emit_type_expr(&m.return_type)?;
 
         Ok(quote! {
-            fn #method_name #type_params (#params) -> #return_type;
+            fn #method_name #type_params (self: std::sync::Arc<Self>, #params) -> #return_type;
         })
     }
 
@@ -637,8 +664,13 @@ impl <'a> ModEmitter<'a> {
 				}
             },
 
-            TypeExpr::TypeParameter(name) =>
+            TypeExpr::TypeParameter { name, owner: TypeParameterOwner::ByType } =>
 				syn::Path::from(convert_id_pascal(&name)),
+
+            TypeExpr::TypeParameter { name, owner: TypeParameterOwner::ByMethod } => {
+				let lifetime = syn::Lifetime::new(&format!("'{}", &convert_id_snake_str(name)), Span::mixed_site());
+				parse_quote! { ::noble_idl_runtime::Erased<#lifetime> }
+			},
         })
 	}
 
@@ -900,8 +932,12 @@ enum TypeBoxing {
 }
 
 
+fn convert_id_snake_str(s: &str) -> String {
+	s.replace("-", "_")
+}
+
 fn convert_id_snake(s: &str) -> syn::Ident {
-    idstr(&s.replace("-", "_"))
+    idstr(&convert_id_snake_str(s))
 }
 
 fn convert_id_pascal(s: &str) -> syn::Ident {

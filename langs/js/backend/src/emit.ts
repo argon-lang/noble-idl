@@ -775,7 +775,7 @@ class ModEmitter {
 							"ESExprCodec"
 						),
 						[
-							this.#emitTypeExpr({ $type: "type-parameter", name: tp.name }),
+							this.#emitTypeExpr({ $type: "type-parameter", name: tp.name, owner: "by-type" }),
 						]
 					),
 					undefined,
@@ -849,6 +849,7 @@ class ModEmitter {
 			args: def.typeParameters.map(tp => ({
 				$type: "type-parameter",
 				name: tp.name,
+				owner: "by-type",
 			})),
 		};
 	}

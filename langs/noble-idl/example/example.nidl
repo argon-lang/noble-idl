@@ -114,12 +114,16 @@ record extern-user {
 }
 
 interface do-something {
-    to-str(i: int): string;
+    to-str(value: string-or-int): string;
     run(n: int): unit;
 }
 
 interface function[a, b] {
     apply(x: a): b;
+}
+
+interface operation[a] {
+    run[b](s: list[a], f: function[a, b]): list[b];
 }
 
 
@@ -128,6 +132,21 @@ record shadowed-type {}
 record shadowing-container[shadowed-type] {
     a: shadowed-type;
     b: nobleidl.example.shadowed-type;
+}
+
+
+enum mutual-a {
+    next {
+        value: mutual-b;
+    },
+    empty,
+}
+
+enum mutual-b {
+    next {
+        value: mutual-a;
+    },
+    empty,
 }
 
 

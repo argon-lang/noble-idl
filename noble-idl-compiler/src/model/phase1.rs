@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use noble_idl_api::{PackageName, QualifiedName, TypeParameter};
+use noble_idl_api::{PackageName, QualifiedName, TypeParameter, TypeParameterOwner};
 
 use super::*;
 
@@ -135,6 +135,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
 #[derive(Clone, Copy)]
 struct TypeParameterScope<'a, ParentScope> {
     parent_scope: ParentScope,
+	owner: TypeParameterOwner,
     type_parameters: &'a [TypeParameter],
 }
 
@@ -148,7 +149,7 @@ impl <'a, ParentScope: TypeScope + Copy> TypeScope for TypeParameterScope<'a, Pa
 					return Err(CheckError::TypeParameterMismatch { expected, actual });
 				}
 
-                return Ok(TypeExpr::TypeParameter(name.1));
+                return Ok(TypeExpr::TypeParameter { name: name.1, owner: self.owner });
             }
         }
 
@@ -164,10 +165,11 @@ struct ModelChecker<'a, Scope> {
 }
 
 impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
-	fn with_type_parameters<'b>(&'b self, type_parameters: &'b [TypeParameter]) -> ModelChecker<'b, TypeParameterScope<Scope>> {
+	fn with_type_parameters<'b>(&'b self, type_parameters: &'b [TypeParameter], owner: TypeParameterOwner) -> ModelChecker<'b, TypeParameterScope<Scope>> {
 		ModelChecker {
 			scope: TypeParameterScope {
 				parent_scope: self.scope,
+				owner,
 				type_parameters,
 			},
 			definition_name: self.definition_name,
@@ -177,7 +179,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 	fn check_record(&self, rec: &mut RecordDefinition) -> Result<(), CheckError> {
 		self.check_type_parameters(None, &rec.type_parameters)?;
 
-		let inner = self.with_type_parameters(&rec.type_parameters);
+		let inner = self.with_type_parameters(&rec.type_parameters, TypeParameterOwner::ByType);
 
 		inner.check_fields(None, &mut rec.fields)?;
 
@@ -187,7 +189,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 	fn check_enum(&self, e: &mut EnumDefinition) -> Result<(), CheckError> {
 		self.check_type_parameters( None, &e.type_parameters)?;
 
-		let inner = self.with_type_parameters(&e.type_parameters);
+		let inner = self.with_type_parameters(&e.type_parameters, TypeParameterOwner::ByType);
 
 		let mut case_names = HashSet::new();
 
@@ -238,7 +240,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 	fn check_interface(&self, iface: &mut InterfaceDefinition) -> Result<(), CheckError> {
 		self.check_type_parameters(None, &iface.type_parameters)?;
 
-		let inner = self.with_type_parameters(&iface.type_parameters);
+		let inner = self.with_type_parameters(&iface.type_parameters, TypeParameterOwner::ByType);
 
 		let mut method_names = HashSet::new();
 		for method in &mut iface.methods {
@@ -256,7 +258,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 				self.check_type_parameters(Some(&method.name), &type_parameters)?;
 			}
 
-			let inner = inner.with_type_parameters(&method.type_parameters);
+			let inner = inner.with_type_parameters(&method.type_parameters, TypeParameterOwner::ByMethod);
 
 			let mut param_names = HashSet::new();
 
@@ -317,7 +319,7 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 				}
 			},
 
-			TypeExpr::DefinedType(..) | TypeExpr::TypeParameter(_) => TypeResult::Success(t),
+			TypeExpr::DefinedType(..) | TypeExpr::TypeParameter { .. } => TypeResult::Success(t),
 		}
 	}
 

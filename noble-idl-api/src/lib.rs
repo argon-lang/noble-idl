@@ -36,7 +36,7 @@ impl TypeExpr {
 	{
 		match self {
 			TypeExpr::DefinedType(_, args) => args.iter_mut().all(|arg| arg.substitute(mapping)),
-			TypeExpr::TypeParameter(name) => {
+			TypeExpr::TypeParameter { name, .. } => {
 				let Some(mapped_type) = mapping.get(name) else { return false; };
 				*self = mapped_type.borrow().clone();
 				true
