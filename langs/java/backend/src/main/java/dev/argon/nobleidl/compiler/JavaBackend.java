@@ -228,10 +228,14 @@ class JavaBackend {
 			w.indent();
 
 			for(var m : iface.methods()) {
+				writeTypeParameters(w, m.typeParameters());
+				if(!m.typeParameters().isEmpty()) {
+					w.print(" ");
+				}
+
 				writeReturnType(w, m.returnType());
 				w.print(" ");
 				w.print(convertIdCamel(m.name()));
-				writeTypeParameters(w, m.typeParameters());
 				w.print("(");
 
 				for(int i = 0; i < m.parameters().size(); ++i) {
@@ -654,11 +658,11 @@ class JavaBackend {
 
 
 	private void writeTypeExpr(Writer w, TypeExpr t) throws IOException, NobleIDLCompileErrorException {
-		typeExprToJava(t).nonReturnType().writeType(w);
+		typeExprToJava(t).nonReturnType().withNotNull().writeType(w);
 	}
 
 	private void writeReturnType(Writer w, TypeExpr t) throws IOException, NobleIDLCompileErrorException {
-		typeExprToJava(t).writeType(w);
+		typeExprToJava(t).withNotNull().writeType(w);
 	}
 
 
@@ -716,6 +720,14 @@ class JavaBackend {
 					}
 				}
 			}
+		}
+
+		/**
+		 * Adds a not null annotation to the type.
+		 * @return The annotated type.
+		 */
+		default JavaTypeExpr withNotNull() {
+			return new Annotated(List.of("org.jetbrains.annotations.NotNull"), this);
 		}
 
 		private void writeAnns(Writer w, List<String> anns) throws IOException {

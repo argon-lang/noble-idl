@@ -32,6 +32,9 @@ ThisBuild / scalacOptions ++= Seq(
 )
 
 lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("runtime"))
+  .jvmSettings(
+    Compile / unmanagedJars += baseDirectory.value / "../../../java/runtime/build/libs/runtime.jar",
+  )
   .settings(
     libraryDependencies  ++= Seq(
       "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.0-SNAPSHOT",
@@ -100,6 +103,10 @@ val util = project.in(file("util"))
 
 val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("example"))
   .dependsOn(runtime)
+  .jvmSettings(
+    Compile / unmanagedJars += baseDirectory.value / "../../../java/example/build/libs/example.jar",
+    libraryDependencies += "org.jetbrains" % "annotations" % "24.0.0",
+  )
   .settings(
     Compile / sourceGenerators += Def.task {
       val s = streams.value
@@ -107,7 +114,7 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in
       val managedDir = (Compile / sourceManaged).value
       val resourceDir = (Compile / resourceManaged).value
 
-      val inputDir = baseDir / "../src/main/nobleidl"
+      val inputDir = baseDir / "../shared/src/main/nobleidl"
 
       val javaArgs = javaOptions.value
       val generatorCP = (backend / Compile / fullClasspath).value.map(_.data.toString).mkString(File.pathSeparator)
@@ -143,6 +150,11 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in
             depCP.flatMap { f => Seq("--library", f.data.toString) } ++
             (
               crossProjectPlatform.value match {
+                case JVMPlatform =>
+                  Seq(
+                    "--java-adapters",
+                  )
+
                 case JSPlatform =>
                   Seq(
                     "--scalajs",

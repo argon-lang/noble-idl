@@ -12,3 +12,4 @@ esexpr-runtime = { module = "dev.argon:esexpr-java-runtime" , version.ref = "ese
 jawawasm-engine = { module = "dev.argon.jawawasm:wasm-engine", version.ref = "jawawasm" }
 apache-commons-text = { module = "org.apache.commons:commons-text", version.ref = "apache-commons-text" }
 apache-commons-cli = { module = "commons-cli:commons-cli", version = "1.8.0" }
+jetbrains-annotations = { module = "org.jetbrains:annotations", version = "24.0.0" }

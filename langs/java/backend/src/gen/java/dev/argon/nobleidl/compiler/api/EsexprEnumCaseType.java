@@ -3,7 +3,7 @@ package dev.argon.nobleidl.compiler.api;
 public sealed interface EsexprEnumCaseType {
 	@dev.argon.esexpr.Constructor("constructor")
 	record Constructor(
-		java.lang.String name
+		java.lang.@org.jetbrains.annotations.NotNull String name
 	) implements dev.argon.nobleidl.compiler.api.EsexprEnumCaseType {}
 	@dev.argon.esexpr.Constructor("inline-value")
 	record InlineValue(

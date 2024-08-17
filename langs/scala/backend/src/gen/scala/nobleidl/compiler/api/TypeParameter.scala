@@ -7,3 +7,5 @@ enum TypeParameter derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual {
     annotations: _root_.nobleidl.core.List[_root_.nobleidl.compiler.api.Annotation],
   )
 }
+object TypeParameter {
+}

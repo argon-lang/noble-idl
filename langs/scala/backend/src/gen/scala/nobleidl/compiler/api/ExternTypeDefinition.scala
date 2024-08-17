@@ -5,3 +5,5 @@ final case class ExternTypeDefinition(
   @_root_.esexpr.optional
   esexprOptions: _root_.nobleidl.core.OptionalField[_root_.nobleidl.compiler.api.EsexprExternTypeOptions],
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object ExternTypeDefinition {
+}

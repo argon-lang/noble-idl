@@ -1,7 +1,8 @@
 package nobleidl.compiler
 
+import nobleidl.compiler
 import nobleidl.compiler.CodeWriter.Operations.*
-import nobleidl.compiler.api.*
+import nobleidl.compiler.api.{java as _, *}
 import nobleidl.compiler.format.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
@@ -18,10 +19,7 @@ private[compiler] abstract class ScalaBackendBase {
   protected def packageMappingRaw: PackageMapping
   protected def outputDir: Path
 
-  protected final lazy val packageMapping = packageMappingRaw.mapping.dict
-    .view
-    .map { (k, v) => PackageName.fromString(k) -> v }
-    .toMap
+  protected final lazy val packageMapping = buildPackageMapping(packageMappingRaw)
 
   final def emit: Stream[NobleIDLCompileErrorException, GeneratedFile] =
     ZStream.fromIterable(model.definitions)
@@ -70,33 +68,70 @@ private[compiler] abstract class ScalaBackendBase {
         _ <- write("]")
       yield ()
       ).when(tps.nonEmpty).unit
-    
-  protected final def writeTypeParametersAsArguments(tps: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    writeTypeParameters(tps)
+
+  protected def definitionAsType(dfn: DefinitionInfo): TypeExpr.DefinedType =
+    TypeExpr.DefinedType(
+      dfn.name,
+      dfn.typeParameters.map {
+        case TypeParameter.Type(name, _) =>
+          TypeExpr.TypeParameter(name, TypeParameterOwner.ByType)
+      },
+    )
+
+
+  protected enum TypePosition derives CanEqual {
+    case Normal
+    case ReturnType
+    case TypeArgument
+  }
+
+  protected open class TypeExprWriter {
+    def writeTypeExpr(expr: TypeExpr, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      expr match {
+        case definedType: TypeExpr.DefinedType =>
+          writeDefinedType(definedType, pos)
+
+        case parameter: TypeExpr.TypeParameter =>
+          writeTypeParameter(parameter, pos)
+      }
+
+    def writePackageName(packageName: PackageName): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      getScalaPackage(packageName).flatMap(write)
+
+    def writeDefinedTypeName(name: QualifiedName): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      for
+        _ <- write("_root_.")
+        _ <- writePackageName(name.`package`)
+        _ <- write(".")
+        _ <- write(convertIdPascal(name.name))
+      yield ()
+
+    def writeTypeArguments(args: Seq[TypeExpr]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      (
+        for
+          _ <- write("[")
+          _ <- ZIO.foreachDiscard(args.view.zipWithIndex) { (arg, index) =>
+            write(", ").when(index > 0) *>
+              writeTypeExpr(arg, TypePosition.TypeArgument)
+          }
+          _ <- write("]")
+        yield ()
+        ).whenDiscard(args.nonEmpty)
+
+    def writeDefinedType(definedType: TypeExpr.DefinedType, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      for
+        _ <- writeDefinedTypeName(definedType.name)
+        _ <- writeTypeArguments(definedType.args)
+      yield ()
+
+    def writeTypeParameter(parameter: TypeExpr.TypeParameter, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      write(convertIdPascal(parameter.name))
+  }
+
+  protected object ScalaTypeExprWriter extends TypeExprWriter
 
   protected final def writeTypeExpr(expr: TypeExpr): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    expr match {
-      case definedType: TypeExpr.DefinedType =>
-        for
-          _ <- write("_root_.")
-          _ <- getScalaPackage(definedType.name.`package`).flatMap(write)
-          _ <- write(".")
-          _ <- write(convertIdPascal(definedType.name.name))
-          _ <- (
-            for
-              _ <- write("[")
-              _ <- ZIO.foreachDiscard(definedType.args.view.zipWithIndex) { (arg, index) =>
-                write(", ").when(index > 0) *>
-                  writeTypeExpr(arg)
-              }
-              _ <- write("]")
-            yield ()
-            ).when(definedType.args.nonEmpty)
-        yield ()
-
-      case parameter: TypeExpr.TypeParameter =>
-        write(convertIdPascal(parameter.name))
-    }
+    ScalaTypeExprWriter.writeTypeExpr(expr, TypePosition.Normal)
 
   protected final def getScalaPackage(packageName: PackageName): IO[NobleIDLCompileErrorException, String] =
     ZIO.fromEither(
@@ -121,6 +156,9 @@ private[compiler] abstract class ScalaBackendBase {
     else
       camel
   end convertIdCamel
+
+  protected final def convertIdConst(kebab: String): String =
+    kebab.replace("-", "_").nn.toUpperCase(Locale.ROOT).nn
 
 }
 
@@ -171,4 +209,11 @@ private[compiler] object ScalaBackendBase {
     "with",
     "yield",
   )
+
+  def buildPackageMapping(packageMapping: PackageMapping): Map[PackageName, String] =
+    packageMapping.mapping.dict
+      .view
+      .map { (k, v) => PackageName.fromString(k) -> v }
+      .toMap
+
 }

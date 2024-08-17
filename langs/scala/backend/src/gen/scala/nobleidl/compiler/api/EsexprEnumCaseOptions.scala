@@ -3,3 +3,5 @@ package nobleidl.compiler.api
 final case class EsexprEnumCaseOptions(
   caseType: _root_.nobleidl.compiler.api.EsexprEnumCaseType,
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object EsexprEnumCaseOptions {
+}

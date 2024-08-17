@@ -12,3 +12,5 @@ final case class DefinitionInfo(
   @_root_.esexpr.keyword("is-library")
   isLibrary: _root_.nobleidl.core.Bool,
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object DefinitionInfo {
+}

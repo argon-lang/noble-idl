@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+    implementation(libs.jetbrains.annotations)
     implementation(libs.jawawasm.engine)
     implementation(libs.apache.commons.text)
     implementation(libs.apache.commons.cli)

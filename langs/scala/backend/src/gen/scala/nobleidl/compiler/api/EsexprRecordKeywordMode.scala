@@ -12,3 +12,5 @@ enum EsexprRecordKeywordMode derives _root_.esexpr.ESExprCodec, _root_.scala.Can
     value: _root_.nobleidl.compiler.api.EsexprDecodedValue,
   )
 }
+object EsexprRecordKeywordMode {
+}

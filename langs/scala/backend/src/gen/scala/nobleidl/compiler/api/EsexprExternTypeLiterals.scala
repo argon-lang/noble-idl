@@ -25,3 +25,5 @@ final case class EsexprExternTypeLiterals(
   @_root_.esexpr.optional
   buildLiteralFrom: _root_.nobleidl.core.OptionalField[_root_.nobleidl.compiler.api.TypeExpr],
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object EsexprExternTypeLiterals {
+}

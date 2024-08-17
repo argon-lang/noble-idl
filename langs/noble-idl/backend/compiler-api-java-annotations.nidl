@@ -1,0 +1,41 @@
+
+package nobleidl.compiler.api.java;
+
+import nobleidl.core;
+
+@esexpr:(derive-codec)
+enum java-ann-extern-type {
+    mapped-to {
+        java-type: java-mapped-type;
+    },
+}
+
+@esexpr:(derive-codec)
+enum java-mapped-type {
+    @esexpr:(inline-value)
+    type-name {
+        name: string;
+    },
+
+    apply {
+        name: string;
+
+        @esexpr:(vararg)
+        args: list[java-mapped-type];
+    },
+
+    annotated {
+        t: java-mapped-type;
+
+        @esexpr:(vararg)
+        annotations: list[string];
+    },
+
+    type-parameter {
+        name: string;
+    },
+
+    array {
+        element-type: java-mapped-type;
+    },
+}

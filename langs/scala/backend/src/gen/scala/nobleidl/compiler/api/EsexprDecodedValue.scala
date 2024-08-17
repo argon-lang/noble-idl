@@ -81,3 +81,5 @@ enum EsexprDecodedValue derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
     t: _root_.nobleidl.compiler.api.TypeExpr,
   )
 }
+object EsexprDecodedValue {
+}

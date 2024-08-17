@@ -62,40 +62,40 @@ object LibraryAnalyzer {
   private def scanLibrary(platform: String)(lib: Path): IO[Error, Option[LibraryResults]] =
     val optionsEsxFile = lib.resolve("nobleidl-options.esxb").nn
 
-    OptionT(
-      ESExprBinaryDecoder.readEmbeddedStringTable[Any, Error](
-        ZStream.fromPath(optionsEsxFile).refineToOrDie[IOException]
-      ).runHead
+    ESExprBinaryDecoder.readEmbeddedStringTable[Any, Error](
+      ZStream.fromPath(optionsEsxFile).refineToOrDie[IOException]
     )
-      .flatMap { optionsExpr =>
-        OptionT.liftF(ZIO.fromEither(
-          summon[ESExprCodec[NobleIdlJarOptions]].decode(optionsExpr)
-        ))
-      }
-      .filter(_.backends.mapping.dict.contains(platform))
-      .flatMap { options =>
-        OptionT.liftF[[A] =>> IO[Error, A], Seq[String]](ZIO.foreach(options.idlFiles) { idlFile =>
-          val idlFilePath = lib.resolve(idlFile).nn
-          ZIO.readFile(idlFilePath)
-        })
-          .map { fileData =>
-            def getPackageMapping(platform: String): Map[String, String] =
-              options.backends.mapping.dict
-                .view
-                .mapValues(_.packageMapping.mapping.dict)
-                .getOrElse(platform, Map.empty)
-            
-            LibraryResults(
-              scalaPackageMapping = getPackageMapping("scala"),
-              javaPackageMapping = getPackageMapping("java"),
-              scalaJSPackageMapping = getPackageMapping("scalajs"),
+      .runHead
+      .flatMap {
+        case Some(optionsExpr) =>
+          ZIO.fromEither[Error, NobleIdlJarOptions](summon[ESExprCodec[NobleIdlJarOptions]].decode(optionsExpr))
+            .flatMap { options =>
+              ZIO.foreach(options.idlFiles) { idlFile =>
+                val idlFilePath = lib.resolve(idlFile).nn
+                ZIO.readFile(idlFilePath)
+              }.when(options.backends.mapping.dict.contains(platform))
+                .map(_.getOrElse(Seq.empty))
+                .map { fileData =>
+                  def getPackageMapping(platform: String): Map[String, String] =
+                    options.backends.mapping.dict
+                      .view
+                      .mapValues(_.packageMapping.mapping.dict)
+                      .getOrElse(platform, Map.empty)
 
-              sourceFiles = fileData,
-            )
-          }
+                  LibraryResults(
+                    scalaPackageMapping = getPackageMapping("scala"),
+                    javaPackageMapping = getPackageMapping("java"),
+                    scalaJSPackageMapping = getPackageMapping("scalajs"),
 
+                    sourceFiles = fileData,
+                  )
+                }
+            }
+            .asSome
+
+        case _: None.type =>
+          ZIO.none
       }
-      .value
       .whenZIO(ZIO.attempt { Files.exists(optionsEsxFile) }.refineToOrDie[IOException])
       .map(_.flatten)
   end scanLibrary

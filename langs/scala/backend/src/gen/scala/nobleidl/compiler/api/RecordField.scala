@@ -9,3 +9,5 @@ final case class RecordField(
   @_root_.esexpr.optional
   esexprOptions: _root_.nobleidl.core.OptionalField[_root_.nobleidl.compiler.api.EsexprRecordFieldOptions],
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object RecordField {
+}

@@ -6,3 +6,5 @@ final case class NobleIdlJarOptions(
   @_root_.esexpr.keyword("backends")
   backends: _root_.nobleidl.compiler.format.BackendMapping,
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object NobleIdlJarOptions {
+}

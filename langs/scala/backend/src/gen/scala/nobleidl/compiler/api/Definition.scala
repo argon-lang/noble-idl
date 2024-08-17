@@ -21,3 +21,5 @@ enum Definition derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual {
     iface: _root_.nobleidl.compiler.api.InterfaceDefinition,
   )
 }
+object Definition {
+}

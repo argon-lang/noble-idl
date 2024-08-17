@@ -2,7 +2,7 @@ package nobleidl.compiler
 
 import nobleidl.compiler.format.{BackendMapping, BackendOptions, NobleIdlJarOptions, PackageMapping}
 import esexpr.{ESExprCodec, Dictionary, ESExprBinaryEncoder}
-import nobleidl.compiler.api.*
+import nobleidl.compiler.api.{java as _, *}
 import scopt.{OEffect, OParser}
 import zio.*
 import zio.stream.*
@@ -20,6 +20,8 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
   private case class Config(
     generateScala: Boolean = false,
     generateScalaJS: Boolean = false,
+
+    javaAdapters: Boolean = false,
 
     inputDirs: Seq[Path] = Seq(),
     outputDir: Option[String] = None,
@@ -53,6 +55,8 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .action((_, c) => c.copy(generateScala = true)),
           opt[Unit]("scalajs")
             .action((_, c) => c.copy(generateScalaJS = true)),
+          opt[Unit]("java-adapters")
+            .action((_, c) => c.copy(javaAdapters = true)),
           opt[Seq[Path]]('i', "input")
             .minOccurs(1)
             .unbounded()
@@ -236,11 +240,18 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
     private[ScalaNobleIDLCompiler] override def languageOptions(config: Config, libRes: LibraryAnalyzer.LibraryResults): ScalaLanguageOptions =
       ScalaLanguageOptions(
         outputDir = config.outputDir.get,
-        packageMapping = PackageMapping(
-          mapping = Dictionary(
-            (libRes.scalaPackageMapping ++ config.packageMapping)
-          ),
-        ),
+        packageMapping = PackageMapping(Dictionary(
+            libRes.scalaPackageMapping ++ config.packageMapping
+        )),
+        javaAdapters =
+          if config.javaAdapters then
+            Some(ScalaLanguageOptions.JavaAdapters(
+              packageMapping = PackageMapping(Dictionary(
+                libRes.javaPackageMapping ++ config.javaPackageMapping
+              ))
+            ))
+          else
+            None
       )
 
     private[ScalaNobleIDLCompiler] override def jarBackendOptions(config: Config): BackendOptions =

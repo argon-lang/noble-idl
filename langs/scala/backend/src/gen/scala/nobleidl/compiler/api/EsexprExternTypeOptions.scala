@@ -15,3 +15,5 @@ final case class EsexprExternTypeOptions(
   @_root_.esexpr.keyword("literals")
   literals: _root_.nobleidl.compiler.api.EsexprExternTypeLiterals,
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object EsexprExternTypeOptions {
+}

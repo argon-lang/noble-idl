@@ -10,3 +10,5 @@ enum NobleIdlCompileModelResult derives _root_.esexpr.ESExprCodec, _root_.scala.
     errors: _root_.nobleidl.core.List[_root_.nobleidl.core.String],
   )
 }
+object NobleIdlCompileModelResult {
+}

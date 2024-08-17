@@ -1,7 +1,7 @@
 package nobleidl.compiler
 
 import nobleidl.compiler.CodeWriter.Operations.*
-import nobleidl.compiler.api.*
+import nobleidl.compiler.api.{java as _, *}
 import nobleidl.compiler.format.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
@@ -55,21 +55,20 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
       _ <- writeln(" {")
       _ <- indent()
 
+      dfnType = definitionAsType(dfn)
+
       _ <- ZIO.foreachDiscard(e.cases) { c =>
         for
           _ <- write("trait ")
           _ <- write(convertIdPascal(c.name))
           _ <- writeTypeParameters(dfn.typeParameters)
-          _ <- write(" extends _root_.")
-          _ <- getScalaPackage(dfn.name.`package`).flatMap(write)
-          _ <- write(".")
-          _ <- write(convertIdPascal(dfn.name.name))
-          _ <- writeTypeParametersAsArguments(dfn.typeParameters)
+          _ <- write(" extends ")
+          _ <- writeTypeExpr(dfnType)
           _ <- writeln(" {")
           _ <- indent()
           _ <- write("val $type: \"")
           _ <- write(StringEscapeUtils.escapeEcmaScript(c.name).nn)
-          _ <- write("\"")
+          _ <- writeln("\"")
           _ <- writeFields(c.fields)
           _ <- dedent()
           _ <- writeln("}")

@@ -8,6 +8,7 @@ repositories {
 }
 
 dependencies {
+    implementation(libs.jetbrains.annotations)
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

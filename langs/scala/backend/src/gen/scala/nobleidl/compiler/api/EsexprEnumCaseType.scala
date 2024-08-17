@@ -8,3 +8,5 @@ enum EsexprEnumCaseType derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
   case InlineValue(
   )
 }
+object EsexprEnumCaseType {
+}

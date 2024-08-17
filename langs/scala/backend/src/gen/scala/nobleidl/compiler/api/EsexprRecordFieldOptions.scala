@@ -3,3 +3,5 @@ package nobleidl.compiler.api
 final case class EsexprRecordFieldOptions(
   kind: _root_.nobleidl.compiler.api.EsexprRecordFieldKind,
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
+object EsexprRecordFieldOptions {
+}

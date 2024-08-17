@@ -8,3 +8,5 @@ enum EsexprRecordPositionalMode derives _root_.esexpr.ESExprCodec, _root_.scala.
     elementType: _root_.nobleidl.compiler.api.TypeExpr,
   )
 }
+object EsexprRecordPositionalMode {
+}

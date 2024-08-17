@@ -13,3 +13,5 @@ enum TypeExpr derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual {
     owner: _root_.nobleidl.compiler.api.TypeParameterOwner,
   )
 }
+object TypeExpr {
+}

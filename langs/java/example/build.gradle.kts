@@ -12,6 +12,7 @@ repositories {
 dependencies {
     api(project(":runtime"))
     api(libs.esexpr.runtime)
+    implementation(libs.jetbrains.annotations)
     annotationProcessor(libs.esexpr.generator)
 }
 

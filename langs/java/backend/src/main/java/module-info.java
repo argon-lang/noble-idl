@@ -1,4 +1,5 @@
 module dev.argon.nobleidl.compiler {
+	requires static org.jetbrains.annotations;
 	requires dev.argon.esexpr;
 	requires dev.argon.nobleidl.runtime;
 	requires dev.argon.jawawasm.engine;

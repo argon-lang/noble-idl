@@ -17,6 +17,7 @@ object RegenerateApi extends ZIOAppDefault {
       coreLib <- ZIO.readFile(Path.of("../noble-idl/runtime/nobleidl-core.nidl").nn)
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
       jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
+      javaAnns <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api-java-annotations.nidl").nn)
 
       _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
         languageOptions = ScalaLanguageOptions(
@@ -24,10 +25,12 @@ object RegenerateApi extends ZIOAppDefault {
           packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.core",
             "nobleidl.compiler.api" -> "nobleidl.compiler.api",
+            "nobleidl.compiler.api.java" -> "nobleidl.compiler.api.java",
             "nobleidl.compiler.jar-metadata" -> "nobleidl.compiler.format",
           ))),
+          javaAdapters = None,
         ),
-        inputFileData = Seq(compilerApi, jarMetadata),
+        inputFileData = Seq(compilerApi, jarMetadata, javaAnns),
         libraryFileData = Seq(coreLib),
       ))
     yield ()
