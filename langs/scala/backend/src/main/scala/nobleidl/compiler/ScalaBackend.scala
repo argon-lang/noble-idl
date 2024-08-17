@@ -472,10 +472,15 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
             yield ()
           }
 
-          _ <- write("): ")
+          _ <- write("): _root_.zio.")
+
+          _ <- m.throws match {
+            case Some(throwsClause) => write("IO[") *> writeTypeExpr(throwsClause) *> write(", ")
+            case _: None.type => write("UIO[")
+          }
 
           _ <- writeTypeExpr(m.returnType)
-          _ <- writeln()
+          _ <- writeln("]")
         yield ()
       }
 

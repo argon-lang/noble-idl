@@ -763,7 +763,9 @@ class ModEmitter {
 				undefined,
 				this.#emitTypeExpr(p.parameterType),
 			)),
-			this.#emitTypeExpr(method.returnType),
+			ts.factory.createTypeReferenceNode("Promise", [
+				this.#emitTypeExpr(method.returnType),
+			]),
 		);
 	}
 

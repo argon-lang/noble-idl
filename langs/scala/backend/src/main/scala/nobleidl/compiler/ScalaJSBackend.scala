@@ -133,9 +133,9 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
             yield ()
           }
 
-          _ <- write("): ")
+          _ <- write("): _root_.scala.scalajs.js.Promise[")
           _ <- writeTypeExpr(m.returnType)
-          _ <- writeln()
+          _ <- writeln("]")
         yield ()
       }
 
