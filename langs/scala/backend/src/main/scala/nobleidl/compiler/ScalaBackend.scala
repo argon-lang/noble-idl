@@ -1,6 +1,7 @@
 package nobleidl.compiler
 
 import esexpr.ESExprCodec
+import esexpr.unsigned.{UByte, UInt, ULong, UShort}
 import nobleidl.compiler
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.{java as _, *}
@@ -620,15 +621,233 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
   private def writeDecodedValue(value: EsexprDecodedValue): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     value match {
-      case EsexprDecodedValue.FromBool(t, b) =>
+      case EsexprDecodedValue.Record(t, fields) =>
         for
           _ <- writeTypeExpr(t)
-          _ <- write(".fromBool(")
+          _ <- write("(")
+          _ <- ZIO.foreachDiscard(fields.view.zipWithIndex) { (field, index) =>
+            write(", ").when(index > 0) *> writeDecodedValue(field.value)
+          }
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.Enum(t, caseName, fields) =>
+        for
+          t <- t match {
+            case t: TypeExpr.DefinedType => ZIO.succeed(t)
+            case _ => ZIO.fail(NobleIDLCompileErrorException("Expected a defined type for an enum"))
+          }
+
+          _ <- ScalaTypeExprWriter.writeDefinedTypeCase(t, caseName, TypePosition.Normal)
+          _ <- write("(")
+          _ <- ZIO.foreachDiscard(fields.view.zipWithIndex) { (field, index) =>
+            write(", ").when(index > 0) *> writeDecodedValue(field.value)
+          }
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.Optional(t, elementType, value) =>
+        for
+          _ <- writeStaticMethod(t, "fromOptional")
+          _ <- write("(")
+
+          _ <- value match {
+            case Some(value) =>
+              for
+                _ <- write("_root_.scala.Some[")
+                _ <- writeTypeExpr(elementType)
+                _ <- write("](")
+                _ <- writeDecodedValue(value)
+                _ <- write(")")
+              yield ()
+
+            case _: None.type =>
+              for
+                _ <- write("_root_.scala.Option.empty[")
+                _ <- writeTypeExpr(elementType)
+                _ <- write("]")
+              yield ()
+          }
+
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.Vararg(t, elementType, values) =>
+        for
+          _ <- writeStaticMethod(t, "fromSeq")
+          _ <- write("(_root_.scala.collection.immutable.Seq[")
+          _ <- writeTypeExpr(elementType)
+          _ <- write("](")
+
+          _ <- ZIO.foreachDiscard(values.view.zipWithIndex) { (value, index) =>
+            write(", ").when(index > 0) *> writeDecodedValue(value)
+          }
+
+          _ <- write("))")
+        yield ()
+
+      case EsexprDecodedValue.Dict(t, elementType, values) =>
+        for
+          _ <- writeStaticMethod(t, "fromMap")
+          _ <- write("(_root_.scala.collection.immutable.Map[_root_.java.lang.String, ")
+          _ <- writeTypeExpr(elementType)
+          _ <- write("](")
+
+          _ <- ZIO.foreachDiscard(values.dict.view.zipWithIndex) {
+            case ((key, value), index) =>
+              for
+                _ <- write(", ").whenDiscard(index > 0)
+                _ <- write("(\"")
+                _ <- write(StringEscapeUtils.escapeJava(key).nn)
+                _ <- write("\", ")
+                _ <- writeDecodedValue(value)
+                _ <- write(")")
+              yield ()
+          }
+
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.BuildFrom(t, _, fromValue) =>
+        for
+          _ <- writeStaticMethod(t, "buildFrom")
+          _ <- write("(")
+          _ <- writeDecodedValue(fromValue)
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.FromBool(t, b) =>
+        for
+          _ <- writeStaticMethod(t, "fromBoolean")
+          _ <- write("(")
           _ <- write(b.toString)
           _ <- write(")")
         yield ()
 
-      case _ => ???
+      case EsexprDecodedValue.FromInt(t, value, minValue, maxValue) =>
+        def writeSignedIntValue(typeName: String, value: String): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+          for
+            _ <- writeStaticMethod(t, "from" + typeName)
+            _ <- write("(")
+            _ <- write(value)
+            _ <- write(")")
+          yield ()
+
+        def writeUnsignedIntValue(typeName: String, value: String): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+          for
+            _ <- writeStaticMethod(t, "from" + typeName)
+            _ <- write("((")
+            _ <- write(value)
+            _ <- write(").to")
+            _ <- write(typeName)
+            _ <- write(")")
+          yield ()
+
+        (minValue, maxValue) match {
+          case (Some(minValue), Some(maxValue)) if minValue >= UByte.MinValue.toBigInt && maxValue <= UByte.MaxValue.toBigInt =>
+            writeUnsignedIntValue("UByte", value.byteValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= UShort.MinValue.toBigInt && maxValue <= UShort.MaxValue.toBigInt =>
+            writeUnsignedIntValue("UShort", value.shortValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= UInt.MinValue.toBigInt && maxValue <= UInt.MaxValue.toBigInt =>
+            writeUnsignedIntValue("UInt", value.intValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= ULong.MinValue.toBigInt && maxValue <= ULong.MaxValue.toBigInt =>
+            writeUnsignedIntValue("ULong", value.longValue.toString + "L")
+
+          case (Some(minValue), Some(maxValue)) if minValue >= Byte.MinValue && maxValue <= Byte.MaxValue =>
+            writeSignedIntValue("Byte", value.byteValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= Short.MinValue && maxValue <= Short.MaxValue =>
+            writeSignedIntValue("Short", value.shortValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= Int.MinValue && maxValue <= Int.MaxValue =>
+            writeSignedIntValue("Int", value.intValue.toString)
+
+          case (Some(minValue), Some(maxValue)) if minValue >= Long.MinValue && maxValue <= Long.MaxValue =>
+            writeSignedIntValue("Long", value.longValue.toString + "L")
+
+          case _ =>
+            for
+              _ <- writeStaticMethod(t, "fromBigInt")
+              _ <- write("(\"")
+              _ <- write(value.toString)
+              _ <- write("\")")
+            yield ()
+        }
+
+      case EsexprDecodedValue.FromStr(t, s) =>
+        for
+          _ <- writeStaticMethod(t, "fromString")
+          _ <- write("(\"")
+          _ <- write(StringEscapeUtils.escapeJava(s).nn)
+          _ <- write("\")")
+        yield ()
+
+      case EsexprDecodedValue.FromBinary(t, b) =>
+        for
+          _ <- writeStaticMethod(t, "fromBinary")
+          _ <- write("(_root_.scala.IArray[_root_.scala.Byte](")
+          _ <- ZIO.foreachDiscard(b.view.zipWithIndex) { (value, index) =>
+            write(", ").when(index > 0) *> write(value.toString)
+          }
+          _ <- write("))")
+        yield ()
+
+      case EsexprDecodedValue.FromFloat32(t, f) =>
+        for
+          _ <- writeStaticMethod(t, "fromFloat")
+          _ <- write("(")
+          _ <- write(
+            if f.isNaN then
+              "_root_.scala.Float.NaN"
+            else if f.isPosInfinity then
+              "_root_.scala.Float.PositiveInfinity"
+            else if f.isNegInfinity then
+              "_root_.scala.Float.NegativeInfinity"
+            else
+              java.lang.Float.toHexString(f).nn + "f"
+          )
+          _ <- write(")")
+        yield ()
+
+      case EsexprDecodedValue.FromFloat64(t, f) =>
+        for
+          _ <- writeStaticMethod(t, "fromDouble")
+          _ <- write("(")
+          _ <- write(
+            if f.isNaN then
+              "_root_.scala.Double.NaN"
+            else if f.isPosInfinity then
+              "_root_.scala.Double.PositiveInfinity"
+            else if f.isNegInfinity then
+              "_root_.scala.Double.NegativeInfinity"
+            else
+              java.lang.Double.toHexString(f).nn + "f"
+          )
+          _ <- write(")")
+        yield ()
+
+
+      case EsexprDecodedValue.FromNull(t) =>
+        for
+          _ <- writeStaticMethod(t, "fromNull")
+        yield ()
+    }
+
+  private def writeStaticMethod(t: TypeExpr, methodName: String): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    t match {
+      case TypeExpr.DefinedType(name, args) =>
+        for
+          _ <- ScalaTypeExprWriter.writeDefinedTypeName(name)
+          _ <- write(".")
+          _ <- write(methodName)
+          _ <- ScalaTypeExprWriter.writeTypeArguments(args)
+        yield ()
+
+      case TypeExpr.TypeParameter(_, _) =>
+        ZIO.fail(NobleIDLCompileErrorException("Cannot call static method of a type parameter"))
     }
 
   private def writeJavaAdapters(dfn: DefinitionInfo)(
@@ -861,7 +1080,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                       }
                       .map { mappedType =>
                         val argMapping = dfn.typeParameters
-                          .map { case TypeParameter.Type(name, _) => name }
+                          .map { case tp: TypeParameter.Type => tp.name }
                           .zip(definedType.args)
                           .toMap
 

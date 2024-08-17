@@ -515,6 +515,9 @@ pub struct InterfaceMethod {
     >,
     #[keyword = "return-type"]
     pub return_type: ::std::boxed::Box<crate::TypeExpr>,
+    #[keyword = "throws"]
+    #[optional]
+    pub throws: ::noble_idl_runtime::OptionalField<::std::boxed::Box<crate::TypeExpr>>,
     #[keyword = "annotations"]
     pub annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
 }
@@ -721,6 +724,11 @@ pub enum TypeParameter {
     #[constructor = "type"]
     Type {
         name: ::noble_idl_runtime::String,
+        #[keyword = "constraints"]
+        #[default_value = "< :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as :: std :: convert :: From < :: std :: boxed :: Box < :: noble_idl_runtime :: ListRepr < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > > :: from (:: std :: boxed :: Box :: new (:: noble_idl_runtime :: ListRepr :: < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > { values : < :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as std :: convert :: From < std :: vec :: Vec < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > :: from (:: std :: vec ! []) }))"]
+        constraints: ::noble_idl_runtime::List<
+            ::std::boxed::Box<crate::TypeParameterTypeConstraint>,
+        >,
         #[keyword = "annotations"]
         annotations: ::noble_idl_runtime::List<::std::boxed::Box<crate::Annotation>>,
     },
@@ -739,4 +747,15 @@ pub enum TypeParameterOwner {
     ByType,
     #[constructor = "by-method"]
     ByMethod,
+}
+#[allow(non_camel_case_types)]
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+pub enum TypeParameterTypeConstraint {
+    #[constructor = "exception"]
+    Exception,
 }

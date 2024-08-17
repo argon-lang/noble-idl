@@ -10,6 +10,9 @@ public record InterfaceMethod(
 	java.util.@org.jetbrains.annotations.NotNull List<dev.argon.nobleidl.compiler.api.InterfaceMethodParameter> parameters,
 	@dev.argon.esexpr.Keyword("return-type")
 	dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull TypeExpr returnType,
+	@dev.argon.esexpr.Keyword("throws")
+	@dev.argon.esexpr.OptionalValue
+	java.util.@org.jetbrains.annotations.NotNull Optional<dev.argon.nobleidl.compiler.api.TypeExpr> _throws,
 	@dev.argon.esexpr.Keyword("annotations")
 	java.util.@org.jetbrains.annotations.NotNull List<dev.argon.nobleidl.compiler.api.Annotation> annotations
 ) {

@@ -11,6 +11,35 @@ fn main() {
 
 	let options = NobleIDLOptions {
 		plugin_options: RustLanguageOptions {
+			crate_name: "noble-idl-runtime".to_owned(),
+			crates: Crates {
+				crate_options: HashMap::from([
+					("noble-idl-runtime".to_owned(), CrateOptions {
+						package_mapping: PackageMapping {
+							package_mapping: HashMap::from([
+								("nobleidl.core".to_owned(), "".to_owned())
+							]),
+						},
+					}),
+				]),
+			},
+
+			output_dir: dir.join("../../../runtime/src").into_os_string().into_string().unwrap(),
+		},
+
+		files: vec![
+			dir.join("../../../../noble-idl/runtime/nobleidl-core.nidl"),
+		],
+
+		library_files: vec![
+		],
+	};
+
+
+	compile(&RustPlugin, &options).unwrap();
+
+	let options = NobleIDLOptions {
+		plugin_options: RustLanguageOptions {
 			crate_name: "noble-idl-api".to_owned(),
 			crates: Crates {
 				crate_options: HashMap::from([

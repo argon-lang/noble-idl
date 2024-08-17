@@ -75,8 +75,8 @@ private[compiler] abstract class ScalaBackendBase {
     TypeExpr.DefinedType(
       dfn.name,
       dfn.typeParameters.map {
-        case TypeParameter.Type(name, _) =>
-          TypeExpr.TypeParameter(name, TypeParameterOwner.ByType)
+        case tp: TypeParameter.Type =>
+          TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByType)
       },
     )
 
@@ -123,6 +123,14 @@ private[compiler] abstract class ScalaBackendBase {
     def writeDefinedType(definedType: TypeExpr.DefinedType, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
       for
         _ <- writeDefinedTypeName(definedType.name)
+        _ <- writeTypeArguments(definedType.args)
+      yield ()
+
+    def writeDefinedTypeCase(definedType: TypeExpr.DefinedType, caseName: String, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      for
+        _ <- writeDefinedTypeName(definedType.name)
+        _ <- write(".")
+        _ <- write(convertIdPascal(caseName))
         _ <- writeTypeArguments(definedType.args)
       yield ()
 

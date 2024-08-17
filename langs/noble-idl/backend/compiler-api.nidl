@@ -227,6 +227,10 @@ record interface-method {
     return-type: type-expr;
 
     @esexpr: (keyword)
+    @esexpr: (optional)
+    throws: optional-field[type-expr];
+
+    @esexpr: (keyword)
     annotations: list[annotation];
 }
 
@@ -282,8 +286,18 @@ enum type-parameter {
         name: string;
 
         @esexpr: (keyword)
+        @esexpr: (default-value (list))
+        constraints: list[type-parameter-type-constraint];
+
+        @esexpr: (keyword)
         annotations: list[annotation];
     },
+}
+
+@esexpr: (derive-codec)
+enum type-parameter-type-constraint {
+    @rust: (unit)
+    exception,
 }
 
 

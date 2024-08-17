@@ -1,12 +1,33 @@
 #!/usr/bin/env node
 
-import { compile, type JavaScriptIDLCompilerOptions } from "./index.js";
+import { compile } from "./index.js";
 import * as path from "node:path";
 
 
 const dir = import.meta.dirname;
 
-const compilerOptions: JavaScriptIDLCompilerOptions = {
+await compile({
+	languageOptions: {
+		outputDir: path.join(dir, "../../runtime/src"),
+		packageName: "@argon-lang/noble-idl-core",
+		packageOptions: new Map([
+			[ "@argon-lang/noble-idl-core", {
+				packageMapping: new Map([
+					[ "nobleidl.core", "" ],
+				]),
+			} ],
+		]),
+	},
+
+	inputFiles: [
+		path.join(dir, "../../../noble-idl/runtime/nobleidl-core.nidl"),
+	],
+
+	libraryFiles: [
+	],
+});
+
+await compile({
 	languageOptions: {
 		outputDir: path.join(dir, "../src"),
 		packageName: "@argon-lang/noble-idl-compiler-js",
@@ -31,7 +52,7 @@ const compilerOptions: JavaScriptIDLCompilerOptions = {
 	libraryFiles: [
 		path.join(dir, "../../../noble-idl/runtime/nobleidl-core.nidl"),
 	],
-};
-await compile(compilerOptions);
+});
+
 
 

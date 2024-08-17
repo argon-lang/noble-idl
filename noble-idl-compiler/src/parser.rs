@@ -293,14 +293,19 @@ pub fn interface_method(input: &str) -> IResult<&str, ast::InterfaceMethod> {
         cut(sym(")")),
         cut(sym(":")),
         type_expr,
+		opt(preceded(
+			keyword("throws"),
+			cut(type_expr),
+		)),
         cut(sym(";")),
-    )), |(annotations, name, type_parameters, _, parameters, _, _, return_type, _)| {
+    )), |(annotations, name, type_parameters, _, parameters, _, _, return_type, throws, _)| {
         ast::InterfaceMethod {
             name: name.to_owned(),
             type_parameters,
             annotations,
             parameters,
             return_type,
+			throws,
         }
     })(input)
 }
@@ -367,14 +372,29 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
 
 fn type_parameter(input: &str) -> IResult<&str, ast::TypeParameter> {
 	map(
-		pair(
+		tuple((
 			annotations,
 			identifier,
-		),
-		|(annotations, name)| ast::TypeParameter::Type {
+			opt(preceded(
+				sym(":"),
+				separated_list1(
+					sym("+"),
+					cut(constraint)
+				)
+			))
+		)),
+		|(annotations, name, constraints)| ast::TypeParameter::Type {
 			name: name.to_owned(),
 			annotations: annotations.into_iter().map(Box::new).collect(),
+			constraints: constraints.unwrap_or_default().into_iter().map(Box::new).collect(),
 		}
+	)(input)
+}
+
+fn constraint(input: &str) -> IResult<&str, ast::TypeParameterTypeConstraint> {
+	map(
+		keyword("exception"),
+		|_| ast::TypeParameterTypeConstraint::Exception
 	)(input)
 }
 

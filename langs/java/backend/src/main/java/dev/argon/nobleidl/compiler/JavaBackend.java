@@ -250,7 +250,15 @@ class JavaBackend {
 					w.print(convertIdCamel(param.name()));
 				}
 
-				w.println(");");
+				w.print(")");
+
+				var throwsClause = m._throws().orElse(null);
+				if(throwsClause != null) {
+					w.print(" throws ");
+					writeTypeExpr(w, throwsClause);
+				}
+
+				w.println(";");
 			}
 
 			w.dedent();
@@ -335,8 +343,11 @@ class JavaBackend {
 				}
 
 				switch(typeParameters.get(i)) {
-					case TypeParameter.Type(var name, _) -> {
-						w.print(convertIdPascal(name));
+					case TypeParameter.Type tp -> {
+						w.print(convertIdPascal(tp.name()));
+						if(tp.constraints().stream().anyMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
+							w.print(" extends java.lang.Throwable");
+						}
 					}
 				}
 			}
@@ -345,7 +356,21 @@ class JavaBackend {
 	}
 
 	private void writeTypeParametersAsArguments(CodeWriter w, List<TypeParameter> typeParameters) throws IOException {
-		writeTypeParameters(w, typeParameters);
+		if(!typeParameters.isEmpty()) {
+			w.print("<");
+			for(int i = 0; i < typeParameters.size(); ++i) {
+				if(i > 0) {
+					w.print(", ");
+				}
+
+				switch(typeParameters.get(i)) {
+					case TypeParameter.Type tp -> {
+						w.print(convertIdPascal(tp.name()));
+					}
+				}
+			}
+			w.print(">");
+		}
 	}
 
 	private void writeRecordParameters(CodeWriter w, List<RecordField> fields) throws IOException, NobleIDLCompileErrorException {

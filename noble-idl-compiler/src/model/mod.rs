@@ -1,4 +1,4 @@
-use std::collections::{hash_map, HashMap};
+use std::collections::{hash_map, HashMap, HashSet};
 
 use esexpr::{DecodeError, ESExprTag};
 use itertools::Itertools;
@@ -7,12 +7,13 @@ use tag_scanner::TagScannerState;
 
 mod tag_scanner;
 
-mod phase1; // Phase 1 - Type checking and resolution
-mod phase2; // Phase 2 - Parse extern metdata, defer checking element types
-mod phase3; // Phase 3 - Parse ESExpr metadata, excluding default values
-mod phase4; // Phase 4 - Process default values
-mod phase5; // Phase 5 - Check type codecs
-mod phase6; // Phase 6 - Remove annotations
+mod phase1; // Phase 1 - Type resolution
+mod phase2; // Phase 2 - Type checking
+mod phase3; // Phase 3 - Parse extern metdata, defer checking element types
+mod phase4; // Phase 4 - Parse ESExpr metadata, excluding default values
+mod phase5; // Phase 5 - Process default values
+mod phase6; // Phase 6 - Check type codecs
+mod phase7; // Phase 7 - Remove annotations
 
 use crate::ast::*;
 
@@ -26,6 +27,8 @@ pub enum CheckError {
     DuplicateTypeParameter(QualifiedName, Option<String>, String),
     DuplicateDefinition(QualifiedName),
     TypeInMultiplePackages(String, Vec<PackageName>),
+
+	InvalidExceptionType(noble_idl_api::TypeExpr),
 
     TypeParameterMismatch { expected: usize, actual: usize, },
 
@@ -47,7 +50,7 @@ pub enum CheckError {
 	ESExprVarargAfterOptionalPositional(QualifiedName, Option<String>, String),
 	ESExprMultipleOptionalPositional(QualifiedName, Option<String>, String),
 	ESExprDuplicateKeyword(QualifiedName, Option<String>, String),
-	ESExprInvalidDefaultValue(QualifiedName, Option<String>, String),
+	ESExprInvalidDefaultValue(String, QualifiedName, Option<String>, String),
 	ESExprBuildLiteralFromCodecMissing(QualifiedName),
 	ESExprInvalidOptionalFieldType(QualifiedName, Option<String>, String),
 	ESExprInvalidDictFieldType(QualifiedName, Option<String>, String),
@@ -81,7 +84,7 @@ impl DefinitionInfo {
 }
 
 pub(crate) struct ModelBuilder {
-    definitions: HashMap<QualifiedName, DefinitionEntry>,
+    definitions: HashMap<QualifiedName, DefinitionInfo>,
 }
 
 impl ModelBuilder {
@@ -97,8 +100,7 @@ impl ModelBuilder {
         match self.definitions.entry(name) {
             hash_map::Entry::Occupied(_) => return Err(CheckError::DuplicateDefinition(def.qualified_name())),
             hash_map::Entry::Vacant(ve) => {
-                let metadata = get_type_metadata(&def.def);
-                ve.insert(DefinitionEntry { def, metadata })
+                ve.insert(def)
             },
         };
 
@@ -106,12 +108,12 @@ impl ModelBuilder {
     }
 
     pub(crate) fn check(self) -> Result<NobleIdlModel, CheckError> {
-        let mut types = HashMap::new();
+        let mut types = HashSet::new();
         let mut definitions = HashMap::new();
 
         for (qual_name, entry) in self.definitions {
-            types.insert(qual_name.clone(), entry.metadata);
-            definitions.insert(qual_name, entry.def);
+            types.insert(qual_name.clone());
+            definitions.insert(qual_name, entry);
         }
 
 
@@ -122,15 +124,17 @@ impl ModelBuilder {
 			.map(|(k, v)| (k, v.into_api()))
 			.collect();
 
-		let phase2_state = phase2::run(&mut definitions)?;
-		let phase3_state = phase3::run(&mut definitions, &phase2_state)?;
+		phase2::run(&definitions)?;
+
+		let phase3_state = phase3::run(&mut definitions)?;
+		let phase4_state = phase4::run(&mut definitions, &phase3_state)?;
 
 		let mut tag_scan_state = TagScannerState {
 			tags: HashMap::new(),
 		};
-		phase4::run(&mut definitions, &mut tag_scan_state)?;
-		phase5::run(&definitions, &phase3_state, &mut tag_scan_state)?;
-		phase6::run(&mut definitions);
+		phase5::run(&mut definitions, &mut tag_scan_state)?;
+		phase6::run(&definitions, &phase4_state, &mut tag_scan_state)?;
+		phase7::run(&mut definitions);
 
         let mut model_definitions = definitions.into_values().map(Box::new).collect_vec();
 		model_definitions.sort_by_key(|dfn| dfn.name.clone());
@@ -139,28 +143,6 @@ impl ModelBuilder {
             definitions: model_definitions,
         })
     }
-}
-
-fn get_type_metadata(def: &Definition) -> TypeMetadata {
-    match def {
-        Definition::Record(rec) => TypeMetadata { parameter_count: rec.type_parameters.len() },
-        Definition::Enum(e) => TypeMetadata { parameter_count: e.type_parameters.len() },
-        Definition::SimpleEnum(_) => TypeMetadata { parameter_count: 0 },
-        Definition::ExternType(et) => TypeMetadata { parameter_count: et.type_parameters.len() },
-        Definition::Interface(iface) => TypeMetadata { parameter_count: iface.type_parameters.len() },
-        Definition::ExceptionType(_) => TypeMetadata { parameter_count: 0 },
-    }
-}
-
-
-
-struct DefinitionEntry {
-    def: DefinitionInfo,
-    metadata: TypeMetadata,
-}
-
-struct TypeMetadata {
-	pub parameter_count: usize,
 }
 
 

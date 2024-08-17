@@ -1,56 +1,56 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
-use esexpr::{ESExpr, ESExprCodec, ESExprTag};
+use esexpr::ESExprCodec;
 use noble_idl_api::*;
-use noble_idl_runtime::Binary;
 
-use super::{tag_scanner::{TagScanner, TagScannerState}, CheckError};
+use super::CheckError;
+use super::phase3::{ContainerTypeMetadata, ESExprOptionParseExtern};
 
-
-pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, tag_scan_state: &mut TagScannerState) -> Result<(), CheckError> {
-	let mut parser = ESExprOptionDefaultValueParser {
-		definitions,
-		tag_scanner: TagScanner {
-			definitions,
-			state: tag_scan_state,
-		},
-		default_values: HashMap::new(),
+pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, phase2_state: &ESExprOptionParseExtern) -> Result<ESExprOptionParserState, CheckError> {
+	let mut parser = ESExprOptionParser {
+		optional_container_types: &phase2_state.optional_container_types,
+		vararg_container_types: &phase2_state.vararg_container_types,
+		dict_container_types: &phase2_state.dict_container_types,
+		esexpr_codecs: HashMap::new(),
 	};
 
-	parser.scan()?;
-
-	DefaultUpdater.update_all(definitions, parser.default_values);
-
-	Ok(())
-}
-
-
-struct ESExprOptionDefaultValueParser<'a> {
-	definitions: &'a HashMap<QualifiedName, DefinitionInfo>,
-	tag_scanner: TagScanner<'a>,
-	default_values: HashMap<FieldKey, Option<EsexprDecodedValue>>,
-}
-
-impl <'a> ESExprOptionDefaultValueParser<'a> {
-
-	fn scan(&mut self) -> Result<(), CheckError> {
-		for dfn in self.definitions.values() {
-			self.scan_definition(dfn)?
-		}
-
-		Ok(())
+	for dfn in definitions.values_mut() {
+		parser.scan_definition(dfn)?;
 	}
 
-	fn scan_definition(&mut self, dfn: &'a DefinitionInfo) -> Result<(), CheckError> {
-		match dfn.definition.as_ref() {
+	let state = ESExprOptionParserState {
+		esexpr_codecs: parser.esexpr_codecs,
+	};
+
+	Ok(state)
+}
+
+pub struct ESExprOptionParserState {
+	pub esexpr_codecs: HashMap<QualifiedName, bool>,
+}
+
+struct ESExprOptionParser<'a> {
+	optional_container_types: &'a HashMap<QualifiedName, ContainerTypeMetadata>,
+	vararg_container_types: &'a HashMap<QualifiedName, ContainerTypeMetadata>,
+	dict_container_types: &'a HashMap<QualifiedName, ContainerTypeMetadata>,
+	esexpr_codecs: HashMap<QualifiedName, bool>,
+}
+
+impl <'a> ESExprOptionParser<'a> {
+	fn scan_definition(&mut self, dfn: &mut DefinitionInfo) -> Result<(), CheckError> {
+		match dfn.definition.as_mut() {
 			Definition::Record(rec) =>
-				self.scan_record(dfn, rec)?,
+				self.scan_record(&dfn.name, &dfn.annotations, rec)?,
 
 			Definition::Enum(e) =>
-				self.scan_enum(dfn, e)?,
+				self.scan_enum(&dfn.name, &dfn.annotations, e)?,
 
-			Definition::SimpleEnum(_) => {},
-			Definition::ExternType(_) => {},
+			Definition::SimpleEnum(e) =>
+				self.scan_simple_enum(&dfn.name, &dfn.annotations, e)?,
+
+			Definition::ExternType(et) => {
+				self.esexpr_codecs.insert(dfn.name.as_ref().clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
+			},
 			Definition::Interface(_) => {},
 			Definition::ExceptionType(_) => {},
 		}
@@ -58,418 +58,399 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 		Ok(())
 	}
 
-	fn scan_record(&mut self, dfn: &'a DefinitionInfo, rec: &'a RecordDefinition) -> Result<(), CheckError> {
-		if rec.esexpr_options.is_some() {
-			self.scan_fields(&rec.fields, dfn, None)?;
-		}
+	fn scan_record(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], rec: &mut RecordDefinition) -> Result<(), CheckError> {
+		let mut has_derive_codec = false;
+		let mut constructor = None;
+		for ann in annotations {
+			if ann.scope != "esexpr" {
+				continue;
+			}
 
-		Ok(())
-	}
+			let esexpr_rec = EsexprAnnRecord::decode_esexpr(ann.value.clone())
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
 
-	fn scan_enum(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition) -> Result<(), CheckError> {
-		if e.esexpr_options.is_some() {
-			for c in &e.cases {
-				self.scan_fields(&c.fields, dfn, Some(&c.name))?;
+			match esexpr_rec {
+				EsexprAnnRecord::DeriveCodec => {
+					if has_derive_codec {
+						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
+					}
+
+					has_derive_codec = true;
+				},
+				EsexprAnnRecord::Constructor(constructor_name) => {
+					if constructor.is_some() {
+						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
+					}
+
+					constructor = Some(constructor_name);
+				},
 			}
 		}
 
-		Ok(())
-	}
-
-	fn scan_fields(&mut self, fields: &'a [Box<RecordField>], dfn: &'a DefinitionInfo, case_name: Option<&'a str>) -> Result<(), CheckError> {
-		for field in fields {
-			let Some(feo) = field.esexpr_options.as_ref() else { continue; };
-
-			match feo.kind.as_ref() {
-				EsexprRecordFieldKind::Positional(_) => {},
-				EsexprRecordFieldKind::Keyword(_, mode) => {
-					match mode.as_ref() {
-						EsexprRecordKeywordMode::Optional(_) => {},
-						_ => {
-							let mut value_parser = ValueParser {
-								outer_parser: self,
-								seen_fields: HashSet::new(),
-								seen_decode_types: HashSet::new(),
-
-								dfn,
-								case_name,
-								field,
-							};
-
-							let key = FieldKey {
-								definition_name: dfn.name.as_ref().clone(),
-								case_name: case_name.map(str::to_owned),
-								field_name: field.name.clone(),
-							};
-
-							value_parser.lookup_default_value(key, field)?;
-						},
-					}
-				},
-				EsexprRecordFieldKind::Dict(_) => {},
-				EsexprRecordFieldKind::Vararg(_) => {},
-			}
+		if !has_derive_codec && constructor.is_some() {
+			return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
 		}
 
-		Ok(())
-	}
-
-
-}
-
-struct ValueParser<'a, 'b> {
-	outer_parser: &'b mut ESExprOptionDefaultValueParser<'a>,
-	seen_fields: HashSet<FieldKey>,
-	seen_decode_types: HashSet<QualifiedName>,
-
-	dfn: &'a DefinitionInfo,
-	case_name: Option<&'a str>,
-	field: &'a RecordField,
-}
-
-impl <'a, 'b> ValueParser<'a, 'b> {
-	fn error(&self) -> CheckError {
-		CheckError::ESExprInvalidDefaultValue(self.dfn.name.as_ref().clone(), self.case_name.map(str::to_owned), self.field.name.clone())
-	}
-
-	fn fail<A>(&self) -> Result<A, CheckError> {
-		Err(self.error())
-	}
-
-	fn lookup_default_value<'c>(&'c mut self, field_key: FieldKey, field: &RecordField) -> Result<Option<&'c EsexprDecodedValue>, CheckError> where 'b : 'c {
-		if self.outer_parser.default_values.contains_key(&field_key) {
-			return Ok(self.outer_parser.default_values.get(&field_key).unwrap().as_ref())
-		}
-
-		if !self.seen_fields.insert(field_key.clone()) {
-			self.fail()?;
-		}
-
-		let parsed_value = field.annotations.iter()
-			.filter(|ann| ann.scope == "esexpr")
-			.filter_map(|ann| EsexprAnnRecordField::decode_esexpr(ann.value.clone()).ok())
-			.find_map(|ann| match ann {
-				EsexprAnnRecordField::DefaultValue(default_value) => Some(default_value),
-				_ => None,
-			})
-			.map(|expr| self.parse_value(&field.field_type, expr))
-			.transpose()?;
-
-		let res = self.outer_parser.default_values.entry(field_key).or_insert(parsed_value);
-
-		Ok(res.as_ref())
-	}
-
-
-	fn parse_value(&mut self, t: &TypeExpr, value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
-		match t {
-			TypeExpr::DefinedType(name, args) => {
-				let dfn = self.outer_parser.definitions.get(name).ok_or_else(|| self.error())?;
-
-				match dfn.definition.as_ref() {
-					Definition::Record(r) => self.parse_record_value(dfn, r, t, args, value),
-					Definition::Enum(e) => self.parse_enum_value(dfn, e, t, args, value),
-					Definition::SimpleEnum(_) => todo!(),
-					Definition::ExternType(et) => self.parse_extern_type_value(dfn, et, t, args, value),
-					Definition::Interface(_) => self.fail(),
-					Definition::ExceptionType(_) => self.fail(),
-				}
-			},
-			TypeExpr::TypeParameter { .. } => self.fail(),
-		}
-	}
-
-	fn parse_record_value(&mut self, dfn: &'a DefinitionInfo, r: &'a RecordDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
-		let ESExpr::Constructor { name, args, kwargs } = value else { self.fail()? };
-
-		if name != dfn.name.name() {
-			self.fail()?;
-		}
-
-		let fields = self.parse_field_values(dfn, None, type_args, &r.fields, args.into(), kwargs)?;
-
-		Ok(EsexprDecodedValue::Record {
-			t: Box::new(t.clone()),
-			fields,
-		})
-	}
-
-	fn parse_enum_value(&mut self, dfn: &'a DefinitionInfo, e: &'a EnumDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
-		let ESExpr::Constructor { name, args, kwargs } = value else { self.fail()? };
-
-		for c in &e.cases {
-			let case_options = c.esexpr_options.as_ref().ok_or_else(|| self.error())?;
-
-			match case_options.case_type.as_ref() {
-				EsexprEnumCaseType::InlineValue => {
-					let [field] = &c.fields[..] else { self.fail()? };
-
-					let tags = self.outer_parser.tag_scanner.scan_type_for(&field.field_type, &dfn.name);
-
-					if !tags.contains(&ESExprTag::Constructor(name.clone())) {
-						continue;
-					}
-				},
-				EsexprEnumCaseType::Constructor(case_ctor_name) => {
-					if name != *case_ctor_name {
-						continue;
-					}
-				}
-			}
-
-
-			let fields = self.parse_field_values(dfn, Some(c.name.as_ref()), type_args, &c.fields, args.into(), kwargs)?;
-
-			return Ok(EsexprDecodedValue::Enum {
-				t: Box::new(t.clone()),
-				case_name: c.name.clone(),
-				fields
-			});
-		}
-
-		self.fail()?
-	}
-
-	fn parse_extern_type_value(&mut self, dfn: &'a DefinitionInfo, et: &'a ExternTypeDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
-		let Some(esexpr_options) = et.esexpr_options.as_ref() else { self.fail()? };
-
-		let mapping = dfn.type_parameters
-			.iter()
-			.map(|tp| tp.name())
-			.zip(
-				type_args
-					.iter()
-					.map(Box::as_ref)
-			)
-			.collect::<HashMap<_, _>>();
-
-		Ok(match &value {
-			ESExpr::Constructor { .. } => {
-				let Some(mut build_from) = esexpr_options.literals.build_literal_from.clone() else { self.fail()? };
-				if !build_from.substitute(&mapping) {
-					self.fail()?
-				}
-
-				let build_from_type_name = match build_from.as_ref() {
-						TypeExpr::DefinedType(name, _) => name.as_ref(),
-						TypeExpr::TypeParameter { .. } => self.fail()?,
-					};
-
-				if !self.seen_decode_types.insert(build_from_type_name.clone()) {
-					self.fail()?
-				}
-
-				let dec_value = self.parse_value(&build_from, value)?;
-				self.seen_decode_types.remove(&build_from_type_name);
-
-				EsexprDecodedValue::BuildFrom {
-					t: Box::new(t.clone()),
-					from_type: build_from,
-
-					from_value: Box::new(dec_value),
-				}
-			},
-			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: Box::new(t.clone()), b: *b } } else { self.fail()? },
-			ESExpr::Int(i) => {
-				if esexpr_options.literals.allow_int {
-					EsexprDecodedValue::FromInt {
-						t: Box::new(t.clone()),
-						i: i.clone(),
-						min_int: esexpr_options.literals.min_int.clone(),
-						max_int: esexpr_options.literals.max_int.clone(),
-					}
-				}
-				else {
-					self.fail()?
-				}
-			},
-
-			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() } } else { self.fail()? },
-			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail()? },
-			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail()? },
-			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail()? },
-			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail()? },
-		})
-	}
-
-	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[Box<TypeExpr>], fields: &'a [Box<RecordField>], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<Vec<Box<EsexprDecodedFieldValue>>, CheckError> {
-		let mut parsed = Vec::new();
-
-		let mapping = dfn.type_parameters
-			.iter()
-			.map(|tp| tp.name())
-			.zip(
-				type_args
-					.iter()
-					.map(Box::as_ref)
-			)
-			.collect::<HashMap<_, _>>();
-
-		for field in fields {
-			let options = field.esexpr_options.as_ref().ok_or_else(|| self.error())?;
-
-			let mut field_type = field.field_type.clone();
-			if !field_type.substitute(&mapping) {
-				self.fail()?;
-			}
-
-			let value = match options.kind.as_ref() {
-				EsexprRecordFieldKind::Positional(mode) => {
-					match mode.as_ref() {
-						EsexprRecordPositionalMode::Required => {
-							let arg_value = args.pop_front().ok_or_else(|| self.error())?;
-							self.parse_value(&field_type, arg_value)?
-						},
-
-						EsexprRecordPositionalMode::Optional(element_type) => {
-							EsexprDecodedValue::Optional {
-								t: field_type,
-								element_type: element_type.clone(),
-
-								value:
-									args.pop_front()
-										.map(|value| self.parse_value(element_type.as_ref(), value))
-										.transpose()?
-										.map(Box::new),
-							}
-						},
-					}
-
-				},
-
-				EsexprRecordFieldKind::Keyword(_, mode) => {
-					match mode.as_ref() {
-						EsexprRecordKeywordMode::Optional(element_type) => {
-							EsexprDecodedValue::Optional {
-								t: field_type,
-								element_type: element_type.clone(),
-
-								value:
-									kwargs.remove(&field.name)
-										.map(|value| self.parse_value(element_type, value))
-										.transpose()?
-										.map(Box::new),
-							}
-						},
-
-						_ => {
-							if let Some(value) = kwargs.remove(&field.name) {
-								self.parse_value(&field_type, value)?
-							}
-							else {
-								let key = FieldKey {
-									definition_name: dfn.name.as_ref().clone(),
-									case_name: case_name.map(str::to_owned),
-									field_name: field.name.clone(),
-								};
-
-								match self.lookup_default_value(key, field)? {
-									Some(default_value) => default_value.clone(),
-									None => self.fail()?,
-								}
-							}
-						},
-					}
-				},
-
-				EsexprRecordFieldKind::Dict(element_type) => {
-					let mut dict = HashMap::new();
-					for (k, v) in kwargs.drain() {
-						let item_value = self.parse_value(element_type, v)?;
-						dict.insert(k, Box::new(item_value));
-					}
-
-					EsexprDecodedValue::Dict {
-						t: field_type,
-						element_type: element_type.clone(),
-						values: dict,
-					}
-				},
-
-				EsexprRecordFieldKind::Vararg(element_type) => {
-					let mut vararg = Vec::new();
-					for v in args.drain(..) {
-						let item_value = self.parse_value(element_type, v)?;
-						vararg.push(Box::new(item_value));
-					}
-
-					EsexprDecodedValue::Vararg {
-						t: field_type,
-						element_type: element_type.clone(),
-						values: vararg,
-					}
-				},
-			};
-
-			parsed.push(Box::new(EsexprDecodedFieldValue {
-				name: field.name.clone(),
-				value: Box::new(value),
+		if has_derive_codec {
+			rec.esexpr_options = Some(Box::new(EsexprRecordOptions {
+				constructor: constructor.unwrap_or_else(|| def_name.name().to_owned()),
 			}));
 		}
 
-		Ok(parsed)
+		self.scan_fields(&mut rec.fields, def_name, None, has_derive_codec)?;
+
+
+		self.esexpr_codecs.insert(def_name.clone(), has_derive_codec);
+
+		Ok(())
+	}
+
+	fn scan_enum(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], e: &mut EnumDefinition) -> Result<(), CheckError> {
+		let mut has_derive_codec = false;
+		for ann in annotations {
+			if ann.scope != "esexpr" {
+				continue;
+			}
+
+			let esexpr_rec = EsexprAnnEnum::decode_esexpr(ann.value.clone())
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+			match esexpr_rec {
+				EsexprAnnEnum::DeriveCodec => {
+					if has_derive_codec {
+						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
+					}
+
+					has_derive_codec = true;
+				},
+			}
+		}
+
+		if has_derive_codec {
+			e.esexpr_options = Some(Box::new(EsexprEnumOptions {}));
+		}
+
+		for c in &mut e.cases {
+			let mut constructor = None;
+			let mut has_inline_value = false;
+			for ann in &c.annotations {
+				if ann.scope != "esexpr" {
+					continue;
+				}
+
+				if !has_derive_codec {
+					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![ c.name.clone() ]));
+				}
+
+				let esexpr_rec = EsexprAnnEnumCase::decode_esexpr(ann.value.clone())
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+				match esexpr_rec {
+					EsexprAnnEnumCase::Constructor(constructor_name) => {
+						if constructor.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
+						}
+
+						if has_inline_value {
+							return Err(CheckError::ESExprEnumCaseIncompatibleOptions(def_name.clone(), c.name.clone()));
+						}
+
+						constructor = Some(constructor_name);
+					},
+					EsexprAnnEnumCase::InlineValue => {
+						if has_inline_value {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "inline-value".to_owned()));
+						}
+
+						if constructor.is_some() {
+							return Err(CheckError::ESExprEnumCaseIncompatibleOptions(def_name.clone(), c.name.clone()));
+						}
+
+						has_inline_value = true;
+
+						if c.fields.len() != 1 {
+							return Err(CheckError::ESExprInlineValueNotSingleField(def_name.clone(), c.name.clone()));
+						};
+					},
+				}
+			}
+
+			if !has_derive_codec && (constructor.is_some() || has_inline_value) {
+				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
+			}
+
+			if has_derive_codec {
+				c.esexpr_options = Some(Box::new(EsexprEnumCaseOptions {
+					case_type:
+						if has_inline_value { Box::new(EsexprEnumCaseType::InlineValue) }
+						else {
+							Box::new(EsexprEnumCaseType::Constructor(constructor.unwrap_or_else(|| c.name.clone())))
+						}
+				}))
+			}
+
+			self.scan_fields(&mut c.fields, def_name, Some(&c.name), has_derive_codec)?;
+		}
+
+		self.esexpr_codecs.insert(def_name.clone(), has_derive_codec);
+
+		Ok(())
+	}
+
+	fn scan_simple_enum(&mut self, def_name: &QualifiedName, annotations: &[Box<Annotation>], e: &mut SimpleEnumDefinition) -> Result<(), CheckError> {
+		let mut has_derive_codec = false;
+		for ann in annotations {
+			if ann.scope != "esexpr" {
+				continue;
+			}
+
+			let esexpr_rec = EsexprAnnSimpleEnum::decode_esexpr(ann.value.clone())
+				.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+			match esexpr_rec {
+				EsexprAnnSimpleEnum::DeriveCodec => {
+					if has_derive_codec {
+						return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "derive-codec".to_owned()));
+					}
+
+					has_derive_codec = true;
+				},
+			}
+		}
+
+		if has_derive_codec {
+			e.esexpr_options = Some(Box::new(EsexprSimpleEnumOptions {}));
+		}
+
+		for c in &mut e.cases {
+			let mut constructor = None;
+			for ann in &c.annotations {
+				if ann.scope != "esexpr" {
+					continue;
+				}
+
+				if !has_derive_codec {
+					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![ c.name.clone() ]));
+				}
+
+				let esexpr_rec = EsexprAnnSimpleEnumCase::decode_esexpr(ann.value.clone())
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+				match esexpr_rec {
+					EsexprAnnSimpleEnumCase::Constructor(constructor_name) => {
+						if constructor.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), vec![], "constructor".to_owned()));
+						}
+
+						constructor = Some(constructor_name);
+					},
+				}
+			}
+
+			if !has_derive_codec && constructor.is_some() {
+				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
+			}
+
+			if has_derive_codec {
+				c.esexpr_options = Some(Box::new(EsexprSimpleEnumCaseOptions {
+					name: constructor.unwrap_or_else(|| c.name.clone()),
+				}));
+			}
+		}
+
+		self.esexpr_codecs.insert(def_name.clone(), has_derive_codec);
+
+		Ok(())
+	}
+
+	fn scan_fields(&self, fields: &mut [Box<RecordField>], def_name: &QualifiedName, case_name: Option<&str>, is_esexpr_type: bool) -> Result<(), CheckError> {
+		let mut keywords = HashSet::new();
+
+		let mut has_dict = false;
+		let mut has_vararg = false;
+		let mut has_optional_positional = false;
+
+		for field in fields {
+			let mut is_keyword = None;
+			let mut is_dict = false;
+			let mut is_vararg = false;
+			let mut is_optional = false;
+			let mut is_default_value = None;
+
+			for ann in &field.annotations {
+				if ann.scope != "esexpr" {
+					continue;
+				}
+
+				let current_path = || {
+					let mut path = Vec::new();
+					path.extend(case_name.map(str::to_owned));
+					path.push(field.name.clone());
+					path
+				};
+
+				let esexpr_field = EsexprAnnRecordField::decode_esexpr(ann.value.clone())
+					.map_err(|e| CheckError::InvalidESExprAnnotation(def_name.clone(), e))?;
+
+				if !is_esexpr_type {
+					return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), current_path()))
+				}
+
+				match esexpr_field {
+					EsexprAnnRecordField::Keyword(name) => {
+						if is_keyword.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "keyword".to_owned()));
+						}
+
+						if has_dict {
+							return Err(CheckError::ESExprDictBeforeKeyword(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						}
+
+						let name = name.unwrap_or_else(|| field.name.clone());
+						if let Some(name) = keywords.replace(name.clone()) {
+							return Err(CheckError::ESExprDuplicateKeyword(def_name.clone(), case_name.map(str::to_owned), name));
+						}
+
+						is_keyword = Some(name);
+					},
+					EsexprAnnRecordField::Dict => {
+						if has_dict {
+							return Err(CheckError::ESExprMultipleDict(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						}
+
+						if is_dict {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "dict".to_owned()));
+						}
+
+						has_dict = true;
+						is_dict = true;
+					},
+					EsexprAnnRecordField::Vararg => {
+						if has_vararg {
+							return Err(CheckError::ESExprMultipleVararg(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						}
+
+						if has_optional_positional {
+							return Err(CheckError::ESExprVarargAfterOptionalPositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						}
+
+						if is_vararg {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "vararg".to_owned()));
+						}
+
+						has_vararg = true;
+						is_vararg = true;
+					},
+
+					EsexprAnnRecordField::Optional => {
+						if is_optional {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "optional".to_owned()));
+						}
+
+						is_optional = true;
+					},
+
+					EsexprAnnRecordField::DefaultValue(value) => {
+						if is_default_value.is_some() {
+							return Err(CheckError::DuplicateESExprAnnotation(def_name.clone(), current_path(), "default-value".to_owned()));
+						}
+
+						is_default_value = Some(value);
+					}
+				}
+			}
+
+			if has_vararg && !(is_keyword.is_some() || is_dict || is_vararg) {
+				return Err(CheckError::ESExprVarargBeforePositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if
+				(is_keyword.is_some() && (is_dict || is_vararg || (is_optional && is_default_value.is_some()))) ||
+				(is_dict && is_vararg) ||
+				((is_dict || is_vararg) && (is_optional || is_default_value.is_some())) ||
+				(is_keyword.is_none() && !is_dict && !is_vararg && is_default_value.is_some())
+			{
+				return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if is_dict && is_vararg {
+				return Err(CheckError::ESExprFieldIncompatibleOptions(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+			}
+
+			if !is_esexpr_type && (is_keyword.is_some() || is_dict || is_vararg || is_optional || is_default_value.is_some()) {
+				return Err(CheckError::ESExprAnnotationWithoutDerive(def_name.clone(), vec![]));
+			}
+
+			if is_esexpr_type {
+				let kind =
+					if is_vararg {
+						let Some(vararg_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.vararg_container_types.get(ftn)) else {
+							eprintln!("{:?}", def_name);
+							eprintln!("{:?}", self.vararg_container_types);
+							return Err(CheckError::ESExprInvalidVarargFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						};
+
+						EsexprRecordFieldKind::Vararg(Box::new(vararg_metadata.element_type.clone()))
+					}
+					else if is_dict {
+						let Some(dict_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.dict_container_types.get(ftn)) else {
+							return Err(CheckError::ESExprInvalidDictFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+						};
+
+						EsexprRecordFieldKind::Dict(Box::new(dict_metadata.element_type.clone()))
+					}
+					else if let Some(name) = is_keyword {
+						let mode =
+							// Ignore default_value for now.
+							// Default values will be added in a later pass.
+							if is_optional {
+								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
+									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								};
+
+								EsexprRecordKeywordMode::Optional(Box::new(opt_metadata.element_type.clone()))
+							}
+							else {
+								EsexprRecordKeywordMode::Required
+							};
+
+						EsexprRecordFieldKind::Keyword(name, Box::new(mode))
+					}
+					else {
+						let mode =
+							if is_optional {
+								if has_optional_positional {
+									return Err(CheckError::ESExprMultipleOptionalPositional(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								}
+
+								has_optional_positional = true;
+
+								let Some(opt_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.optional_container_types.get(ftn)) else {
+									return Err(CheckError::ESExprInvalidOptionalFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
+								};
+
+								EsexprRecordPositionalMode::Optional(Box::new(opt_metadata.element_type.clone()))
+							}
+							else {
+								EsexprRecordPositionalMode::Required
+							};
+
+						EsexprRecordFieldKind::Positional(Box::new(mode))
+					};
+
+				field.esexpr_options = Some(Box::new(EsexprRecordFieldOptions { kind: Box::new(kind) }));
+			}
+		}
+
+		Ok(())
 	}
 }
 
-
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct FieldKey {
-	definition_name: QualifiedName,
-	case_name: Option<String>,
-	field_name: String,
-}
-
-
-
-struct DefaultUpdater;
-
-impl DefaultUpdater {
-	fn update_all(&self, definitions: &mut HashMap<QualifiedName, DefinitionInfo>, default_values: HashMap<FieldKey, Option<EsexprDecodedValue>>) {
-		for (k, v) in default_values {
-			let Some(v) = v else { continue; };
-			self.update(definitions, k, v);
-		}
-	}
-
-	fn update(&self, definitions: &mut HashMap<QualifiedName, DefinitionInfo>, key: FieldKey, value: EsexprDecodedValue) {
-		let dfn = definitions.get_mut(&key.definition_name).expect("Could not find definition");
-
-		match dfn.definition.as_mut() {
-			Definition::Record(r) =>
-				self.update_record(r, &key.field_name, value),
-			Definition::Enum(e) => {
-				let Some(case_name) = key.case_name.as_ref() else { return; };
-				self.update_enum(e, case_name, &key.field_name, value);
-			},
-			Definition::SimpleEnum(_) => {},
-			Definition::ExternType(_) => {},
-			Definition::Interface(_) => {},
-			Definition::ExceptionType(_) => {},
-		}
-	}
-
-	fn update_record(&self, r: &mut RecordDefinition, field_name: &str, value: EsexprDecodedValue) {
-		self.update_fields(&mut r.fields, field_name, value)
-	}
-
-	fn update_enum(&self, e: &mut EnumDefinition, case_name: &str, field_name: &str, value: EsexprDecodedValue) {
-		let c = e.cases.iter_mut().find(|c| c.name == case_name).expect("Could not find case");
-		self.update_fields(&mut c.fields, field_name, value)
-	}
-
-	fn update_fields(&self, fields: &mut [Box<RecordField>], field_name: &str, value: EsexprDecodedValue) {
-		let field = fields.iter_mut().find(|f| f.name == field_name).expect("Could not find field");
-		let esexpr_options = field.esexpr_options.as_mut().expect("esexpr_options are missing");
-
-		match esexpr_options.kind.as_mut() {
-			EsexprRecordFieldKind::Keyword(_, mode) =>
-				**mode = EsexprRecordKeywordMode::DefaultValue(Box::new(value)),
-
-			_ => {},
-		}
+fn get_type_name(t: &TypeExpr) -> Option<&QualifiedName> {
+	match t {
+		TypeExpr::DefinedType(name, _) => Some(name),
+		TypeExpr::TypeParameter { .. } => None,
 	}
 }
-
 
 

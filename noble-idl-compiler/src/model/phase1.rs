@@ -6,10 +6,10 @@ use super::*;
 
 
 
-pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, types: &HashMap<QualifiedName, TypeMetadata>) -> Result<(), CheckError> {
+pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, type_names: &HashSet<QualifiedName>) -> Result<(), CheckError> {
 
 	let model_types = ModelTypes {
-		definitions: types,
+		type_names,
 	};
 
 	for (definition_name, def) in definitions {
@@ -28,7 +28,7 @@ pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, types: &Has
 			Definition::SimpleEnum(e) => checker.check_simple_enum(e)?,
 			Definition::ExternType(et) => checker.check_extern_type(et)?,
 			Definition::Interface(iface) => checker.check_interface(iface)?,
-			Definition::ExceptionType(ex) => checker.check_exception_type(ex)?,
+			Definition::ExceptionType(ex) => checker.check_exception_type_def(ex)?,
 		}
 	}
 
@@ -42,7 +42,7 @@ pub trait TypeScope {
 }
 
 pub struct ModelTypes<'a> {
-    pub definitions: &'a HashMap<QualifiedName, TypeMetadata>,
+    pub type_names: &'a HashSet<QualifiedName>,
 }
 
 
@@ -58,36 +58,23 @@ impl <'a> TypeScope for GlobalScope<'a> {
         if full_name.0.0.is_empty() {
             *full_name.0 = self.package.clone();
 
-            if let Some(metadata) = self.types.definitions.get(&full_name) {
-				let expected = metadata.parameter_count;
-				let actual = args.len();
-				if expected != actual {
-					return Err(CheckError::TypeParameterMismatch { expected, actual });
-				}
-
+            if self.types.type_names.contains(&full_name) {
                 return Ok(TypeExpr::DefinedType(full_name, args));
             }
 
             let mut check_import_package = |mut package| {
                 std::mem::swap(&mut package, full_name.0.as_mut());
 
-				let res = self.types.definitions.get(&full_name).map(|metadata| {
-					let expected = metadata.parameter_count;
-					let actual = args.len();
-					if expected != actual {
-						return Err(CheckError::TypeParameterMismatch { expected, actual });
-					}
+				let res = self.types.type_names.contains(&full_name);
 
-					return Ok(());
-				});
+				std::mem::swap(&mut package, full_name.0.as_mut());
 
-                std::mem::swap(&mut package, full_name.0.as_mut());
-
-                res.map(|res| res.map(|_| package))
+				if res { Some(package) }
+				else { None }
             };
 
             if let Some(package) = check_import_package(PackageName(vec!())) {
-                *full_name.0 = package?;
+                *full_name.0 = package;
                 return Ok(TypeExpr::DefinedType(full_name, args));
             }
 
@@ -99,7 +86,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
             if matching_defs.len() > 0 {
                 if matching_defs.len() == 1 {
                     let package = matching_defs.swap_remove(0);
-                    *full_name.0 = package?;
+                    *full_name.0 = package;
                     Ok(TypeExpr::DefinedType(full_name, args))
                 }
                 else {
@@ -107,7 +94,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
                         full_name.1.clone(),
                         matching_defs.into_iter()
                             .map(|package| package)
-                            .collect::<Result<Vec<_>, _>>()?,
+                            .collect::<Vec<_>>(),
                     ))
                 }
             }
@@ -117,13 +104,7 @@ impl <'a> TypeScope for GlobalScope<'a> {
             }
         }
         else {
-			if let Some(metadata) = self.types.definitions.get(&full_name) {
-				let expected = metadata.parameter_count;
-				let actual = args.len();
-				if expected != actual {
-					return Err(CheckError::TypeParameterMismatch { expected, actual });
-				}
-
+			if self.types.type_names.contains(&full_name) {
                 return Ok(TypeExpr::DefinedType(full_name, args));
             }
             else {
@@ -272,12 +253,17 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 			}
 
 			inner.check_type(&mut method.return_type)?;
+
+			if let Some(throws_type) = &mut method.throws {
+				inner.check_type(throws_type)?;
+			}
+
 		}
 
 		Ok(())
 	}
 
-	fn check_exception_type(&self, ex: &mut ExceptionTypeDefinition) -> Result<(), CheckError> {
+	fn check_exception_type_def(&self, ex: &mut ExceptionTypeDefinition) -> Result<(), CheckError> {
 		self.check_type(&mut ex.information)?;
 
 		Ok(())

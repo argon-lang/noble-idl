@@ -615,7 +615,7 @@ impl <'a> ModEmitter<'a> {
 
 
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
-		let path = self.get_type_path(t)?;
+		let path = self.get_type_path(t, false)?;
 
 		let boxing = match t {
 			TypeExpr::DefinedType(name, _) => {
@@ -651,7 +651,7 @@ impl <'a> ModEmitter<'a> {
 		)
     }
 
-	fn get_type_path(&self, t: &TypeExpr) -> Result<syn::Path, EmitError> {
+	fn get_type_path(&self, t: &TypeExpr, separate_type_args: bool) -> Result<syn::Path, EmitError> {
         Ok(match t {
             TypeExpr::DefinedType(name, args) => {
 
@@ -682,7 +682,7 @@ impl <'a> ModEmitter<'a> {
 							.collect::<Result<Punctuated<_, _>, EmitError>>()?;
 
 						syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-							colon2_token: None,
+							colon2_token: if separate_type_args { Some(Default::default()) } else { None },
 							lt_token: Default::default(),
 							args,
 							gt_token: Default::default(),
@@ -730,25 +730,29 @@ impl <'a> ModEmitter<'a> {
 	}
 
 	fn emit_record_value(&self, t: &TypeExpr, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<syn::Expr, EmitError> {
-		Ok(syn::Expr::Struct(syn::ExprStruct {
+		let value = syn::Expr::Struct(syn::ExprStruct {
 			attrs: vec![],
 			qself: None,
-			path: self.get_type_path(t)?,
+			path: self.get_type_path(t, true)?,
 			brace_token: syn::token::Brace::default(),
 			fields: self.emit_field_values(field_values)?.into_iter().collect(),
 			dot2_token: None,
 			rest: None,
-		}))
+		});
+
+		Ok(parse_quote! {
+			::std::boxed::Box::new(#value)
+		})
 	}
 
 	fn emit_enum_value(&self, t: &TypeExpr, case_name: &str, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<syn::Expr, EmitError> {
-		let mut path = self.get_type_path(t)?;
+		let mut path = self.get_type_path(t, true)?;
 		path.segments.push(syn::PathSegment {
 			ident: convert_id_pascal(case_name),
 			arguments: syn::PathArguments::None,
 		});
 
-		Ok(syn::Expr::Struct(syn::ExprStruct {
+		let value = syn::Expr::Struct(syn::ExprStruct {
 			attrs: vec![],
 			qself: None,
 			path,
@@ -756,7 +760,11 @@ impl <'a> ModEmitter<'a> {
 			fields: self.emit_field_values(field_values)?.into_iter().collect(),
 			dot2_token: None,
 			rest: None,
-		}))
+		});
+
+		Ok(parse_quote! {
+			::std::boxed::Box::new(#value)
+		})
 	}
 
 	fn emit_field_values(&self, field_values: &[Box<EsexprDecodedFieldValue>]) -> Result<Vec<syn::FieldValue>, EmitError> {

@@ -39,6 +39,8 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
     libraryDependencies  ++= Seq(
       "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.0-SNAPSHOT",
     ),
+    
+    Compile / unmanagedSourceDirectories += baseDirectory.value / "src/gen/scala",
 
     name := "nobleidl-scala-runtime",
   )

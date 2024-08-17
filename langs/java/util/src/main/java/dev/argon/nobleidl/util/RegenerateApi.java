@@ -21,6 +21,20 @@ public class RegenerateApi {
 
 		JavaNobleIDLCompiler.compile(new JavaIDLCompilerOptions(
 			new JavaLanguageOptions(
+				"../runtime/src/gen/java",
+
+				new PackageMapping(
+					new KeywordMapping<>(Map.of(
+						"nobleidl.core", "dev.argon.nobleidl.runtime"
+					))
+				)
+			),
+			List.of(coreLib),
+			List.of()
+		));
+
+		JavaNobleIDLCompiler.compile(new JavaIDLCompilerOptions(
+			new JavaLanguageOptions(
 				"../backend/src/gen/java",
 
 				new PackageMapping(

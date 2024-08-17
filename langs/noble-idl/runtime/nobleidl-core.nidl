@@ -89,11 +89,19 @@ extern type unit;
 
 @esexpr:(derive-codec)
 @esexpr:(allow-vararg (type-parameter "a" owner: "by-type"))
+@esexpr:(literals
+    build-literal-from: (defined-type (qualified-name (package-name "nobleidl" "core") "list-repr") (type-parameter "a" owner: "by-type"))
+)
 @java:(mapped-to (apply "java.util.List" (type-parameter "a")))
-extern type list[
-    @rust:(boxed-usage)
-    a,
-];
+extern type list[a];
+
+@esexpr:(derive-codec)
+@esexpr:(constructor "list")
+record list-repr[a] {
+    @esexpr:(vararg)
+    values: list[a];
+}
+
 
 @esexpr:(derive-codec)
 @java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))

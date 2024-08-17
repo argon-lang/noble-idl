@@ -1,5 +1,5 @@
 use noble_idl_api::TypeParameterOwner;
-pub use noble_idl_api::{PackageName, QualifiedName, TypeParameter, Annotation};
+pub use noble_idl_api::{PackageName, QualifiedName, TypeParameter, Annotation, TypeParameterTypeConstraint};
 
 #[derive(Debug, PartialEq)]
 pub struct DefinitionFile {
@@ -203,6 +203,7 @@ pub struct InterfaceMethod {
     pub type_parameters: Vec<TypeParameter>,
     pub parameters: Vec<InterfaceMethodParameter>,
     pub return_type: TypeExpr,
+	pub throws: Option<TypeExpr>,
     pub annotations: Vec<Annotation>,
 }
 
@@ -213,6 +214,7 @@ impl InterfaceMethod {
             type_parameters: self.type_parameters.into_iter().map(Box::new).collect(),
             parameters: self.parameters.into_iter().map(InterfaceMethodParameter::into_api).map(Box::new).collect(),
             return_type: Box::new(self.return_type.into_api()),
+			throws: self.throws.map(TypeExpr::into_api).map(Box::new),
             annotations: self.annotations.into_iter().map(Box::new).collect(),
         }
     }

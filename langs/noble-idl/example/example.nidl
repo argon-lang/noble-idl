@@ -125,7 +125,7 @@ interface function[a, b] {
 exception operation-failure of i32;
 
 interface operation[a] {
-    run[b](s: list[a], f: function[a, b]): list[b];
+    run[b](s: list[a], f: function[a, b]): list[b] throws operation-failure;
 }
 
 

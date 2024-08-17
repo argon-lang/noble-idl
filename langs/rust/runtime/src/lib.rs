@@ -3,6 +3,9 @@ use std::{any::Any, collections::{HashMap, HashSet}, marker::PhantomData};
 use esexpr::{ESExpr, ESExprCodec, ESExprTag};
 
 
+include!("noble_idl_runtime.rs");
+
+
 pub struct Erased<'a>(Box<dyn Any + 'static>, PhantomData<&'a ()>);
 
 pub trait Erasure where Self: Sized {
@@ -102,6 +105,12 @@ pub type F64 = f64;
 pub type Unit = ();
 
 pub type List<A> = Vec<A>;
+
+impl <A> From<Box<ListRepr<Box<A>>>> for List<Box<A>> {
+	fn from(value: Box<ListRepr<Box<A>>>) -> Self {
+		value.values
+	}
+}
 
 #[allow(non_camel_case_types)]
 pub struct List_Erasure<ElemErasure>(ElemErasure);

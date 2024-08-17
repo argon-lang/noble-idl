@@ -17,7 +17,7 @@ object Nat extends NatObjectPlatformSpecific
 
 type Bool = scala.Boolean
 object Bool extends BoolObjectPlatformSpecific {
-  def fromBool(b: scala.Boolean): Bool = b
+  def fromBoolean(b: scala.Boolean): Bool = b
 }
 
 type I8 = scala.Byte
@@ -47,7 +47,12 @@ type Unit = scala.Unit
 object Unit extends UnitObjectPlatformSpecific
 
 type List[+A] = scala.Seq[A]
-object List extends ListObjectPlatformSpecific
+object List extends ListObjectPlatformSpecific {
+  def fromSeq[A](values: Seq[A]): List[A] = values
+  
+  def buildFrom[A](repr: ListRepr[A]): List[A] =
+    repr.values
+}
 
 type Option[+A] = scala.Option[A]
 object Option extends OptionObjectPlatformSpecific

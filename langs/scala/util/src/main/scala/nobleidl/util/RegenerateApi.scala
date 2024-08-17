@@ -2,9 +2,8 @@ package nobleidl.util
 
 import dev.argon.esexpr.KeywordMapping
 import esexpr.Dictionary
-import nobleidl.compiler.{ScalaIDLCompilerOptions, ScalaLanguageOptions}
+import nobleidl.compiler.{PackageImportMapping, ScalaIDLCompilerOptions, ScalaJSLanguageOptions, ScalaLanguageOptions, ScalaNobleIDLCompiler}
 import nobleidl.compiler.format.PackageMapping
-import nobleidl.compiler.ScalaNobleIDLCompiler
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import scala.jdk.CollectionConverters.*
@@ -18,6 +17,52 @@ object RegenerateApi extends ZIOAppDefault {
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
       jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
       javaAnns <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api-java-annotations.nidl").nn)
+
+      _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
+        languageOptions = ScalaLanguageOptions(
+          outputDir = "runtime/jvm/src/gen/scala",
+          packageMapping = PackageMapping(Dictionary(Map(
+            "nobleidl.core" -> "nobleidl.core",
+          ))),
+          javaAdapters = Some(ScalaLanguageOptions.JavaAdapters(
+            packageMapping = PackageMapping(Dictionary(Map(
+              "nobleidl.core" -> "dev.argon.nobleidl.runtime",
+            ))),
+          )),
+          jsAdapters = None,
+        ),
+        inputFileData = Seq(coreLib),
+        libraryFileData = Seq(),
+      ))
+
+      _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
+        languageOptions = ScalaLanguageOptions(
+          outputDir = "runtime/js/src/gen/scala",
+          packageMapping = PackageMapping(Dictionary(Map(
+            "nobleidl.core" -> "nobleidl.core",
+          ))),
+          javaAdapters = None,
+          jsAdapters = Some(ScalaLanguageOptions.JSAdapters(
+            packageMapping = PackageMapping(Dictionary(Map(
+              "nobleidl.core" -> "nobleidl.sjs.core",
+            ))),
+          )),
+        ),
+        inputFileData = Seq(coreLib),
+        libraryFileData = Seq(),
+      ))
+
+      _ <- ScalaNobleIDLCompiler.ScalaJSPlatformRunner.compile(ScalaIDLCompilerOptions(
+        languageOptions = ScalaJSLanguageOptions(
+          outputDir = "runtime/js/src/gen/scala",
+          packageMapping = PackageMapping(Dictionary(Map(
+            "nobleidl.core" -> "nobleidl.sjs.core",
+          ))),
+          packageImportMapping = PackageImportMapping(Map())
+        ),
+        inputFileData = Seq(coreLib),
+        libraryFileData = Seq(),
+      ))
 
       _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
         languageOptions = ScalaLanguageOptions(

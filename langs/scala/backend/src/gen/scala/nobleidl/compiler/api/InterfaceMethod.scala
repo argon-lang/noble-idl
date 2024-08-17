@@ -9,6 +9,9 @@ final case class InterfaceMethod(
   parameters: _root_.nobleidl.core.List[_root_.nobleidl.compiler.api.InterfaceMethodParameter],
   @_root_.esexpr.keyword("return-type")
   returnType: _root_.nobleidl.compiler.api.TypeExpr,
+  @_root_.esexpr.keyword("throws")
+  @_root_.esexpr.optional
+  throws: _root_.nobleidl.core.OptionalField[_root_.nobleidl.compiler.api.TypeExpr],
   @_root_.esexpr.keyword("annotations")
   annotations: _root_.nobleidl.core.List[_root_.nobleidl.compiler.api.Annotation],
 ) derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual

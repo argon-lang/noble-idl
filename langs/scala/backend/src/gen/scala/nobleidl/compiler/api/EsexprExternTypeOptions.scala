@@ -2,7 +2,7 @@ package nobleidl.compiler.api
 @_root_.esexpr.constructor("extern-type-options")
 final case class EsexprExternTypeOptions(
   @_root_.esexpr.keyword("allow-value")
-  allowValue: _root_.nobleidl.core.Bool = _root_.nobleidl.core.Bool.fromBool(false),
+  allowValue: _root_.nobleidl.core.Bool = _root_.nobleidl.core.Bool.fromBoolean(false),
   @_root_.esexpr.keyword("allow-optional")
   @_root_.esexpr.optional
   allowOptional: _root_.nobleidl.core.OptionalField[_root_.nobleidl.compiler.api.TypeExpr],

@@ -402,6 +402,7 @@ export interface InterfaceMethod {
     typeParameters: nobleidl__core.List<TypeParameter>;
     parameters: nobleidl__core.List<InterfaceMethodParameter>;
     returnType: TypeExpr;
+    throws: nobleidl__core.OptionalField<TypeExpr>;
     annotations: nobleidl__core.List<Annotation>;
 }
 export namespace InterfaceMethod {
@@ -410,6 +411,7 @@ export namespace InterfaceMethod {
         "typeParameters": $esexpr.keywordFieldCodec("type-parameters", nobleidl__core.List.codec<TypeParameter>(TypeParameter.codec)),
         "parameters": $esexpr.keywordFieldCodec("parameters", nobleidl__core.List.codec<InterfaceMethodParameter>(InterfaceMethodParameter.codec)),
         "returnType": $esexpr.keywordFieldCodec("return-type", TypeExpr.codec),
+        "throws": $esexpr.optionalKeywordFieldCodec("throws", nobleidl__core.OptionalField.optionalCodec<TypeExpr>(TypeExpr.codec)),
         "annotations": $esexpr.keywordFieldCodec("annotations", nobleidl__core.List.codec<Annotation>(Annotation.codec))
     }));
 }
@@ -566,12 +568,16 @@ export namespace TypeExpr {
 export type TypeParameter = {
     $type: "type";
     name: nobleidl__core.String;
+    constraints: nobleidl__core.List<TypeParameterTypeConstraint>;
     annotations: nobleidl__core.List<Annotation>;
 };
 export namespace TypeParameter {
     export const codec: $esexpr.ESExprCodec<TypeParameter> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeParameter>({
         "type": $esexpr.caseCodec("type", {
             "name": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
+            "constraints": $esexpr.defaultKeywordFieldCodec("constraints", () => nobleidl__core.List.buildFrom<TypeParameterTypeConstraint>({
+                values: nobleidl__core.List.fromArray<TypeParameterTypeConstraint>([])
+            }), nobleidl__core.List.codec<TypeParameterTypeConstraint>(TypeParameterTypeConstraint.codec)),
             "annotations": $esexpr.keywordFieldCodec("annotations", nobleidl__core.List.codec<Annotation>(Annotation.codec))
         })
     }));
@@ -581,5 +587,13 @@ export namespace TypeParameterOwner {
     export const codec: $esexpr.ESExprCodec<TypeParameterOwner> = $esexpr.lazyCodec(() => $esexpr.simpleEnumCodec<TypeParameterOwner>({
         "by-type": "by-type",
         "by-method": "by-method"
+    }));
+}
+export type TypeParameterTypeConstraint = {
+    $type: "exception";
+};
+export namespace TypeParameterTypeConstraint {
+    export const codec: $esexpr.ESExprCodec<TypeParameterTypeConstraint> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeParameterTypeConstraint>({
+        "exception": $esexpr.caseCodec("exception", {})
     }));
 }
