@@ -18,7 +18,7 @@ object RegenerateApi extends ZIOAppDefault {
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
       jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
 
-      _ <- ScalaNobleIDLCompiler.compile(ScalaIDLCompilerOptions(
+      _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
         languageOptions = ScalaLanguageOptions(
           outputDir = "backend/src/gen/scala",
           packageMapping = PackageMapping(Dictionary(Map(

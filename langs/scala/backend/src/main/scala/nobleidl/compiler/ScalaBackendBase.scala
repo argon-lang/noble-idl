@@ -7,6 +7,7 @@ import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
 
+import java.nio.file.Path
 import java.util.Locale
 
 
@@ -15,6 +16,7 @@ private[compiler] abstract class ScalaBackendBase {
 
   protected def model: NobleIdlModel
   protected def packageMappingRaw: PackageMapping
+  protected def outputDir: Path
 
   protected final lazy val packageMapping = packageMappingRaw.mapping.dict
     .view
@@ -41,7 +43,7 @@ private[compiler] abstract class ScalaBackendBase {
     ZStream.fromZIO(getScalaPackage(dfn.name.`package`))
       .map { pkg =>
         GeneratedFile(
-          path = pkg.split("\\.").nn.view.map(_.nn).toSeq :+ (convertIdPascal(dfn.name.name) + ".scala"),
+          path = pkg.split("\\.").nn.view.map(_.nn).foldLeft(outputDir)(_.resolve(_).nn).resolve(convertIdPascal(dfn.name.name) + ".scala").nn,
           content = CodeWriter.withWriter(data)
         )
       }
@@ -55,7 +57,7 @@ private[compiler] abstract class ScalaBackendBase {
   protected final def writeTypeParameters(tps: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     (
       for
-        _ <- writeln("[")
+        _ <- write("[")
 
         _ <- ZIO.foreachDiscard(tps.zipWithIndex) {
           case (tp: TypeParameter.Type, index) =>
@@ -124,7 +126,7 @@ private[compiler] abstract class ScalaBackendBase {
 
 private[compiler] object ScalaBackendBase {
 
-  final case class GeneratedFile(path: Seq[String], content: Stream[NobleIDLCompileErrorException, String])
+  final case class GeneratedFile(path: Path, content: Stream[NobleIDLCompileErrorException, String])
 
   val keywords = Seq(
     "abstract",

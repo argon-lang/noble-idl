@@ -7,6 +7,7 @@ import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
 
+import java.nio.file.Path
 import java.util.Locale
 import scala.jdk.CollectionConverters.*
 
@@ -17,6 +18,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
   protected override def model: NobleIdlModel = genRequest.model
   protected override def packageMappingRaw: PackageMapping = options.packageMapping
+  override protected def outputDir: Path = Path.of(options.outputDir).nn
 
   protected override def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for

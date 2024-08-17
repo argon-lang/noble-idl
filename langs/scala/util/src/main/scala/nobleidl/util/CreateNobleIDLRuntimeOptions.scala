@@ -26,7 +26,13 @@ object CreateNobleIDLRuntimeOptions extends ZIOAppDefault {
     )
 
     val jvmBackends = scalaBackends
-    val jsBackends = scalaBackends
+    val jsBackends = scalaBackends ++ Map(
+      "scalajs" -> BackendOptions(
+        packageMapping = PackageMapping(Dictionary(Map(
+          "nobleidl.core" -> "nobleidl.sjs.core",
+        ))),
+      ),
+    )
 
     def generate(platform: String, options: NobleIdlJarOptions): ZIO[Any, Throwable, Unit] =
       ESExprBinaryEncoder.writeWithSymbolTable(summon[ESExprCodec[NobleIdlJarOptions]].encode(options))

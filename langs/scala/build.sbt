@@ -98,7 +98,7 @@ val util = project.in(file("util"))
     run / baseDirectory := file("."),
   )
 
-val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Pure).in(file("example"))
+val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("example"))
   .dependsOn(runtime)
   .settings(
     Compile / sourceGenerators += Def.task {
@@ -130,6 +130,7 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Pure).in
               "-cp",
               generatorCP,
               "nobleidl.compiler.ScalaNobleIDLCompiler",
+              "--scala",
               "--input",
               inputDir.toString,
               "--output",
@@ -137,11 +138,21 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Pure).in
               "--resource-output",
               resourceDir.toString,
               "--package-mapping",
-              "nobleidl.core=nobleidl.core",
-              "--package-mapping",
               "nobleidl.example=nobleidl.example",
             ) ++
-            depCP.flatMap { f => Seq("--library", f.data.toString) }
+            depCP.flatMap { f => Seq("--library", f.data.toString) } ++
+            (
+              crossProjectPlatform.value match {
+                case JSPlatform =>
+                  Seq(
+                    "--scalajs",
+                    "--js-package-mapping",
+                    "nobleidl.example=nobleidl.sjs.example"
+                  )
+
+                case _ => Seq()
+              }
+            )
         ).!(s.log)
 
         if (exitCode != 0) {

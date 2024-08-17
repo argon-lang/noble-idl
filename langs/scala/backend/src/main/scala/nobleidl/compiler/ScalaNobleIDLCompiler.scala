@@ -17,55 +17,17 @@ import scala.util.Using
 
 object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
-  def compile(options: ScalaIDLCompilerOptions): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
-    val modelOptions = NobleIdlCompileModelOptions(
-      libraryFiles = options.libraryFileData,
-      files = options.inputFileData,
-    )
-
-    for
-      result <- ZIO.scoped {
-        NobleIDLCompiler.make
-          .flatMap(_.loadModel(modelOptions))
-      }
-
-      model <-
-        result match {
-          case NobleIdlCompileModelResult.Success(model) => ZIO.succeed(model)
-          case NobleIdlCompileModelResult.Failure(errors) => ZIO.fail(new NobleIDLCompileErrorException(errors.mkString("\n")))
-        }
-
-      backend = ScalaBackend(
-        NobleIdlGenerationRequest[ScalaLanguageOptions](
-          languageOptions = options.languageOptions,
-          model = model,
-        ),
-      )
-
-      files <- backend.emit
-        .mapZIOParUnordered(java.lang.Runtime.getRuntime.nn.availableProcessors()) { file =>
-          val fileName = file.path.foldLeft(Path.of(options.languageOptions.outputDir).nn)(_.resolve(_).nn)
-          ZIO.attempt { Files.createDirectories(fileName.getParent) }.refineToOrDie[IOException] *>
-            file.content
-              .via(ZPipeline.utf8Encode.orDie)
-              .run[Any, IOException | NobleIDLCompileErrorException, Long](ZSink.fromPath(fileName).refineOrDie {
-                case ex: IOException => ex
-              })
-              .as(fileName.toString)
-        }
-        .runCollect
-      
-    yield NobleIdlGenerationResult(
-      files
-    )
-  end compile
-
   private case class Config(
+    generateScala: Boolean = false,
+    generateScalaJS: Boolean = false,
+
     inputDirs: Seq[Path] = Seq(),
     outputDir: Option[String] = None,
     resourceOutputDir: Option[Path] = None,
     libraries: Seq[Path] = Seq(),
     packageMapping: Map[String, String] = Map(),
+    javaPackageMapping: Map[String, String] = Map(),
+    scalaJSPackageMapping: Map[String, String] = Map(),
   )
 
   override def run: ZIO[ZIOAppArgs & Scope, Any, Any] =
@@ -86,7 +48,11 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
         OParser.sequence(
           programName("noble-idl-compiler-scala"),
-          
+
+          opt[Unit]("scala")
+            .action((_, c) => c.copy(generateScala = true)),
+          opt[Unit]("scalajs")
+            .action((_, c) => c.copy(generateScalaJS = true)),
           opt[Seq[Path]]('i', "input")
             .minOccurs(1)
             .unbounded()
@@ -105,6 +71,14 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .minOccurs(0)
             .unbounded()
             .action((x, c) => c.copy(packageMapping = c.packageMapping ++ x)),
+          opt[Map[String, String]]("java-package-mapping")
+            .minOccurs(0)
+            .unbounded()
+            .action((x, c) => c.copy(javaPackageMapping = c.javaPackageMapping ++ x)),
+          opt[Map[String, String]]('p', "js-package-mapping")
+            .minOccurs(0)
+            .unbounded()
+            .action((x, c) => c.copy(scalaJSPackageMapping = c.scalaJSPackageMapping ++ x)),
         )
       }
 
@@ -119,37 +93,34 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
         case OEffect.ReportWarning(msg) => Console.printLineError("Warning: " + msg).orDie
         case OEffect.Terminate(exitState) => ZIO.fail(if exitState.isLeft then ExitCode.failure else ExitCode.success)
       }
-        
+
       _ <- ZIO.fail(ExitCode.failure).whenZIODiscard(hasError.get)
-      
+
       config = result.get
       resourceOutputDir = config.resourceOutputDir.get
-
-      libRes <- LibraryAnalyzer.scan(config.libraries)
       inputMap <- scanInputDirs(config.inputDirs, resourceOutputDir)
 
-      _ <- compile(ScalaIDLCompilerOptions(
-        languageOptions = ScalaLanguageOptions(
-          outputDir = config.outputDir.get,
-          packageMapping = PackageMapping(
-            mapping = Dictionary(
-              (libRes.packageMapping ++ config.packageMapping)
-            ),
-          ),
-        ),
-        inputFileData = inputMap.values.toSeq,
-        libraryFileData = libRes.sourceFiles,
-      ))
+      backendMapping <- ZIO.foreach(platformRunners) { pr =>
+        (
+          for
+            libRes <- LibraryAnalyzer.scan(config.libraries, pr.platform)
+            _ <- pr.compile(ScalaIDLCompilerOptions(
+              languageOptions = pr.languageOptions(config, libRes),
+              inputFileData = inputMap.values.toSeq,
+              libraryFileData = libRes.sourceFiles,
+            ))
+          yield Map(pr.platform -> pr.jarBackendOptions(config))
+
+        )
+          .when(pr.shouldEnable(config))
+          .map(_.getOrElse(Map.empty))
+      }
 
       jarOptions = NobleIdlJarOptions(
         idlFiles = inputMap.keys.toSeq,
-        backends = BackendMapping(Dictionary(Map(
-          "scala" -> BackendOptions(
-            packageMapping = PackageMapping(
-              Dictionary(config.packageMapping),
-            )
-          ),
-        ))),
+        backends = BackendMapping(Dictionary(
+          backendMapping.view.flatten.toMap
+        )),
       )
 
       _ <- ZIO.attempt { Files.createDirectories(resourceOutputDir) }.refineToOrDie[IOException]
@@ -190,4 +161,121 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
       inputFileMap.toMap
     }.refineToOrDie[IOException]
+
+  val platformRunners: Seq[PlatformRunner] = Seq(
+    ScalaPlatformRunner,
+    ScalaJSPlatformRunner,
+  )
+
+  trait PlatformRunner {
+    val platform: String
+    type LanguageOptions
+
+    private[ScalaNobleIDLCompiler] def shouldEnable(config: Config): Boolean
+
+    private[ScalaNobleIDLCompiler] def languageOptions(config: Config, libRes: LibraryAnalyzer.LibraryResults): LanguageOptions
+
+    protected def createBackend(request: NobleIdlGenerationRequest[LanguageOptions]): ScalaBackendBase
+
+
+    private[ScalaNobleIDLCompiler] def jarBackendOptions(config: Config): BackendOptions
+
+    def compile(options: ScalaIDLCompilerOptions[LanguageOptions]): IO[IOException | NobleIDLCompileErrorException, NobleIdlGenerationResult] =
+      val modelOptions = NobleIdlCompileModelOptions(
+        libraryFiles = options.libraryFileData,
+        files = options.inputFileData,
+      )
+
+      for
+        result <- ZIO.scoped {
+          NobleIDLCompiler.make
+            .flatMap(_.loadModel(modelOptions))
+        }
+
+        model <-
+          result match {
+            case NobleIdlCompileModelResult.Success(model) => ZIO.succeed(model)
+            case NobleIdlCompileModelResult.Failure(errors) => ZIO.fail(new NobleIDLCompileErrorException(errors.mkString("\n")))
+          }
+
+        backend = createBackend(
+          NobleIdlGenerationRequest(
+            languageOptions = options.languageOptions,
+            model = model,
+          ),
+        )
+
+        files <- backend.emit
+          .mapZIOParUnordered(java.lang.Runtime.getRuntime.nn.availableProcessors()) { file =>
+            ZIO.attempt {
+              Files.createDirectories(file.path.getParent)
+            }.refineToOrDie[IOException] *>
+              file.content
+                .via(ZPipeline.utf8Encode.orDie)
+                .run[Any, IOException | NobleIDLCompileErrorException, Long](ZSink.fromPath(file.path).refineOrDie {
+                  case ex: IOException => ex
+                })
+                .as(file.path.toString)
+          }
+          .runCollect
+
+      yield NobleIdlGenerationResult(
+        files
+      )
+    end compile
+
+  }
+
+  object ScalaPlatformRunner extends PlatformRunner {
+    override val platform: String = "scala"
+    override type LanguageOptions = ScalaLanguageOptions
+
+    private[ScalaNobleIDLCompiler] override def shouldEnable(config: Config): Boolean =
+      config.generateScala
+
+    private[ScalaNobleIDLCompiler] override def languageOptions(config: Config, libRes: LibraryAnalyzer.LibraryResults): ScalaLanguageOptions =
+      ScalaLanguageOptions(
+        outputDir = config.outputDir.get,
+        packageMapping = PackageMapping(
+          mapping = Dictionary(
+            (libRes.scalaPackageMapping ++ config.packageMapping)
+          ),
+        ),
+      )
+
+    private[ScalaNobleIDLCompiler] override def jarBackendOptions(config: Config): BackendOptions =
+      BackendOptions(
+        packageMapping = PackageMapping(Dictionary(config.packageMapping)),
+      )
+
+    protected override def createBackend(request: NobleIdlGenerationRequest[ScalaLanguageOptions]): ScalaBackendBase =
+      ScalaBackend(request)
+  }
+
+  object ScalaJSPlatformRunner extends PlatformRunner {
+    override val platform: String = "scalajs"
+    override type LanguageOptions = ScalaJSLanguageOptions
+
+    private[ScalaNobleIDLCompiler] override def shouldEnable(config: Config): Boolean =
+      config.generateScalaJS
+
+    private[ScalaNobleIDLCompiler] override def languageOptions(config: Config, libRes: LibraryAnalyzer.LibraryResults): ScalaJSLanguageOptions =
+      ScalaJSLanguageOptions(
+        outputDir = config.outputDir.get,
+        packageMapping = PackageMapping(
+          mapping = Dictionary(
+            (libRes.scalaJSPackageMapping ++ config.scalaJSPackageMapping)
+          ),
+        ),
+      )
+
+    private[ScalaNobleIDLCompiler] override def jarBackendOptions(config: Config): BackendOptions =
+      BackendOptions(
+        packageMapping = PackageMapping(Dictionary(config.scalaJSPackageMapping)),
+      )
+
+    protected override def createBackend(request: NobleIdlGenerationRequest[ScalaJSLanguageOptions]): ScalaBackendBase =
+      ScalaJSBackend(request)
+  }
+
 }
