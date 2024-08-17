@@ -27,6 +27,8 @@ pub enum Definition {
     ExternType(::std::boxed::Box<crate::ExternTypeDefinition>),
     #[inline_value]
     Interface(::std::boxed::Box<crate::InterfaceDefinition>),
+    #[inline_value]
+    ExceptionType(::std::boxed::Box<crate::ExceptionTypeDefinition>),
 }
 #[derive(
     ::std::fmt::Debug,
@@ -458,6 +460,16 @@ pub struct EsexprSimpleEnumCaseOptions {
 )]
 #[constructor = "simple-enum-options"]
 pub struct EsexprSimpleEnumOptions {}
+#[derive(
+    ::std::fmt::Debug,
+    ::std::clone::Clone,
+    ::std::cmp::PartialEq,
+    ::esexpr::ESExprCodec
+)]
+#[constructor = "exception-type-definition"]
+pub struct ExceptionTypeDefinition {
+    pub information: ::std::boxed::Box<crate::TypeExpr>,
+}
 #[derive(
     ::std::fmt::Debug,
     ::std::clone::Clone,

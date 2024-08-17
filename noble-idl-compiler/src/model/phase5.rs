@@ -50,6 +50,7 @@ impl <'a> ESExprChecker<'a> {
 			noble_idl_api::Definition::SimpleEnum(e) => self.check_simple_enum(def, e),
 			noble_idl_api::Definition::ExternType(et) => self.check_extern_type(def, et),
 			noble_idl_api::Definition::Interface(_) => Ok(()),
+			noble_idl_api::Definition::ExceptionType(_) => Ok(()),
 		}
 	}
 

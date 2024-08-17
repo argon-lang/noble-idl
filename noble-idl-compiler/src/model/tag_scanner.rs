@@ -33,6 +33,7 @@ impl <'a> TagScanner<'a> {
 			Definition::SimpleEnum(_) => self.scan_simple_enum(),
 			Definition::ExternType(_) => self.scan_extern_type(state, def),
 			Definition::Interface(_) => HashSet::new(),
+			Definition::ExceptionType(_) => HashSet::new(),
 		};
 
 		state.seen_types.remove(name);

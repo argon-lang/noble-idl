@@ -62,6 +62,7 @@ class JavaBackend {
 			case Definition.SimpleEnum(var e) -> emitSimpleEnum(dfn, e);
 			case Definition.ExternType(_) -> {}
 			case Definition.Interface(var iface) -> emitInterface(dfn, iface);
+			case Definition.ExceptionType(var ex) -> emitExceptionType(dfn, ex);
 		}
 	}
 
@@ -258,6 +259,68 @@ class JavaBackend {
 	}
 
 
+	private void emitExceptionType(DefinitionInfo dfn, ExceptionTypeDefinition ex) throws IOException, NobleIDLCompileErrorException {
+		try(var w = openFile(dfn)) {
+			w.print("package ");
+			w.print(getJavaPackage(dfn.name()._package()));
+			w.println(";");
+
+			w.print("public class ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.println(" extends java.lang.Exception {");
+			w.indent();
+
+			w.print("public ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.print("(");
+			writeTypeExpr(w, ex.information());
+			w.println(" information) {");
+			w.indent();
+			w.println("this.information = information;");
+			w.dedent();
+			w.println("}");
+
+			w.print("public ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.print("(");
+			writeTypeExpr(w, ex.information());
+			w.println(" information, java.lang.String message) {");
+			w.indent();
+			w.println("super(message);");
+			w.println("this.information = information;");
+			w.dedent();
+			w.println("}");
+
+			w.print("public ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.print("(");
+			writeTypeExpr(w, ex.information());
+			w.println(" information, java.lang.Throwable cause) {");
+			w.indent();
+			w.println("super(cause);");
+			w.println("this.information = information;");
+			w.dedent();
+			w.println("}");
+
+			w.print("public ");
+			w.print(convertIdPascal(dfn.name().name()));
+			w.print("(");
+			writeTypeExpr(w, ex.information());
+			w.println(" information, java.lang.String message, java.lang.Throwable cause) {");
+			w.indent();
+			w.println("super(message, cause);");
+			w.println("this.information = information;");
+			w.dedent();
+			w.println("}");
+
+			w.print("public final ");
+			writeTypeExpr(w, ex.information());
+			w.println(" information;");
+
+			w.dedent();
+			w.println("}");
+		}
+	}
 
 
 

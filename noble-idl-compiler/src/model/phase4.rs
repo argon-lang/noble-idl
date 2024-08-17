@@ -52,6 +52,7 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(_) => {},
 			Definition::Interface(_) => {},
+			Definition::ExceptionType(_) => {},
 		}
 
 		Ok(())
@@ -171,6 +172,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					Definition::SimpleEnum(_) => todo!(),
 					Definition::ExternType(et) => self.parse_extern_type_value(dfn, et, t, args, value),
 					Definition::Interface(_) => self.fail(),
+					Definition::ExceptionType(_) => self.fail(),
 				}
 			},
 			TypeExpr::TypeParameter { .. } => self.fail(),
@@ -443,6 +445,7 @@ impl DefaultUpdater {
 			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(_) => {},
 			Definition::Interface(_) => {},
+			Definition::ExceptionType(_) => {},
 		}
 	}
 

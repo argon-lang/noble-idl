@@ -134,6 +134,7 @@ fn definition(input: &str) -> IResult<&str, ast::Definition> {
         map(simple_enum_def, ast::Definition::SimpleEnum),
         map(extern_type, ast::Definition::ExternType),
         map(interface_def, ast::Definition::Interface),
+		map(exception_type_def, ast::Definition::ExceptionType),
     ))(input)
 }
 
@@ -326,6 +327,23 @@ fn method_parameter(input: &str) -> IResult<&str, ast::InterfaceMethodParameter>
         ast::InterfaceMethodParameter {
             name: name.to_owned(),
             parameter_type,
+            annotations,
+        }
+    })(input)
+}
+
+fn exception_type_def(input: &str) -> IResult<&str, ast::ExceptionTypeDefinition> {
+    map(tuple((
+        annotations,
+        keyword("exception"),
+        cut(identifier),
+        keyword("of"),
+        type_expr,
+        sym(";"),
+    )), |(annotations, _, name, _, information, _)| {
+        ast::ExceptionTypeDefinition {
+            name: name.to_owned(),
+            information,
             annotations,
         }
     })(input)

@@ -15,6 +15,7 @@ pub enum Definition {
     SimpleEnum(SimpleEnumDefinition),
     ExternType(ExternTypeDefinition),
     Interface(InterfaceDefinition),
+	ExceptionType(ExceptionTypeDefinition),
 }
 
 impl Definition {
@@ -25,6 +26,7 @@ impl Definition {
             Definition::SimpleEnum(e) => &e.name,
             Definition::ExternType(et) => &et.name,
             Definition::Interface(iface) => &iface.name,
+            Definition::ExceptionType(ex) => &ex.name,
         }
     }
 }
@@ -229,6 +231,28 @@ impl InterfaceMethodParameter {
             name: self.name,
             parameter_type: Box::new(self.parameter_type.into_api()),
             annotations: self.annotations.into_iter().map(Box::new).collect(),
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct ExceptionTypeDefinition {
+    pub name: String,
+	pub information: TypeExpr,
+    pub annotations: Vec<Annotation>,
+}
+
+impl ExceptionTypeDefinition {
+    pub fn into_api(self, package: PackageName, is_library: bool) -> noble_idl_api::DefinitionInfo {
+        noble_idl_api::DefinitionInfo {
+            name: Box::new(QualifiedName(Box::new(package), self.name)),
+            type_parameters: vec![],
+            definition: Box::new(noble_idl_api::Definition::ExceptionType(Box::new(noble_idl_api::ExceptionTypeDefinition {
+                information: Box::new(self.information.into_api()),
+            }))),
+            annotations: self.annotations.into_iter().map(Box::new).collect(),
+			is_library,
         }
     }
 }

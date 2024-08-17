@@ -19,7 +19,7 @@ private[compiler] abstract class ScalaBackendBase {
   protected def packageMappingRaw: PackageMapping
   protected def outputDir: Path
 
-  protected final lazy val packageMapping = buildPackageMapping(packageMappingRaw)
+  protected final lazy val packageMapping = buildPackageMapping(packageMappingRaw.mapping.dict)
 
   final def emit: Stream[NobleIDLCompileErrorException, GeneratedFile] =
     ZStream.fromIterable(model.definitions)
@@ -35,6 +35,7 @@ private[compiler] abstract class ScalaBackendBase {
       case Definition.SimpleEnum(e) => writeFile(dfn)(emitSimpleEnum(dfn, e))
       case Definition.ExternType(_) => ZStream()
       case Definition.Interface(iface) => writeFile(dfn)(emitInterface(dfn, iface))
+      case Definition.ExceptionType(ex) => writeFile(dfn)(emitExceptionType(dfn, ex))
     }
 
   private def writeFile(dfn: DefinitionInfo)(data: ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]): Stream[NobleIDLCompileErrorException, GeneratedFile] =
@@ -50,6 +51,7 @@ private[compiler] abstract class ScalaBackendBase {
   protected def emitEnum(dfn: DefinitionInfo, e: EnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]
   protected def emitSimpleEnum(dfn: DefinitionInfo, e: SimpleEnumDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]
   protected def emitInterface(dfn: DefinitionInfo, iface: InterfaceDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]
+  protected def emitExceptionType(dfn: DefinitionInfo, ex: ExceptionTypeDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit]
 
 
   protected final def writeTypeParameters(tps: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
@@ -210,8 +212,8 @@ private[compiler] object ScalaBackendBase {
     "yield",
   )
 
-  def buildPackageMapping(packageMapping: PackageMapping): Map[PackageName, String] =
-    packageMapping.mapping.dict
+  def buildPackageMapping[V](mapping: Map[String, V]): Map[PackageName, V] =
+    mapping
       .view
       .map { (k, v) => PackageName.fromString(k) -> v }
       .toMap

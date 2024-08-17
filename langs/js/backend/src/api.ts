@@ -25,6 +25,9 @@ export type Definition = {
 } | {
     $type: "interface";
     iface: InterfaceDefinition;
+} | {
+    $type: "exception-type";
+    ex: ExceptionTypeDefinition;
 };
 export namespace Definition {
     export const codec: $esexpr.ESExprCodec<Definition> = $esexpr.lazyCodec(() => $esexpr.enumCodec<Definition>({
@@ -32,7 +35,8 @@ export namespace Definition {
         "enum": $esexpr.inlineCaseCodec("e", EnumDefinition.codec),
         "simple-enum": $esexpr.inlineCaseCodec("e", SimpleEnumDefinition.codec),
         "extern-type": $esexpr.inlineCaseCodec("et", ExternTypeDefinition.codec),
-        "interface": $esexpr.inlineCaseCodec("iface", InterfaceDefinition.codec)
+        "interface": $esexpr.inlineCaseCodec("iface", InterfaceDefinition.codec),
+        "exception-type": $esexpr.inlineCaseCodec("ex", ExceptionTypeDefinition.codec)
     }));
 }
 export interface DefinitionInfo {
@@ -368,6 +372,14 @@ export interface EsexprSimpleEnumOptions {
 }
 export namespace EsexprSimpleEnumOptions {
     export const codec: $esexpr.ESExprCodec<EsexprSimpleEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprSimpleEnumOptions>("simple-enum-options", {}));
+}
+export interface ExceptionTypeDefinition {
+    information: TypeExpr;
+}
+export namespace ExceptionTypeDefinition {
+    export const codec: $esexpr.ESExprCodec<ExceptionTypeDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<ExceptionTypeDefinition>("exception-type-definition", {
+        "information": $esexpr.positionalFieldCodec(TypeExpr.codec)
+    }));
 }
 export interface ExternTypeDefinition {
     esexprOptions: nobleidl__core.OptionalField<EsexprExternTypeOptions>;

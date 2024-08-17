@@ -183,6 +183,7 @@ impl <'a> ModEmitter<'a> {
             Definition::SimpleEnum(e) => self.emit_simple_enum(dfn, e),
             Definition::ExternType(_) => Ok(quote! {}),
             Definition::Interface(i) => self.emit_interface(dfn, i),
+			Definition::ExceptionType(ex) => self.emit_exception_type(dfn, ex),
         }
     }
 
@@ -577,6 +578,41 @@ impl <'a> ModEmitter<'a> {
         })
     }
 
+	fn emit_exception_type(&self, dfn: &DefinitionInfo, ex: &ExceptionTypeDefinition) -> Result<TokenStream, EmitError> {
+		let name = convert_id_pascal(dfn.name.name());
+		let info = self.emit_type_expr(&ex.information)?;
+
+		Ok(quote! {
+			#[derive(::std::fmt::Debug)]
+			pub struct #name {
+				pub information: #info,
+				pub message: ::std::option::Option<::std::string::String>,
+				pub backtrace: ::std::backtrace::Backtrace,
+				pub source: ::std::option::Option<::std::boxed::Box<dyn ::std::error::Error + 'static>>,
+			}
+
+			impl ::std::fmt::Display for #name {
+				fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+					if let ::std::option::Option::Some(msg) = &self.message {
+						writeln!(f, "{}", msg)?;
+					}
+					writeln!(f, "{}", self.backtrace)?;
+
+					::std::result::Result::Ok(())
+				}
+			}
+
+			impl ::std::error::Error for #name {
+				fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
+					self.source.as_deref()
+				}
+				fn description(&self) -> &::std::primitive::str {
+					self.message.as_ref().map(::std::string::String::as_str).unwrap_or("")
+				}
+			}
+		})
+	}
+
 
     fn emit_type_expr(&self, t: &TypeExpr) -> Result<syn::Type, EmitError> {
 		let path = self.get_type_path(t)?;
@@ -585,7 +621,7 @@ impl <'a> ModEmitter<'a> {
 			TypeExpr::DefinedType(name, _) => {
 				self.definition_map.get(name.as_ref())
 					.map(|dfn| match dfn.definition.as_ref() {
-						Definition::Record(_) | Definition::Enum(_) => TypeBoxing::Box,
+						Definition::Record(_) | Definition::Enum(_) | Definition::ExceptionType(_) => TypeBoxing::Box,
 						Definition::SimpleEnum(_) | Definition::ExternType(_) => TypeBoxing::None,
 						Definition::Interface(_) => TypeBoxing::Arc,
 					})

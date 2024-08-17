@@ -20,6 +20,8 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
   protected override def packageMappingRaw: PackageMapping = options.packageMapping
   override protected def outputDir: Path = Path.of(options.outputDir).nn
 
+  private lazy val packageImportMapping = buildPackageMapping(options.packageImportMapping.mapping)
+
   protected override def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- write("package ")
@@ -141,6 +143,32 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
       _ <- writeln("}")
 
     yield ()
+
+  protected override def emitExceptionType(dfn: DefinitionInfo, ex: ExceptionTypeDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    for
+      _ <- write("package ")
+      _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
+
+      _ <- writeln("@_root_.scala.scalajs.js.native")
+      _ <- write("@_root_.scala.scalajs.js.annotation.JSImport(\"")
+      importPath <- getPackageImport(dfn.name.`package`)
+      _ <- write(StringEscapeUtils.escapeJava(importPath).nn)
+      _ <- writeln("\")")
+      _ <- write("class ")
+      _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeln("(")
+      _ <- indent()
+      _ <- write("val information: ")
+      _ <- writeTypeExpr(ex.information)
+      _ <- writeln(",")
+      _ <- writeln("message: _root_.scala.scalajs.js.UndefOr[_root_.java.lang.String] = _root_.scala.scalajs.js.undefined,")
+      _ <- writeln("cause: _root_.scala.scalajs.js.UndefOr[_root_.nobleidl.sjs.core.ErrorOptions] = _root_.scala.scalajs.js.undefined,")
+      _ <- dedent()
+      _ <- writeln(") extends _root_.scala.scalajs.js.Error()")
+    yield ()
+
+  private def getPackageImport(packageName: PackageName): ZIO[CodeWriter, NobleIDLCompileErrorException, String] =
+    ZIO.fromEither(packageImportMapping.get(packageName).toRight { NobleIDLCompileErrorException("Unmapped package import: " + packageName.display) })
 
   private def writeFields(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     ZIO.foreachDiscard(fields) { field =>

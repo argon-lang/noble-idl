@@ -483,6 +483,25 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
     yield ()
 
+  protected override def emitExceptionType(dfn: DefinitionInfo, ex: ExceptionTypeDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    for
+      _ <- write("package ")
+      _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
+
+      _ <- write("class ")
+      _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeln("(")
+      _ <- indent()
+      _ <- write("val information: ")
+      _ <- writeTypeExpr(ex.information)
+      _ <- writeln(",")
+      _ <- writeln("message: _root_.java.lang.String | _root_.scala.Null = null,")
+      _ <- writeln("cause: _root_.java.lang.Throwable")
+      _ <- dedent()
+      _ <- writeln(") extends _root_.java.lang.Exception(message, cause)")
+    yield ()
+
+
   private def writeCaseClassParameters(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- writeln("(")
@@ -622,7 +641,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
       fromMethod = "fromJava",
     )(
       buildAdapterWriter = () => options.javaAdapters.map { javaAdapters =>
-        JavaAdapterWriter(JavaTypeExprWriter(buildPackageMapping(javaAdapters.packageMapping)))
+        JavaAdapterWriter(JavaTypeExprWriter(buildPackageMapping(javaAdapters.packageMapping.mapping.dict)))
       },
       writeToPlatform = writeToJava,
       writeFromPlatform = writeFromJava,
@@ -638,7 +657,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
       fromMethod = "fromJS",
     )(
       buildAdapterWriter = () => options.jsAdapters.map { jsAdapters =>
-        JSAdapterWriter(JSTypeExprWriter(buildPackageMapping(jsAdapters.packageMapping)))
+        JSAdapterWriter(JSTypeExprWriter(buildPackageMapping(jsAdapters.packageMapping.mapping.dict)))
       },
       writeToPlatform = writeToJS,
       writeFromPlatform = writeFromJS,

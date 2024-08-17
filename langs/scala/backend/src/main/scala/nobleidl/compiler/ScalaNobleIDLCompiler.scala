@@ -31,6 +31,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
     packageMapping: Map[String, String] = Map(),
     javaPackageMapping: Map[String, String] = Map(),
     scalaJSPackageMapping: Map[String, String] = Map(),
+    scalaJSPackageImportMapping: Map[String, String] = Map(),
   )
 
   override def run: ZIO[ZIOAppArgs & Scope, Any, Any] =
@@ -86,6 +87,10 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .minOccurs(0)
             .unbounded()
             .action((x, c) => c.copy(scalaJSPackageMapping = c.scalaJSPackageMapping ++ x)),
+          opt[Map[String, String]]('p', "js-package-import")
+            .minOccurs(0)
+            .unbounded()
+            .action((x, c) => c.copy(scalaJSPackageImportMapping = c.scalaJSPackageImportMapping ++ x)),
         )
       }
 
@@ -290,6 +295,9 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             (libRes.scalaJSPackageMapping ++ config.scalaJSPackageMapping)
           ),
         ),
+        packageImportMapping = PackageImportMapping(
+          config.scalaJSPackageImportMapping
+        )
       )
 
     private[ScalaNobleIDLCompiler] override def jarBackendOptions(config: Config): BackendOptions =

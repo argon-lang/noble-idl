@@ -1,4 +1,4 @@
-import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition } from "./api.js";
+import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition, ExceptionTypeDefinition } from "./api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
@@ -8,160 +8,160 @@ import * as ts from "typescript";
 import { isSamePackage } from "./api-util.js";
 
 export interface JSLanguageOptions {
-    // The name of the NPM package (in package.json)
-    packageName: string,
+	// The name of the NPM package (in package.json)
+	packageName: string,
 
-    // The directory where files will be written.
-    outputDir: string,
+	// The directory where files will be written.
+	outputDir: string,
 
-    packageOptions: ReadonlyMap<string, PackageOptions>,
+	packageOptions: ReadonlyMap<string, PackageOptions>,
 }
 
 export interface PackageOptions {
-    packageMapping: ReadonlyMap<string, string>,
+	packageMapping: ReadonlyMap<string, string>,
 }
 
 
 export async function emit(request: NobleIdlGenerationRequest<JSLanguageOptions>): Promise<NobleIdlGenerationResult> {
-    const pkgMapping = getPackageMapping(request.languageOptions);
+	const pkgMapping = getPackageMapping(request.languageOptions);
 
-    const emitter = new PackageEmitter(request.model, pkgMapping, request.languageOptions.outputDir);
-    await emitter.emitModules();
+	const emitter = new PackageEmitter(request.model, pkgMapping, request.languageOptions.outputDir);
+	await emitter.emitModules();
 
-    return emitter.generationResult();
+	return emitter.generationResult();
 }
 
 
 class PackageEmitter {
-    constructor(
+	constructor(
 		private readonly model: NobleIdlModel,
 		private readonly pkgMapping: ReadonlyMap<string, JSModule>,
 		private readonly outputDir: string
-	) {}
+	) { }
 
-    readonly #outputFiles: string[] = [];
+	readonly #outputFiles: string[] = [];
 
 
-    async emitModules(): Promise<void> {
-        const packageGroups = new Map<string, DefinitionInfo[]>();
+	async emitModules(): Promise<void> {
+		const packageGroups = new Map<string, DefinitionInfo[]>();
 
-        for(const def of this.model.definitions) {
-			if(def.isLibrary) {
+		for (const def of this.model.definitions) {
+			if (def.isLibrary) {
 				continue;
 			}
 
-            const pkgName = getPackageNameStr(def.name.package);
-            let items = packageGroups.get(pkgName);
-            if(items === undefined) {
-                items = [];
-                packageGroups.set(pkgName, items);
-            }
+			const pkgName = getPackageNameStr(def.name.package);
+			let items = packageGroups.get(pkgName);
+			if (items === undefined) {
+				items = [];
+				packageGroups.set(pkgName, items);
+			}
 
-            items.push(def);
-        }
+			items.push(def);
+		}
 
-        for(const [pkg, defs] of packageGroups) {
-            const packageName: PackageName = decodePackageNameStr(pkg);
-            const p = await this.#emitModule(packageName, defs);
-            this.#outputFiles.push(p);
-        }
-    }
+		for (const [pkg, defs] of packageGroups) {
+			const packageName: PackageName = decodePackageNameStr(pkg);
+			const p = await this.#emitModule(packageName, defs);
+			this.#outputFiles.push(p);
+		}
+	}
 
-    generationResult(): NobleIdlGenerationResult {
-        return {
-            generatedFiles: this.#outputFiles,
-        };
-    }
+	generationResult(): NobleIdlGenerationResult {
+		return {
+			generatedFiles: this.#outputFiles,
+		};
+	}
 
-    // Returns the path of the file.
-    async #emitModule(packageName: PackageName, definitions: readonly DefinitionInfo[]): Promise<string> {
+	// Returns the path of the file.
+	async #emitModule(packageName: PackageName, definitions: readonly DefinitionInfo[]): Promise<string> {
 		const modScanner = new ModuleScanner(packageName, definitions);
 		modScanner.scanModule();
 
 		const modEmitter = new ModEmitter(this.pkgMapping, this.outputDir, packageName, definitions, modScanner.metadata);
 		return await modEmitter.emitModule();
-    }
+	}
 
 }
 
 
 class ModEmitter {
-    constructor(
-        private readonly pkgMapping: ReadonlyMap<string, JSModule>,
+	constructor(
+		private readonly pkgMapping: ReadonlyMap<string, JSModule>,
 		private readonly outputDir: string,
 		private readonly currentPackage: PackageName,
 		private readonly definitions: readonly DefinitionInfo[],
 		private readonly metadata: ModuleMetadata,
-    ) {}
+	) { }
 
 
 	#getPackagePathPart(packageName: PackageName): string {
-        const packageNameStr = getPackageNameStr(packageName);
-        const mappedPackage = this.pkgMapping.get(packageNameStr);
-        if(mappedPackage === undefined) {
-            throw new Error("Unmapped package: " + packageNameStr);
-        }
+		const packageNameStr = getPackageNameStr(packageName);
+		const mappedPackage = this.pkgMapping.get(packageNameStr);
+		if (mappedPackage === undefined) {
+			throw new Error("Unmapped package: " + packageNameStr);
+		}
 
-        if(mappedPackage.path === "") {
-            return "index";
-        }
-        else if(mappedPackage.path.match(/^_*index$/)) {
-            return "_" + mappedPackage.path;
-        }
-        else {
-            return mappedPackage.path;
-        }
+		if (mappedPackage.path === "") {
+			return "index";
+		}
+		else if (mappedPackage.path.match(/^_*index$/)) {
+			return "_" + mappedPackage.path;
+		}
+		else {
+			return mappedPackage.path;
+		}
 	}
 
-    #buildPackagePath(packageName: PackageName): string {
+	#buildPackagePath(packageName: PackageName): string {
 		const part = this.#getPackagePathPart(packageName);
 		return path.join(this.outputDir, part + ".ts");
-    }
+	}
 
-    #getExternPath(): string {
+	#getExternPath(): string {
 		const packagePath = this.#getPackagePathPart(this.currentPackage);
 		return "./" + posixPath.basename(packagePath) + ".extern.js";
-    }
+	}
 
-    #getImportPath(packageName: PackageName): string {
-        const packageNameStr = getPackageNameStr(packageName);
-        const mappedPackage = this.pkgMapping.get(packageNameStr);
-        if(mappedPackage === undefined) {
-            throw new Error("Unmapped package: " + packageNameStr);
-        }
+	#getImportPath(packageName: PackageName): string {
+		const packageNameStr = getPackageNameStr(packageName);
+		const mappedPackage = this.pkgMapping.get(packageNameStr);
+		if (mappedPackage === undefined) {
+			throw new Error("Unmapped package: " + packageNameStr);
+		}
 
-		if(mappedPackage.isCurrentPackage) {
+		if (mappedPackage.isCurrentPackage) {
 			const fromPath = this.#getPackagePathPart(this.currentPackage) + ".js";
 			const toPath = this.#getPackagePathPart(packageName) + ".js";
 			return "./" + posixPath.relative(fromPath, toPath);
 		}
-        else if(mappedPackage.path === "") {
-            return mappedPackage.packageName;
-        }
-        else {
-            return mappedPackage.packageName + "/" + mappedPackage.path + ".js";
-        }
-    }
+		else if (mappedPackage.path === "") {
+			return mappedPackage.packageName;
+		}
+		else {
+			return mappedPackage.packageName + "/" + mappedPackage.path + ".js";
+		}
+	}
 
-    // Returns the path of the file.
-    async emitModule(): Promise<string> {
-        const p = this.#buildPackagePath(this.currentPackage);
+	// Returns the path of the file.
+	async emitModule(): Promise<string> {
+		const p = this.#buildPackagePath(this.currentPackage);
 
-        await fs.mkdir(path.dirname(p), { recursive: true });
+		await fs.mkdir(path.dirname(p), { recursive: true });
 
-        const sourceFile = ts.createSourceFile(
-            p,
-            "",
-            ts.ScriptTarget.Latest,
-            false,
-            ts.ScriptKind.TS,
-        );
+		const sourceFile = ts.createSourceFile(
+			p,
+			"",
+			ts.ScriptTarget.Latest,
+			false,
+			ts.ScriptKind.TS,
+		);
 
-        const printer = ts.createPrinter();
+		const printer = ts.createPrinter();
 
-        const file = await fs.open(p, "w");
-        try {
-			if(this.metadata.needsEsexprImport) {
+		const file = await fs.open(p, "w");
+		try {
+			if (this.metadata.needsEsexprImport) {
 				const node = ts.factory.createImportDeclaration(
 					undefined,
 					ts.factory.createImportClause(
@@ -178,7 +178,7 @@ class ModEmitter {
 				await file.write(os.EOL);
 			}
 
-			for(const [pkg, refContext] of this.metadata.referencedPackages) {
+			for (const [pkg, refContext] of this.metadata.referencedPackages) {
 				const node = ts.factory.createImportDeclaration(
 					undefined,
 					ts.factory.createImportClause(
@@ -195,35 +195,35 @@ class ModEmitter {
 				await file.write(os.EOL);
 			}
 
-			if(this.metadata.externTypes.size > 0) {
-                const nodes = this.#emitExterns();
-                for(const node of nodes) {
-                    await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
-                    await file.write(os.EOL);
-                }
+			if (this.metadata.externTypes.size > 0) {
+				const nodes = this.#emitExterns();
+				for (const node of nodes) {
+					await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
+					await file.write(os.EOL);
+				}
 			}
 
-            for(const def of this.definitions) {
-                const nodes = this.#emitDefinition(def);
-                for(const node of nodes) {
-                    await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
-                    await file.write(os.EOL);
-                }
-            }
-        }
-        finally {
-            await file.close();
-        }
+			for (const def of this.definitions) {
+				const nodes = this.#emitDefinition(def);
+				for (const node of nodes) {
+					await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
+					await file.write(os.EOL);
+				}
+			}
+		}
+		finally {
+			await file.close();
+		}
 
-        return p;
-    }
+		return p;
+	}
 
 	#emitExterns(): readonly ts.Node[] {
 		const nodes: ts.Node[] = [];
 
 		const externTypes = Array.from(this.metadata.externTypes);
 
-		if(externTypes.some(([, et]) => et.isReferencedInModule)) {
+		if (externTypes.some(([, et]) => et.isReferencedInModule)) {
 			const allTypeOnlyImport = externTypes.every(([, et]) => !et.isReferencedInModule || et.isTypeOnly);
 
 			nodes.push(ts.factory.createImportDeclaration(
@@ -233,8 +233,8 @@ class ModEmitter {
 					undefined,
 					ts.factory.createNamedImports(
 						externTypes
-							.filter(([ , et ]) => et.isReferencedInModule)
-							.map(([ name, et ]) => ts.factory.createImportSpecifier(
+							.filter(([, et]) => et.isReferencedInModule)
+							.map(([name, et]) => ts.factory.createImportSpecifier(
 								et.isTypeOnly && !allTypeOnlyImport,
 								undefined,
 								ts.factory.createIdentifier(convertIdPascal(name)),
@@ -245,7 +245,7 @@ class ModEmitter {
 			));
 		}
 
-		if(externTypes.length >= 0) {
+		if (externTypes.length >= 0) {
 			const allTypeOnlyExport = externTypes.every(([, et]) => et.isTypeOnly);
 
 			nodes.push(ts.factory.createExportDeclaration(
@@ -253,7 +253,7 @@ class ModEmitter {
 				allTypeOnlyExport,
 				ts.factory.createNamedExports(
 					externTypes
-						.map(([ name, et ]) => ts.factory.createExportSpecifier(
+						.map(([name, et]) => ts.factory.createExportSpecifier(
 							et.isTypeOnly && !allTypeOnlyExport,
 							undefined,
 							ts.factory.createIdentifier(convertIdPascal(name)),
@@ -267,14 +267,14 @@ class ModEmitter {
 		return nodes;
 	}
 
-    #emitDefinition(def: DefinitionInfo): ts.Node[] {
+	#emitDefinition(def: DefinitionInfo): ts.Node[] {
 		let nodes: ts.Node[];
-        switch(def.definition.$type) {
-            case "record":
+		switch (def.definition.$type) {
+			case "record":
 				nodes = this.#emitRecord(def, def.definition.r);
 				break;
 
-            case "enum":
+			case "enum":
 				nodes = this.#emitEnum(def, def.definition.e);
 				break;
 
@@ -282,16 +282,20 @@ class ModEmitter {
 				nodes = this.#emitSimpleEnum(def, def.definition.e);
 				break;
 
-            case "extern-type":
+			case "extern-type":
 				nodes = [];
 				break;
 
-            case "interface":
+			case "interface":
 				nodes = this.#emitInterface(def, def.definition.iface);
 				break;
-        }
 
-		if(this.metadata.shadowedTypes.has(def.name.name)) {
+			case "exception-type":
+				nodes = this.#emitExceptionType(def, def.definition.ex);
+				break;
+		}
+
+		if (this.metadata.shadowedTypes.has(def.name.name)) {
 			nodes.push(ts.factory.createTypeAliasDeclaration(
 				undefined,
 				getUnshadowedName(def.name.name),
@@ -309,20 +313,20 @@ class ModEmitter {
 		}
 
 		return nodes;
-    }
+	}
 
-    #emitRecord(def: DefinitionInfo, r: RecordDefinition): ts.Node[] {
+	#emitRecord(def: DefinitionInfo, r: RecordDefinition): ts.Node[] {
 		const nodes: ts.Node[] = [];
 
-        nodes.push(ts.factory.createInterfaceDeclaration(
-            [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
-            convertIdPascal(def.name.name),
-            this.#emitTypeParameters(def.typeParameters),
-            undefined,
-            r.fields.map(field => this.#emitField(field)),
-        ));
+		nodes.push(ts.factory.createInterfaceDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			convertIdPascal(def.name.name),
+			this.#emitTypeParameters(def.typeParameters),
+			undefined,
+			r.fields.map(field => this.#emitField(field)),
+		));
 
-		if(r.esexprOptions !== undefined) {
+		if (r.esexprOptions !== undefined) {
 			const codecExpr = ts.factory.createCallExpression(
 				ts.factory.createPropertyAccessExpression(
 					ts.factory.createIdentifier("$esexpr"),
@@ -338,7 +342,7 @@ class ModEmitter {
 			);
 
 			nodes.push(ts.factory.createModuleDeclaration(
-				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
 				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
 				ts.factory.createModuleBlock([
 					this.#emitCodecDecl(def, codecExpr),
@@ -347,20 +351,20 @@ class ModEmitter {
 			));
 		}
 
-        return nodes;
-    }
+		return nodes;
+	}
 
-    #emitEnum(def: DefinitionInfo, e: EnumDefinition): ts.Node[] {
+	#emitEnum(def: DefinitionInfo, e: EnumDefinition): ts.Node[] {
 		const nodes: ts.Node[] = [];
 
-        nodes.push(ts.factory.createTypeAliasDeclaration(
-            [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
-            convertIdPascal(def.name.name),
-            this.#emitTypeParameters(def.typeParameters),
-            ts.factory.createUnionTypeNode(e.cases.map(c => this.#emitEnumCase(c))),
-        ));
+		nodes.push(ts.factory.createTypeAliasDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			convertIdPascal(def.name.name),
+			this.#emitTypeParameters(def.typeParameters),
+			ts.factory.createUnionTypeNode(e.cases.map(c => this.#emitEnumCase(c))),
+		));
 
-		if(e.esexprOptions !== undefined) {
+		if (e.esexprOptions !== undefined) {
 			const codecExpr = ts.factory.createCallExpression(
 				ts.factory.createPropertyAccessExpression(
 					ts.factory.createIdentifier("$esexpr"),
@@ -372,15 +376,15 @@ class ModEmitter {
 				[
 					ts.factory.createObjectLiteralExpression(
 						e.cases.map(c => {
-							if(c.esexprOptions === undefined) {
+							if (c.esexprOptions === undefined) {
 								throw new Error("Missing esexpr-options for case of enum with esexpr-options");
 							}
 
 							let caseCodec: ts.Expression;
 
-							if(c.esexprOptions.caseType.$type === "inline-value") {
+							if (c.esexprOptions.caseType.$type === "inline-value") {
 								const field = c.fields[0];
-								if(field === undefined || c.fields.length !== 1) {
+								if (field === undefined || c.fields.length !== 1) {
 									throw new Error("Inline value must have a single field");
 								}
 
@@ -421,7 +425,7 @@ class ModEmitter {
 			)
 
 			nodes.push(ts.factory.createModuleDeclaration(
-				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
 				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
 				ts.factory.createModuleBlock([
 					this.#emitCodecDecl(def, codecExpr),
@@ -430,37 +434,37 @@ class ModEmitter {
 			))
 		}
 
-        return nodes;
-    }
+		return nodes;
+	}
 
 
 
-    #emitEnumCase(c: EnumCase): ts.TypeNode {
-        return ts.factory.createTypeLiteralNode([
-            ts.factory.createPropertySignature(
-                undefined,
-                "$type",
-                undefined,
-                ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name)),
-            ),
+	#emitEnumCase(c: EnumCase): ts.TypeNode {
+		return ts.factory.createTypeLiteralNode([
+			ts.factory.createPropertySignature(
+				undefined,
+				"$type",
+				undefined,
+				ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name)),
+			),
 
-            ...c.fields.map(field => this.#emitField(field)),
-        ]);
-    }
+			...c.fields.map(field => this.#emitField(field)),
+		]);
+	}
 
-    #emitSimpleEnum(def: DefinitionInfo, e: SimpleEnumDefinition): ts.Node[] {
+	#emitSimpleEnum(def: DefinitionInfo, e: SimpleEnumDefinition): ts.Node[] {
 		const nodes: ts.Node[] = [];
 
-        nodes.push(ts.factory.createTypeAliasDeclaration(
-            [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
-            convertIdPascal(def.name.name),
-            undefined,
-            ts.factory.createUnionTypeNode(e.cases.map(c =>
+		nodes.push(ts.factory.createTypeAliasDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			convertIdPascal(def.name.name),
+			undefined,
+			ts.factory.createUnionTypeNode(e.cases.map(c =>
 				ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name))
 			)),
-        ));
+		));
 
-		if(e.esexprOptions !== undefined) {
+		if (e.esexprOptions !== undefined) {
 			const codecExpr = ts.factory.createCallExpression(
 				ts.factory.createPropertyAccessExpression(
 					ts.factory.createIdentifier("$esexpr"),
@@ -472,7 +476,7 @@ class ModEmitter {
 				[
 					ts.factory.createObjectLiteralExpression(
 						e.cases.map(c => {
-							if(c.esexprOptions === undefined) {
+							if (c.esexprOptions === undefined) {
 								throw new Error("Missing esexpr-options for case of enum with esexpr-options");
 							}
 
@@ -487,7 +491,7 @@ class ModEmitter {
 			)
 
 			nodes.push(ts.factory.createModuleDeclaration(
-				[ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
+				[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
 				ts.factory.createIdentifier(convertIdPascal(def.name.name)),
 				ts.factory.createModuleBlock([
 					this.#emitCodecDecl(def, codecExpr),
@@ -496,51 +500,141 @@ class ModEmitter {
 			))
 		}
 
-        return nodes;
-    }
+		return nodes;
+	}
 
-    #emitInterface(def: DefinitionInfo, i: InterfaceDefinition): ts.Node[] {
-        const iface = ts.factory.createInterfaceDeclaration(
-            [ ts.factory.createModifier(ts.SyntaxKind.ExportKeyword) ],
-            convertIdPascal(def.name.name),
-            this.#emitTypeParameters(def.typeParameters),
-            undefined,
-            i.methods.map(m => this.#emitMethod(m)),
-        );
+	#emitInterface(def: DefinitionInfo, i: InterfaceDefinition): ts.Node[] {
+		const iface = ts.factory.createInterfaceDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			convertIdPascal(def.name.name),
+			this.#emitTypeParameters(def.typeParameters),
+			undefined,
+			i.methods.map(m => this.#emitMethod(m)),
+		);
 
-        return [ iface ];
-    }
+		return [iface];
+	}
 
-    #emitTypeParameters(typeParameters: readonly TypeParameter[]): readonly ts.TypeParameterDeclaration[] | undefined {
-        if(typeParameters.length === 0) {
-            return undefined;
-        }
+	#emitExceptionType(def: DefinitionInfo, ex: ExceptionTypeDefinition): ts.Node[] {
+		const infoType = this.#emitTypeExpr(ex.information);
 
-        return typeParameters.map(tp => ts.factory.createTypeParameterDeclaration(
-            undefined,
-            convertIdPascal(tp.name),
-            undefined,
-        ));
-    }
 
-    #emitField(field: RecordField): ts.TypeElement {
-        return ts.factory.createPropertySignature(
-            undefined,
-            convertIdCamel(field.name),
-            undefined,
-            this.#emitTypeExpr(field.fieldType),
-        );
-    }
+		const errorClass = ts.factory.createClassDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			convertIdPascal(def.name.name),
+			[],
+			[
+				ts.factory.createHeritageClause(
+					ts.SyntaxKind.ExtendsKeyword,
+					[
+						ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier("Error"), undefined)
+					],
+				),
+			],
+			[
+				// information property
+				ts.factory.createPropertyDeclaration(
+					[ts.factory.createModifier(ts.SyntaxKind.PublicKeyword)],
+					"information",
+					undefined,
+					infoType,
+					undefined,
+				),
+
+				// Constructor
+				ts.factory.createConstructorDeclaration(
+					undefined,
+					[
+						ts.factory.createParameterDeclaration(
+							undefined,
+							undefined,
+							"information",
+							undefined,
+							infoType,
+							undefined,
+						),
+						ts.factory.createParameterDeclaration(
+							undefined,
+							undefined,
+							"message",
+							ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+							ts.factory.createUnionTypeNode([
+								ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+								ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
+							]),
+							undefined,
+						),
+						ts.factory.createParameterDeclaration(
+							undefined,
+							undefined,
+							"options",
+							ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+							ts.factory.createUnionTypeNode([
+								ts.factory.createTypeReferenceNode("ErrorOptions", undefined),
+								ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
+							]),
+							undefined,
+						),
+					],
+					ts.factory.createBlock(
+						[
+							ts.factory.createExpressionStatement(
+								ts.factory.createCallExpression(
+									ts.factory.createSuper(),
+									undefined,
+									[
+										ts.factory.createIdentifier("message"),
+										ts.factory.createIdentifier("options"),
+									]
+								)
+							),
+							ts.factory.createExpressionStatement(
+								ts.factory.createBinaryExpression(
+									ts.factory.createPropertyAccessExpression(ts.factory.createThis(), "information"),
+									ts.SyntaxKind.EqualsToken,
+									ts.factory.createIdentifier("information"),
+								),
+							),
+						],
+						true
+					)
+				),
+			],
+		);
+
+		return [errorClass];
+	}
+
+	#emitTypeParameters(typeParameters: readonly TypeParameter[]): readonly ts.TypeParameterDeclaration[] | undefined {
+		if (typeParameters.length === 0) {
+			return undefined;
+		}
+
+		return typeParameters.map(tp => ts.factory.createTypeParameterDeclaration(
+			undefined,
+			convertIdPascal(tp.name),
+			undefined,
+		));
+	}
+
+	#emitField(field: RecordField): ts.TypeElement {
+		return ts.factory.createPropertySignature(
+			undefined,
+			convertIdCamel(field.name),
+			undefined,
+			this.#emitTypeExpr(field.fieldType),
+		);
+	}
 
 	#emitFieldCodecs(fields: readonly RecordField[]): ts.Expression {
 		return ts.factory.createObjectLiteralExpression(
 			fields.map(f => {
-				if(f.esexprOptions === undefined) {
+				if (f.esexprOptions === undefined) {
 					throw new Error("Field defined in type with Esexpr codec is missing esexpr-options");
 				}
 
 				const fieldCodec: ts.Expression = (() => {
-					switch(f.esexprOptions.kind.$type) {
+					switch (f.esexprOptions.kind.$type) {
 						case "vararg":
 							return ts.factory.createCallExpression(
 								ts.factory.createPropertyAccessExpression(
@@ -548,7 +642,7 @@ class ModEmitter {
 									"varargFieldCodec",
 								),
 								undefined,
-								[ this.#emitCodecExprImpl(f.fieldType, "varargCodec") ],
+								[this.#emitCodecExprImpl(f.fieldType, "varargCodec")],
 							);
 
 						case "dict":
@@ -558,67 +652,67 @@ class ModEmitter {
 									"dictFieldCodec",
 								),
 								undefined,
-								[ this.#emitCodecExprImpl(f.fieldType, "dictCodec") ],
+								[this.#emitCodecExprImpl(f.fieldType, "dictCodec")],
 							);
 
 						case "keyword":
-						{
-							const keywordName = f.esexprOptions.kind.name;
+							{
+								const keywordName = f.esexprOptions.kind.name;
 
-							switch(f.esexprOptions.kind.mode.$type) {
-								case "default-value":
-									return ts.factory.createCallExpression(
-										ts.factory.createPropertyAccessExpression(
-											ts.factory.createIdentifier("$esexpr"),
-											"defaultKeywordFieldCodec",
-										),
-										undefined,
-										[
-											ts.factory.createStringLiteral(keywordName),
-											ts.factory.createArrowFunction(
-												undefined,
-												undefined,
-												[],
-												undefined,
-												ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-												this.#emitValue(f.esexprOptions.kind.mode.value),
+								switch (f.esexprOptions.kind.mode.$type) {
+									case "default-value":
+										return ts.factory.createCallExpression(
+											ts.factory.createPropertyAccessExpression(
+												ts.factory.createIdentifier("$esexpr"),
+												"defaultKeywordFieldCodec",
 											),
-											this.#emitCodecExpr(f.fieldType),
-										],
-									);
+											undefined,
+											[
+												ts.factory.createStringLiteral(keywordName),
+												ts.factory.createArrowFunction(
+													undefined,
+													undefined,
+													[],
+													undefined,
+													ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+													this.#emitValue(f.esexprOptions.kind.mode.value),
+												),
+												this.#emitCodecExpr(f.fieldType),
+											],
+										);
 
 
-								case "optional":
-									return ts.factory.createCallExpression(
-										ts.factory.createPropertyAccessExpression(
-											ts.factory.createIdentifier("$esexpr"),
-											"optionalKeywordFieldCodec",
-										),
-										undefined,
-										[
-											ts.factory.createStringLiteral(keywordName),
-											this.#emitCodecExprImpl(f.fieldType, "optionalCodec"),
-										],
-									);
+									case "optional":
+										return ts.factory.createCallExpression(
+											ts.factory.createPropertyAccessExpression(
+												ts.factory.createIdentifier("$esexpr"),
+												"optionalKeywordFieldCodec",
+											),
+											undefined,
+											[
+												ts.factory.createStringLiteral(keywordName),
+												this.#emitCodecExprImpl(f.fieldType, "optionalCodec"),
+											],
+										);
 
-								case "required":
-									return ts.factory.createCallExpression(
-										ts.factory.createPropertyAccessExpression(
-											ts.factory.createIdentifier("$esexpr"),
-											"keywordFieldCodec",
-										),
-										undefined,
-										[
-											ts.factory.createStringLiteral(keywordName),
-											this.#emitCodecExpr(f.fieldType),
-										],
-									);
+									case "required":
+										return ts.factory.createCallExpression(
+											ts.factory.createPropertyAccessExpression(
+												ts.factory.createIdentifier("$esexpr"),
+												"keywordFieldCodec",
+											),
+											undefined,
+											[
+												ts.factory.createStringLiteral(keywordName),
+												this.#emitCodecExpr(f.fieldType),
+											],
+										);
 
+								}
 							}
-						}
 
 						case "positional":
-							switch(f.esexprOptions.kind.mode.$type) {
+							switch (f.esexprOptions.kind.mode.$type) {
 								case "optional":
 									return ts.factory.createCallExpression(
 										ts.factory.createPropertyAccessExpression(
@@ -656,28 +750,28 @@ class ModEmitter {
 		);
 	}
 
-    #emitMethod(method: InterfaceMethod): ts.TypeElement {
-        return ts.factory.createMethodSignature(
-            undefined,
-            convertIdCamel(method.name),
-            undefined,
-            this.#emitTypeParameters(method.typeParameters),
-            method.parameters.map(p => ts.factory.createParameterDeclaration(
-                undefined,
-                undefined,
-                convertIdCamel(p.name),
-                undefined,
-                this.#emitTypeExpr(p.parameterType),
-            )),
-            this.#emitTypeExpr(method.returnType),
-        );
-    }
+	#emitMethod(method: InterfaceMethod): ts.TypeElement {
+		return ts.factory.createMethodSignature(
+			undefined,
+			convertIdCamel(method.name),
+			undefined,
+			this.#emitTypeParameters(method.typeParameters),
+			method.parameters.map(p => ts.factory.createParameterDeclaration(
+				undefined,
+				undefined,
+				convertIdCamel(p.name),
+				undefined,
+				this.#emitTypeExpr(p.parameterType),
+			)),
+			this.#emitTypeExpr(method.returnType),
+		);
+	}
 
-    #emitTypeExpr(t: TypeExpr): ts.TypeNode {
-        switch(t.$type) {
-            case "defined-type":
-				if(isSamePackage(this.currentPackage, t.name.package)) {
-					if(this.metadata.shadowedTypes.has(t.name.name)) {
+	#emitTypeExpr(t: TypeExpr): ts.TypeNode {
+		switch (t.$type) {
+			case "defined-type":
+				if (isSamePackage(this.currentPackage, t.name.package)) {
+					if (this.metadata.shadowedTypes.has(t.name.name)) {
 						return ts.factory.createTypeReferenceNode(
 							getUnshadowedName(t.name.name),
 							t.args.length === 0 ? undefined : t.args.map(arg => this.#emitTypeExpr(arg)),
@@ -700,13 +794,13 @@ class ModEmitter {
 					);
 				}
 
-            case "type-parameter":
-                return ts.factory.createTypeReferenceNode(
-                    ts.factory.createIdentifier(convertIdPascal(t.name)),
-                    undefined,
-                );
-        }
-    }
+			case "type-parameter":
+				return ts.factory.createTypeReferenceNode(
+					ts.factory.createIdentifier(convertIdPascal(t.name)),
+					undefined,
+				);
+		}
+	}
 
 
 
@@ -730,7 +824,7 @@ class ModEmitter {
 			],
 		)
 
-		if(def.typeParameters.length === 0) {
+		if (def.typeParameters.length === 0) {
 			return ts.factory.createVariableStatement(
 				[
 					ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
@@ -801,33 +895,33 @@ class ModEmitter {
 	}
 
 	#emitCodecExprImpl(t: TypeExpr, codecMethod: string): ts.Expression {
-		switch(t.$type) {
-            case "defined-type":
-			{
-				const typeModule: ts.Expression = this.#emitTypeModule(t.name);
+		switch (t.$type) {
+			case "defined-type":
+				{
+					const typeModule: ts.Expression = this.#emitTypeModule(t.name);
 
-				const codecExpr = ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
+					const codecExpr = ts.factory.createPropertyAccessExpression(typeModule, codecMethod);
 
-				if(t.args.length === 0) {
-					return codecExpr;
+					if (t.args.length === 0) {
+						return codecExpr;
+					}
+					else {
+						return ts.factory.createCallExpression(
+							codecExpr,
+							t.args.map(a => this.#emitTypeExpr(a)),
+							t.args.map(a => this.#emitCodecExpr(a)),
+						);
+					}
 				}
-				else {
-					return ts.factory.createCallExpression(
-						codecExpr,
-						t.args.map(a => this.#emitTypeExpr(a)),
-						t.args.map(a => this.#emitCodecExpr(a)),
-					);
-				}
-			}
 
-            case "type-parameter":
-                return ts.factory.createIdentifier(convertIdCamel(t.name) + "Codec");
+			case "type-parameter":
+				return ts.factory.createIdentifier(convertIdCamel(t.name) + "Codec");
 		}
 	}
 
 	#emitTypeModule(name: QualifiedName): ts.Expression {
-		if(isSamePackage(this.currentPackage, name.package)) {
-			if(this.metadata.shadowedTypes.has(name.name)) {
+		if (isSamePackage(this.currentPackage, name.package)) {
+			if (this.metadata.shadowedTypes.has(name.name)) {
 				return ts.factory.createIdentifier(getUnshadowedName(name.name));
 			}
 			else {
@@ -856,7 +950,7 @@ class ModEmitter {
 
 
 	#emitValue(value: EsexprDecodedValue): ts.Expression {
-		if(value.t.$type === "type-parameter") {
+		if (value.t.$type === "type-parameter") {
 			throw new Error("Emitted values cannot have an unsubstituted type parameter for a value.");
 		}
 
@@ -879,7 +973,7 @@ class ModEmitter {
 			);
 		};
 
-		switch(value.$type) {
+		switch (value.$type) {
 			case "record":
 				return ts.factory.createObjectLiteralExpression(
 					Array.from(value.fields)
@@ -904,81 +998,81 @@ class ModEmitter {
 				);
 
 			case "optional":
-			{
-				if(value.value === undefined) {
-					return ts.factory.createCallExpression(
-						ts.factory.createPropertyAccessExpression(
-							this.#emitTypeModule(value.t.name),
-							"empty",
-						),
-						typeArgs(),
-						[],
-					);
+				{
+					if (value.value === undefined) {
+						return ts.factory.createCallExpression(
+							ts.factory.createPropertyAccessExpression(
+								this.#emitTypeModule(value.t.name),
+								"empty",
+							),
+							typeArgs(),
+							[],
+						);
+					}
+					else {
+						return ts.factory.createCallExpression(
+							ts.factory.createPropertyAccessExpression(
+								this.#emitTypeModule(value.t.name),
+								"fromElement",
+							),
+							typeArgs(),
+							[
+								this.#emitValue(value.value),
+							],
+						);
+					}
 				}
-				else {
+
+			case "vararg":
+				{
 					return ts.factory.createCallExpression(
 						ts.factory.createPropertyAccessExpression(
 							this.#emitTypeModule(value.t.name),
-							"fromElement",
+							"fromArray",
 						),
 						typeArgs(),
 						[
-							this.#emitValue(value.value),
+							ts.factory.createArrayLiteralExpression(
+								value.values.map(v => this.#emitValue(v)),
+								true,
+							),
 						],
 					);
 				}
-			}
-
-			case "vararg":
-			{
-				return ts.factory.createCallExpression(
-					ts.factory.createPropertyAccessExpression(
-						this.#emitTypeModule(value.t.name),
-						"fromArray",
-					),
-					typeArgs(),
-					[
-						ts.factory.createArrayLiteralExpression(
-							value.values.map(v => this.#emitValue(v)),
-							true,
-						),
-					],
-				);
-			}
 
 			case "dict":
-			{
-				return ts.factory.createCallExpression(
-					ts.factory.createPropertyAccessExpression(
-						this.#emitTypeModule(value.t.name),
-						"fromMap",
-					),
-					typeArgs(),
-					[
-						ts.factory.createNewExpression(
-							ts.factory.createIdentifier("Map"),
-							[
-								ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
-								this.#emitTypeExpr(value.elementType),
-							],
-							[
-								ts.factory.createArrayLiteralExpression(
-									Array.from(value.values.entries()).map(([k, v]) =>
-										ts.factory.createArrayLiteralExpression(
-											[
-												ts.factory.createStringLiteral(k),
-												this.#emitValue(v),
-											],
-											false,
-										),
-									),
-									true,
-								),
-							],
+				{
+					return ts.factory.createCallExpression(
+						ts.factory.createPropertyAccessExpression(
+							this.#emitTypeModule(value.t.name),
+							"fromMap",
 						),
-					],
-				);
-			}
+						typeArgs(),
+						[
+							ts.factory.createNewExpression(
+								ts.factory.createIdentifier("Map"),
+								[
+									ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+									this.#emitTypeExpr(value.elementType),
+								],
+								[
+									ts.factory.createArrayLiteralExpression(
+										Array.from(value.values.entries()).map(([k, v]) =>
+											ts.factory.createArrayLiteralExpression(
+												[
+													ts.factory.createStringLiteral(k),
+													this.#emitValue(v),
+												],
+												false,
+											),
+										),
+										true,
+									),
+								],
+							),
+						],
+					);
+				}
 
 			case "build-from":
 				return fromValue("buildFrom", this.#emitValue(value.fromValue));
@@ -987,7 +1081,7 @@ class ModEmitter {
 				return fromValue("fromBoolean", value.b ? ts.factory.createTrue() : ts.factory.createFalse());
 
 			case "from-int":
-				if(
+				if (
 					value.minInt !== undefined &&
 					value.minInt >= BigInt(Number.MIN_SAFE_INTEGER) &&
 					value.maxInt !== undefined &&
@@ -1064,7 +1158,7 @@ class ModuleScanner {
 	constructor(
 		private currentPackage: PackageName,
 		private definitions: readonly DefinitionInfo[],
-	) {}
+	) { }
 
 	metadata: ModuleMetadata = {
 		referencedPackages: new Map(),
@@ -1074,17 +1168,17 @@ class ModuleScanner {
 	};
 
 
-    scanModule(): void {
-		for(const def of this.definitions) {
-			if(def.definition.$type !== "extern-type") {
+	scanModule(): void {
+		for (const def of this.definitions) {
+			if (def.definition.$type !== "extern-type") {
 				continue;
 			}
 			this.#scanExtern(def, def.definition.et);
 		}
-		for(const def of this.definitions) {
+		for (const def of this.definitions) {
 			this.#scanDefinition(def);
 		}
-    }
+	}
 
 
 	#addPackage(packageName: PackageName, refContext: TypeReferenceContext): void {
@@ -1098,27 +1192,27 @@ class ModuleScanner {
 	}
 
 
-    #scanDefinition(def: DefinitionInfo): void {
-        switch(def.definition.$type) {
-            case "record":
+	#scanDefinition(def: DefinitionInfo): void {
+		switch (def.definition.$type) {
+			case "record":
 				this.#scanRecord(def, def.definition.r);
 				break;
 
-            case "enum":
+			case "enum":
 				this.#scanEnum(def, def.definition.e);
 				break;
 
-            case "interface":
+			case "interface":
 				this.#scanInterface(def, def.definition.iface);
 				break;
 
 			case "simple-enum": // Simple enums can't reference other types.
 			case "extern-type": // Extern types are scanned first.
 				break;
-        }
-    }
+		}
+	}
 
-    #scanRecord(def: DefinitionInfo, r: RecordDefinition): void {
+	#scanRecord(def: DefinitionInfo, r: RecordDefinition): void {
 		const hasEsexpr = r.esexprOptions !== undefined;
 
 		const refContext: TypeReferenceContext = {
@@ -1129,12 +1223,12 @@ class ModuleScanner {
 		this.metadata.needsEsexprImport ||= hasEsexpr;
 
 
-		for(const f of r.fields) {
+		for (const f of r.fields) {
 			this.#scanField(f, refContext);
 		}
-    }
+	}
 
-    #scanEnum(def: DefinitionInfo, e: EnumDefinition): void {
+	#scanEnum(def: DefinitionInfo, e: EnumDefinition): void {
 		let hasEsexpr = e.esexprOptions !== undefined;
 
 		const refContext: TypeReferenceContext = {
@@ -1143,12 +1237,12 @@ class ModuleScanner {
 		};
 
 
-        for(const c of e.cases) {
-			for(const f of c.fields) {
+		for (const c of e.cases) {
+			for (const f of c.fields) {
 				this.#scanField(f, refContext);
 			}
 		}
-    }
+	}
 
 	#scanExtern(def: DefinitionInfo, ext: ExternTypeDefinition): void {
 		let hasEsexpr = ext.esexprOptions !== undefined;
@@ -1159,43 +1253,43 @@ class ModuleScanner {
 		});
 	}
 
-    #scanInterface(def: DefinitionInfo, i: InterfaceDefinition): void {
+	#scanInterface(def: DefinitionInfo, i: InterfaceDefinition): void {
 		const refContext: TypeReferenceContext = {
 			isTypeOnly: true,
 			typeParameters: this.#buildTypeParameters(def.typeParameters),
 		};
 
-		for(const m of i.methods) {
+		for (const m of i.methods) {
 			this.#scanMethod(m, refContext);
 		}
-    }
+	}
 
-    #scanField(field: RecordField, refContext: TypeReferenceContext): void {
-        this.#scanType(field.fieldType, refContext);
-    }
+	#scanField(field: RecordField, refContext: TypeReferenceContext): void {
+		this.#scanType(field.fieldType, refContext);
+	}
 
-    #scanMethod(method: InterfaceMethod, refContext: TypeReferenceContext): void {
+	#scanMethod(method: InterfaceMethod, refContext: TypeReferenceContext): void {
 		const refContext2: TypeReferenceContext = {
 			...refContext,
 			typeParameters: this.#buildTypeParameters(method.typeParameters, refContext.typeParameters),
 		};
 
-		for(const p of method.parameters) {
+		for (const p of method.parameters) {
 			this.#scanType(p.parameterType, refContext2);
 		}
 		this.#scanType(method.returnType, refContext2);
-    }
+	}
 
 	#scanType(t: TypeExpr, refContext: TypeReferenceContext): void {
-		switch(t.$type) {
+		switch (t.$type) {
 			case "defined-type":
-				if(isSamePackage(t.name.package, this.currentPackage)) {
+				if (isSamePackage(t.name.package, this.currentPackage)) {
 					const externInfo = this.metadata.externTypes.get(t.name.name);
-					if(externInfo !== undefined) {
+					if (externInfo !== undefined) {
 						externInfo.isReferencedInModule = true;
 					}
 
-					if(refContext.typeParameters.has(t.name.name)) {
+					if (refContext.typeParameters.has(t.name.name)) {
 						this.metadata.shadowedTypes.add(t.name.name);
 					}
 				}
@@ -1203,7 +1297,7 @@ class ModuleScanner {
 					this.#addPackage(t.name.package, refContext);
 				}
 
-				for(const arg of t.args) {
+				for (const arg of t.args) {
 					this.#scanType(arg, refContext);
 				}
 				break;
@@ -1215,7 +1309,7 @@ class ModuleScanner {
 
 	#buildTypeParameters(typeParams: readonly TypeParameter[], existing?: ReadonlySet<string>): Set<string> {
 		const params = new Set(existing);
-		for(const tp of typeParams) {
+		for (const tp of typeParams) {
 			params.add(tp.name);
 		}
 		return params;
@@ -1226,21 +1320,21 @@ class ModuleScanner {
 
 interface JSModule {
 	isCurrentPackage: boolean;
-    packageName: string;
-    path: string;
+	packageName: string;
+	path: string;
 }
 
 
 function convertIdPascal(kebab: string): string {
-    return kebab
-        .split('-')
-        .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
-        .join('');
+	return kebab
+		.split('-')
+		.map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
+		.join('');
 }
 
 function convertIdCamel(kebab: string): string {
-    const pascalCase = convertIdPascal(kebab);
-    return pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1);
+	const pascalCase = convertIdPascal(kebab);
+	return pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1);
 }
 
 function getUnshadowedName(name: string): string {
@@ -1250,7 +1344,7 @@ function getUnshadowedName(name: string): string {
 
 
 function getPackageNameStr(name: PackageName): string {
-    return name.parts.join(".");
+	return name.parts.join(".");
 }
 
 function decodePackageNameStr(name: string): PackageName {
@@ -1260,7 +1354,7 @@ function decodePackageNameStr(name: string): PackageName {
 }
 
 function getPackageIdStr(name: PackageName | string): string {
-	if(typeof name === "object") {
+	if (typeof name === "object") {
 		return getPackageIdStr(getPackageNameStr(name));
 	}
 
@@ -1269,21 +1363,21 @@ function getPackageIdStr(name: PackageName | string): string {
 
 
 function getPackageMapping(options: JSLanguageOptions): Map<string, JSModule> {
-    let pkgMapping = new Map<string, JSModule>();
+	let pkgMapping = new Map<string, JSModule>();
 
-	for(const [packageName, packageOptions] of options.packageOptions) {
+	for (const [packageName, packageOptions] of options.packageOptions) {
 		const isCurrentPackage = options.packageName == packageName;
 
-        for(const [idlPackage, jsPath] of packageOptions.packageMapping) {
-            pkgMapping.set(idlPackage, {
+		for (const [idlPackage, jsPath] of packageOptions.packageMapping) {
+			pkgMapping.set(idlPackage, {
 				isCurrentPackage,
-                packageName: packageName,
-                path: jsPath,
-            });
-        }
-    }
+				packageName: packageName,
+				path: jsPath,
+			});
+		}
+	}
 
-    return pkgMapping;
+	return pkgMapping;
 }
 
 

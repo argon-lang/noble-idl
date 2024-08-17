@@ -23,6 +23,7 @@ fn remove_definition(dfn: &mut DefinitionInfo) {
 		Definition::SimpleEnum(e) => remove_simple_enum(e),
 		Definition::ExternType(_) => {},
 		Definition::Interface(_) => {},
+		Definition::ExceptionType(_) => {},
 	}
 }
 

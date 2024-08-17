@@ -20,6 +20,10 @@ enum Definition derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual {
   case Interface(
     iface: _root_.nobleidl.compiler.api.InterfaceDefinition,
   )
+  @_root_.esexpr.inlineValue
+  case ExceptionType(
+    ex: _root_.nobleidl.compiler.api.ExceptionTypeDefinition,
+  )
 }
 object Definition {
 }

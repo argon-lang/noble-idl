@@ -160,7 +160,9 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in
                     "--js-adapters",
                     "--scalajs",
                     "--js-package-mapping",
-                    "nobleidl.example=nobleidl.sjs.example"
+                    "nobleidl.example=nobleidl.sjs.example",
+                    "--js-package-import",
+                    "nobleidl.example=@argon-lang/noble-idl-example",
                   )
 
                 case _ => Seq()

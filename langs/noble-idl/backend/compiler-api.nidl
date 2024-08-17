@@ -120,6 +120,12 @@ enum definition {
     interface {
         iface: interface-definition;
     },
+
+    @esexpr: (inline-value)
+    @rust: (tuple)
+    exception-type {
+        ex: exception-type-definition;
+    },
 }
 
 @esexpr: (derive-codec)
@@ -232,6 +238,12 @@ record interface-method-parameter {
     @esexpr: (keyword)
     annotations: list[annotation];
 }
+
+@esexpr: (derive-codec)
+record exception-type-definition {
+    information: type-expr;
+}
+
 
 @esexpr: (derive-codec)
 record annotation {

@@ -28,6 +28,7 @@ pub fn run(definitions: &mut HashMap<QualifiedName, DefinitionInfo>, types: &Has
 			Definition::SimpleEnum(e) => checker.check_simple_enum(e)?,
 			Definition::ExternType(et) => checker.check_extern_type(et)?,
 			Definition::Interface(iface) => checker.check_interface(iface)?,
+			Definition::ExceptionType(ex) => checker.check_exception_type(ex)?,
 		}
 	}
 
@@ -272,6 +273,12 @@ impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
 
 			inner.check_type(&mut method.return_type)?;
 		}
+
+		Ok(())
+	}
+
+	fn check_exception_type(&self, ex: &mut ExceptionTypeDefinition) -> Result<(), CheckError> {
+		self.check_type(&mut ex.information)?;
 
 		Ok(())
 	}

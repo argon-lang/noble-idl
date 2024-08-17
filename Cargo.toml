@@ -2,7 +2,6 @@
 resolver = "2"
 
 members = [
-    "langs/rust/runtime-derive",
     "langs/rust/runtime",
     "langs/rust/backend",
     "langs/rust/example",

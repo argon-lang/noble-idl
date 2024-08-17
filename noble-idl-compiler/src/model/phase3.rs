@@ -52,6 +52,7 @@ impl <'a> ESExprOptionParser<'a> {
 				self.esexpr_codecs.insert(dfn.name.as_ref().clone(), et.esexpr_options.as_ref().is_some_and(|eo| eo.allow_value));
 			},
 			Definition::Interface(_) => {},
+			Definition::ExceptionType(_) => {},
 		}
 
 		Ok(())

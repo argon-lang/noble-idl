@@ -35,6 +35,7 @@ impl ESExprOptionParseExtern {
 			Definition::SimpleEnum(_) => {},
 			Definition::ExternType(et) => self.scan_extern_type(&dfn.name, &dfn.annotations, et)?,
 			Definition::Interface(_) => {},
+			Definition::ExceptionType(_) => {},
 		}
 
 		Ok(())

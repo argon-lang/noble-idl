@@ -21,6 +21,10 @@ public sealed interface Definition {
 	record Interface(
 		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull InterfaceDefinition iface
 	) implements dev.argon.nobleidl.compiler.api.Definition {}
+	@dev.argon.esexpr.InlineValue
+	record ExceptionType(
+		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull ExceptionTypeDefinition ex
+	) implements dev.argon.nobleidl.compiler.api.Definition {}
 	public static dev.argon.esexpr.ESExprCodec<dev.argon.nobleidl.compiler.api.Definition> codec() {
 		return dev.argon.nobleidl.compiler.api.Definition_CodecImpl.INSTANCE;
 	}
