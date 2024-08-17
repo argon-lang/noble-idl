@@ -22,6 +22,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
     generateScalaJS: Boolean = false,
 
     javaAdapters: Boolean = false,
+    jsAdapters: Boolean = false,
 
     inputDirs: Seq[Path] = Seq(),
     outputDir: Option[String] = None,
@@ -57,6 +58,8 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .action((_, c) => c.copy(generateScalaJS = true)),
           opt[Unit]("java-adapters")
             .action((_, c) => c.copy(javaAdapters = true)),
+          opt[Unit]("js-adapters")
+            .action((_, c) => c.copy(jsAdapters = true)),
           opt[Seq[Path]]('i', "input")
             .minOccurs(1)
             .unbounded()
@@ -251,7 +254,16 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
               ))
             ))
           else
-            None
+            None,
+        jsAdapters =
+          if config.jsAdapters then
+            Some(ScalaLanguageOptions.JSAdapters(
+              packageMapping = PackageMapping(Dictionary(
+                libRes.scalaJSPackageMapping ++ config.scalaJSPackageMapping
+              ))
+            ))
+          else
+            None,
       )
 
     private[ScalaNobleIDLCompiler] override def jarBackendOptions(config: Config): BackendOptions =

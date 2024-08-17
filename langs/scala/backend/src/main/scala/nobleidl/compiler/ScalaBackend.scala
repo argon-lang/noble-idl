@@ -20,11 +20,6 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
   private val options: ScalaLanguageOptions = genRequest.languageOptions
 
-  protected final lazy val javaPackageMapping = packageMappingRaw.mapping.dict
-    .view
-    .map { (k, v) => PackageName.fromString(k) -> v }
-    .toMap
-
   protected override def model: NobleIdlModel = genRequest.model
   protected override def packageMappingRaw: PackageMapping = options.packageMapping
   override protected def outputDir: Path = Path.of(options.outputDir).nn
@@ -60,7 +55,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
             _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(definitionAsType(dfn), TypePosition.Normal)
             _ <- writeln("(")
             _ <- indent()
-            _ <- writeScalaToJavaArgs(adapterWriter, "s", "toJava")(r.fields)
+            _ <- writeScalaToJavaArgs(adapterWriter)(r.fields)
             _ <- dedent()
             _ <- writeln(")")
           yield (),
@@ -69,7 +64,29 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
             _ <- AdapterScalaTypeExprWriter.writeTypeExpr(definitionAsType(dfn), TypePosition.Normal)
             _ <- writeln("(")
             _ <- indent()
-            _ <- writeScalaFromJavaArgs(adapterWriter, "j", "fromJava")(r.fields)
+            _ <- writeScalaFromJavaArgs(adapterWriter)(r.fields)
+            _ <- dedent()
+            _ <- writeln(")")
+          yield (),
+      )
+
+      _ <- writeJSAdapters(dfn)(
+        writeToJS = adapterWriter =>
+          for
+            _ <- write("new ")
+            _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(definitionAsType(dfn), TypePosition.Normal)
+            _ <- writeln(" {")
+            _ <- indent()
+            _ <- writeScalaToJSArgs(adapterWriter)(r.fields)
+            _ <- dedent()
+            _ <- writeln("}")
+          yield (),
+        writeFromJS = adapterWriter =>
+          for
+            _ <- AdapterScalaTypeExprWriter.writeTypeExpr(definitionAsType(dfn), TypePosition.Normal)
+            _ <- writeln("(")
+            _ <- indent()
+            _ <- writeScalaFromJSArgs(adapterWriter, write("j"))(r.fields)
             _ <- dedent()
             _ <- writeln(")")
           yield (),
@@ -127,11 +144,11 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         writeToJava = adapterWriter => {
           val dfnType = definitionAsType(dfn)
           for
-            _ <- writeln("s match {")
+            _ <- writeln("s_value match {")
             _ <- indent()
             _ <- ZIO.foreachDiscard(e.cases) { c =>
               for
-                _ <- write("case s: ")
+                _ <- write("case s_value: ")
                 _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
                 _ <- write(".")
                 _ <- write(convertIdPascal(c.name))
@@ -146,7 +163,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                 _ <- adapterWriter.adaptedExprWriter.writeTypeArguments(dfnType.args)
                 _ <- writeln("(")
                 _ <- indent()
-                _ <- writeScalaToJavaArgs(adapterWriter, "s", "toJava")(c.fields)
+                _ <- writeScalaToJavaArgs(adapterWriter)(c.fields)
                 _ <- dedent()
                 _ <- writeln(")")
 
@@ -179,7 +196,91 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                 _ <- AdapterScalaTypeExprWriter.writeTypeArguments(dfnType.args)
                 _ <- writeln("(")
                 _ <- indent()
-                _ <- writeScalaFromJavaArgs(adapterWriter, "j", "fromJava")(c.fields)
+                _ <- writeScalaFromJavaArgs(adapterWriter)(c.fields)
+                _ <- dedent()
+                _ <- writeln(")")
+
+                _ <- dedent()
+              yield ()
+            }
+
+            _ <- writeln("case _ => throw new _root_.scala.MatchError(j)")
+
+            _ <- dedent()
+            _ <- writeln("}")
+          yield ()
+        },
+      )
+
+      _ <- writeJSAdapters(dfn)(
+        writeToJS = adapterWriter => {
+          val dfnType = definitionAsType(dfn)
+          for
+            _ <- writeln("s_value match {")
+            _ <- indent()
+            _ <- ZIO.foreachDiscard(e.cases) { c =>
+              for
+                _ <- write("case s_value: ")
+                _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
+                _ <- write(".")
+                _ <- write(convertIdPascal(c.name))
+                _ <- AdapterScalaTypeExprWriter.writeTypeArguments(dfnType.args)
+                _ <- writeln(" =>")
+                _ <- indent()
+
+                _ <- write("new ")
+                _ <- adapterWriter.adaptedExprWriter.writeDefinedTypeName(dfnType.name)
+                _ <- write(".")
+                _ <- write(convertIdPascal(c.name))
+                _ <- adapterWriter.adaptedExprWriter.writeTypeArguments(dfnType.args)
+                _ <- writeln(" {")
+                _ <- indent()
+                _ <- write("override val $type: \"")
+                _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
+                _ <- write("\" = \"")
+                _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
+                _ <- writeln("\"")
+                _ <- writeScalaToJSArgs(adapterWriter)(c.fields)
+                _ <- dedent()
+                _ <- writeln("}")
+
+                _ <- dedent()
+              yield ()
+            }
+            _ <- dedent()
+            _ <- writeln("}")
+          yield ()
+        },
+        writeFromJS = adapterWriter => {
+          val dfnType = definitionAsType(dfn)
+          for
+            _ <- writeln("j.$type match {")
+            _ <- indent()
+            _ <- ZIO.foreachDiscard(e.cases) { c =>
+              for
+                _ <- write("case \"")
+                _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
+                _ <- writeln(" \" =>")
+                _ <- indent()
+
+                _ <- write("new ")
+                _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
+                _ <- write(".")
+                _ <- write(convertIdPascal(c.name))
+                _ <- AdapterScalaTypeExprWriter.writeTypeArguments(dfnType.args)
+                _ <- writeln("(")
+                _ <- indent()
+                _ <- writeScalaFromJSArgs(
+                  adapterWriter,
+                  for
+                    _ <- write("j.asInstanceOf[")
+                    _ <- adapterWriter.adaptedExprWriter.writeDefinedTypeName(dfnType.name)
+                    _ <- write(".")
+                    _ <- write(convertIdPascal(c.name))
+                    _ <- adapterWriter.adaptedExprWriter.writeTypeArguments(dfnType.args)
+                    _ <- write("]")
+                  yield ()
+                )(c.fields)
                 _ <- dedent()
                 _ <- writeln(")")
 
@@ -242,7 +343,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         writeToJava = adapterWriter => {
           val dfnType = definitionAsType(dfn)
           for
-            _ <- writeln("s match {")
+            _ <- writeln("s_value match {")
             _ <- indent()
             _ <- ZIO.foreachDiscard(e.cases) { c =>
               for
@@ -276,6 +377,53 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                 _ <- write(".")
                 _ <- writeln(convertIdConst(c.name))
                 _ <- writeln(".type =>")
+                _ <- indent()
+
+                _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
+                _ <- write(".")
+                _ <- writeln(convertIdPascal(c.name))
+
+                _ <- dedent()
+              yield ()
+            }
+            _ <- dedent()
+            _ <- writeln("}")
+          yield ()
+        },
+      )
+
+      _ <- writeJSAdapters(dfn)(
+        writeToJS = _ => {
+          val dfnType = definitionAsType(dfn)
+          for
+            _ <- writeln("s_value match {")
+            _ <- indent()
+            _ <- ZIO.foreachDiscard(e.cases) { c =>
+              for
+                _ <- write("case ")
+                _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
+                _ <- write(".")
+                _ <- write(convertIdPascal(c.name))
+                _ <- write(" => \"")
+                _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
+                _ <- writeln("\"")
+
+              yield ()
+            }
+            _ <- dedent()
+            _ <- writeln("}")
+          yield ()
+        },
+        writeFromJS = _ => {
+          val dfnType = definitionAsType(dfn)
+          for
+            _ <- write("j match {")
+            _ <- indent()
+            _ <- ZIO.foreachDiscard(e.cases) { c =>
+              for
+                _ <- write("case \"")
+                _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
+                _ <- writeln("\" =>")
                 _ <- indent()
 
                 _ <- AdapterScalaTypeExprWriter.writeDefinedTypeName(dfnType.name)
@@ -396,35 +544,56 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
     yield ()
 
 
-  private def writeScalaToJavaArgs(adapterWriter: AdapterWriter, instanceName: String, methodName: String)(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  private def writeScalaToJavaArgs(adapterWriter: AdapterWriter)(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- ZIO.foreachDiscard(fields) { field =>
         for
           _ <- adapterWriter.writeAdapterExpr(field.fieldType, TypePosition.Normal)
-          _ <- write(".")
-          _ <- write(methodName)
-          _ <- write("(")
-          _ <- write(instanceName)
-          _ <- write(".")
+          _ <- write(".toJava(s_value.")
           _ <- write(convertIdCamel(field.name))
           _ <- writeln("),")
         yield ()
       }
     yield ()
 
-  private def writeScalaFromJavaArgs(adapterWriter: AdapterWriter, instanceName: String, methodName: String)(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  private def writeScalaFromJavaArgs(adapterWriter: AdapterWriter)(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
       _ <- ZIO.foreachDiscard(fields) { field =>
         for
           _ <- adapterWriter.writeAdapterExpr(field.fieldType, TypePosition.Normal)
-          _ <- write(".")
-          _ <- write(methodName)
-          _ <- write("(")
-          _ <- write(instanceName)
+          _ <- write(".fromJava(j.")
+          _ <- write(convertIdCamel(field.name))
+          _ <- writeln("().nn),")
+        yield ()
+      }
+    yield ()
+
+  private def writeScalaToJSArgs(adapterWriter: AdapterWriter)(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    for
+      _ <- ZIO.foreachDiscard(fields) { field =>
+        for
+          _ <- write("override val ")
+          _ <- write(convertIdCamel(field.name))
+          _ <- write(": ")
+          _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(field.fieldType, TypePosition.Normal)
+          _ <- write(" = ")
+          _ <- adapterWriter.writeAdapterExpr(field.fieldType, TypePosition.Normal)
+          _ <- write(".toJS(s_value.")
+          _ <- write(convertIdCamel(field.name))
+          _ <- writeln(")")
+        yield ()
+      }
+    yield ()
+
+  private def writeScalaFromJSArgs(adapterWriter: AdapterWriter, writeValue: ZIO[CodeWriter, NobleIDLCompileErrorException, Unit])(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    for
+      _ <- ZIO.foreachDiscard(fields) { field =>
+        for
+          _ <- adapterWriter.writeAdapterExpr(field.fieldType, TypePosition.Normal)
+          _ <- write(".fromJS(")
+          _ <- writeValue
           _ <- write(".")
           _ <- write(convertIdCamel(field.name))
-          _ <- write("().nn : ")
-          _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(field.fieldType, TypePosition.Normal)
           _ <- writeln("),")
         yield ()
       }
@@ -447,13 +616,50 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
     writeToJava: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
     writeFromJava: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
   ): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
-    ZIO.foreachDiscard(options.javaAdapters) { javaAdapters =>
+    writePlatformAdapters(dfn)(
+      adapterMethod = "javaAdapter",
+      toMethod = "toJava",
+      fromMethod = "fromJava",
+    )(
+      buildAdapterWriter = () => options.javaAdapters.map { javaAdapters =>
+        JavaAdapterWriter(JavaTypeExprWriter(buildPackageMapping(javaAdapters.packageMapping)))
+      },
+      writeToPlatform = writeToJava,
+      writeFromPlatform = writeFromJava,
+    )
+
+  private def writeJSAdapters(dfn: DefinitionInfo)(
+    writeToJS: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
+    writeFromJS: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
+  ): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    writePlatformAdapters(dfn)(
+      adapterMethod = "jsAdapter",
+      toMethod = "toJS",
+      fromMethod = "fromJS",
+    )(
+      buildAdapterWriter = () => options.jsAdapters.map { jsAdapters =>
+        JSAdapterWriter(JSTypeExprWriter(buildPackageMapping(jsAdapters.packageMapping)))
+      },
+      writeToPlatform = writeToJS,
+      writeFromPlatform = writeFromJS,
+    )
+
+
+  private def writePlatformAdapters[AdapterOptions](dfn: DefinitionInfo)(
+    adapterMethod: String,
+    toMethod: String,
+    fromMethod: String,
+  )(
+    buildAdapterWriter: () => Option[AdapterWriter],
+    writeToPlatform: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
+    writeFromPlatform: AdapterWriter => ZIO[CodeWriter, NobleIDLCompileErrorException, Unit],
+  ): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    ZIO.foreachDiscard(buildAdapterWriter()) { adapterWriter =>
       val dfnType = definitionAsType(dfn)
 
-      val adapterWriter = JavaAdapterWriter(JavaTypeExprWriter(buildPackageMapping(javaAdapters.packageMapping)))
-
       for
-        _ <- write("def javaAdapter")
+        _ <- write("def ")
+        _ <- write(adapterMethod)
         _ <- adapterWriter.writeTypeParamPairs(dfn)
 
         _ <- write("(")
@@ -477,23 +683,27 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         _ <- writeln(" {")
         _ <- indent()
 
-        _ <- write("override def toJava(s: ")
+        _ <- write("override def ")
+        _ <- write(toMethod)
+        _ <- write("(s_value: ")
         _ <- AdapterScalaTypeExprWriter.writeTypeExpr(dfnType, TypePosition.Normal)
         _ <- write("): ")
         _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(dfnType, TypePosition.Normal)
         _ <- writeln(" = {")
         _ <- indent()
-        _ <- writeToJava(adapterWriter)
+        _ <- writeToPlatform(adapterWriter)
         _ <- dedent()
         _ <- writeln("}")
 
-        _ <- write("override def fromJava(j: ")
+        _ <- write("override def ")
+        _ <- write(fromMethod)
+        _ <- write("(j: ")
         _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(dfnType, TypePosition.Normal)
         _ <- write("): ")
         _ <- AdapterScalaTypeExprWriter.writeTypeExpr(dfnType, TypePosition.Normal)
         _ <- writeln(" = {")
         _ <- indent()
-        _ <- writeFromJava(adapterWriter)
+        _ <- writeFromPlatform(adapterWriter)
         _ <- dedent()
         _ <- writeln("}")
 
@@ -707,6 +917,29 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
         checkMappedType(mappedType)
       }
+  }
+
+
+  private class JSAdapterWriter(val adaptedExprWriter: JSTypeExprWriter) extends AdapterWriter {
+    override def adapterType: String = "JSAdapter"
+    override def adapterMemberName: String = "jsAdapter"
+  }
+
+  private class JSTypeExprWriter(jsPackageMapping: Map[PackageName, String]) extends TypeExprWriter {
+
+    private def getJSPackage(packageName: PackageName): IO[NobleIDLCompileErrorException, String] =
+      ZIO.fromEither(
+        jsPackageMapping.get(packageName)
+          .toRight {
+            NobleIDLCompileErrorException("Unmapped Java package: " + packageName.display)
+          }
+      )
+
+    override def writePackageName(packageName: PackageName): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      getJSPackage(packageName).flatMap(write)
+
+    override def writeTypeParameter(parameter: TypeExpr.TypeParameter, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+      write("J" + convertIdPascal(parameter.name))
   }
 
 }

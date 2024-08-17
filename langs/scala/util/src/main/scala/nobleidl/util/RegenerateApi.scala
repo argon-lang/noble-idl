@@ -29,6 +29,7 @@ object RegenerateApi extends ZIOAppDefault {
             "nobleidl.compiler.jar-metadata" -> "nobleidl.compiler.format",
           ))),
           javaAdapters = None,
+          jsAdapters = None,
         ),
         inputFileData = Seq(compilerApi, jarMetadata, javaAnns),
         libraryFileData = Seq(coreLib),

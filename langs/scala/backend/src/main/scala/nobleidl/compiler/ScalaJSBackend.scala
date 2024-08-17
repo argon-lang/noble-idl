@@ -67,7 +67,7 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
           _ <- writeln(" {")
           _ <- indent()
           _ <- write("val $type: \"")
-          _ <- write(StringEscapeUtils.escapeEcmaScript(c.name).nn)
+          _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
           _ <- writeln("\"")
           _ <- writeFields(c.fields)
           _ <- dedent()
@@ -95,7 +95,7 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
         for
           _ <- write("| ").when(i > 0)
           _ <- write("\"")
-          _ <- write(StringEscapeUtils.escapeEcmaScript(c.name).nn)
+          _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
           _ <- writeln("\"")
         yield ()
       }
