@@ -1,6 +1,6 @@
 import type { ESExpr } from "@argon-lang/esexpr";
 import { NobleIdlCompileModelOptions, NobleIdlCompileModelResult, type NobleIdlGenerationResult } from "./api.js";
-import { emit, type JSLanguageOptions } from "./emit.js";
+import { emit, type JSLanguageOptions } from "./emit/index.js";
 import * as compiler from "./noble-idl-compiler.js";
 
 import * as esxb from "@argon-lang/esexpr/binary_format";

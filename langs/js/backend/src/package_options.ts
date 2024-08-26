@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path  from "node:path";
 import type { JavaScriptIDLCompilerOptions } from "./index.js";
-import type { PackageOptions } from "./emit.js";
+import type { PackageOptions } from "./emit/index.js";
 import validateNpmModulePath from "validate-npm-package-name";
 
 
