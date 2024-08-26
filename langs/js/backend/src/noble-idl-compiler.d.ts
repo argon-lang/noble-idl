@@ -1,5 +1,4 @@
 
-// export declare function getMemory(): WebAssembly.Memory;
 export declare const memory: WebAssembly.Memory;
 
 export declare function nobleidl_alloc(size: number): [number, number];

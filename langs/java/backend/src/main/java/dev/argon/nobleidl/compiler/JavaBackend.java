@@ -239,12 +239,34 @@ class JavaBackend {
 				w.print(convertIdCamel(m.name()));
 				w.print("(");
 
-				for(int i = 0; i < m.parameters().size(); ++i) {
-					if(i > 0) {
+				boolean needsComma = false;
+
+				for(var tp : m.typeParameters()) {
+					switch(tp) {
+						case TypeParameter.Type typeParam -> {
+							if(typeParam.constraints().stream().noneMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
+								continue;
+							}
+
+							if(needsComma) {
+								w.print(", ");
+							}
+							needsComma = true;
+
+							w.print("java.lang.Class<");
+							writeTypeExpr(w, new TypeExpr.TypeParameter(typeParam.name(), TypeParameterOwner.BY_METHOD));
+							w.print("> class_");
+							w.print(convertIdCamel(typeParam.name()));
+						}
+					}
+				}
+
+				for(var param : m.parameters()) {
+					if(needsComma) {
 						w.print(", ");
 					}
+					needsComma = true;
 
-					var param = m.parameters().get(i);
 					writeTypeExpr(w, param.parameterType());
 					w.print(" ");
 					w.print(convertIdCamel(param.name()));
@@ -252,9 +274,10 @@ class JavaBackend {
 
 				w.print(")");
 
+				w.print(" throws java.lang.InterruptedException");
 				var throwsClause = m._throws().orElse(null);
 				if(throwsClause != null) {
-					w.print(" throws ");
+					w.print(", ");
 					writeTypeExpr(w, throwsClause);
 				}
 

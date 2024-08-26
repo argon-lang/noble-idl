@@ -1,4 +1,4 @@
-import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition, ExceptionTypeDefinition } from "./api.js";
+import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, ExternTypeDefinition, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition, ExceptionTypeDefinition, TypeParameterTypeConstraint } from "./api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
@@ -177,6 +177,24 @@ class ModEmitter {
 				await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
 				await file.write(os.EOL);
 			}
+
+			if (this.metadata.needsUtilImport) {
+				const node = ts.factory.createImportDeclaration(
+					undefined,
+					ts.factory.createImportClause(
+						false,
+						undefined,
+						ts.factory.createNamespaceImport(
+							ts.factory.createIdentifier("$util"),
+						),
+					),
+					ts.factory.createStringLiteral("@argon-lang/noble-idl-core/util"),
+				);
+
+				await file.write(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile));
+				await file.write(os.EOL);
+			}
+
 
 			for (const [pkg, refContext] of this.metadata.referencedPackages) {
 				const node = ts.factory.createImportDeclaration(
@@ -610,9 +628,26 @@ class ModEmitter {
 			return undefined;
 		}
 
+		const makeConstraint = (constraints: readonly TypeParameterTypeConstraint[]): ts.TypeNode | undefined => {
+			const constraintTypes = constraints.map(constraint => {
+				switch(constraint.$type) {
+					case "exception":
+						return ts.factory.createTypeReferenceNode("Error");
+				}
+			});
+
+			if(constraintTypes.length === 0) {
+				return undefined;
+			}
+			else {
+				return ts.factory.createUnionTypeNode(constraintTypes);
+			}
+		};
+
 		return typeParameters.map(tp => ts.factory.createTypeParameterDeclaration(
 			undefined,
 			convertIdPascal(tp.name),
+			makeConstraint(tp.constraints),
 			undefined,
 		));
 	}
@@ -763,9 +798,20 @@ class ModEmitter {
 				undefined,
 				this.#emitTypeExpr(p.parameterType),
 			)),
-			ts.factory.createTypeReferenceNode("Promise", [
-				this.#emitTypeExpr(method.returnType),
-			]),
+			method.throws === undefined
+				? ts.factory.createTypeReferenceNode("Promise", [
+					this.#emitTypeExpr(method.returnType),
+				])
+				: ts.factory.createTypeReferenceNode(
+					ts.factory.createQualifiedName(
+						ts.factory.createIdentifier("$util"),
+						"PromiseWithErrror"
+					),
+					[
+						this.#emitTypeExpr(method.returnType),
+						this.#emitTypeExpr(method.throws),
+					],
+				),
 		);
 	}
 
@@ -1153,6 +1199,7 @@ interface ModuleMetadata {
 	externTypes: Map<string, ExternTypeInfo>;
 	shadowedTypes: Set<string>;
 	needsEsexprImport: boolean,
+	needsUtilImport: boolean,
 }
 
 class ModuleScanner {
@@ -1167,6 +1214,7 @@ class ModuleScanner {
 		externTypes: new Map(),
 		shadowedTypes: new Set(),
 		needsEsexprImport: false,
+		needsUtilImport: false,
 	};
 
 
@@ -1206,6 +1254,10 @@ class ModuleScanner {
 
 			case "interface":
 				this.#scanInterface(def, def.definition.iface);
+				break;
+
+			case "exception-type":
+				this.#scanExceptionType(def, def.definition.ex);
 				break;
 
 			case "simple-enum": // Simple enums can't reference other types.
@@ -1266,6 +1318,17 @@ class ModuleScanner {
 		}
 	}
 
+	#scanExceptionType(def: DefinitionInfo, ex: ExceptionTypeDefinition): void {
+		const refContext: TypeReferenceContext = {
+			isTypeOnly: true,
+			typeParameters: this.#buildTypeParameters(def.typeParameters),
+		};
+
+		this.metadata.needsUtilImport = true;
+
+		this.#scanType(ex.information, refContext);
+	}
+
 	#scanField(field: RecordField, refContext: TypeReferenceContext): void {
 		this.#scanType(field.fieldType, refContext);
 	}
@@ -1280,6 +1343,11 @@ class ModuleScanner {
 			this.#scanType(p.parameterType, refContext2);
 		}
 		this.#scanType(method.returnType, refContext2);
+
+		if(method.throws !== undefined) {
+			this.metadata.needsUtilImport = true;
+			this.#scanType(method.throws, refContext2);
+		}
 	}
 
 	#scanType(t: TypeExpr, refContext: TypeReferenceContext): void {

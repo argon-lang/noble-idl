@@ -6,7 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./lib/index.js",
-    "./binary_format": "./lib/binary_format.js"
+    "./util": "./lib/util.js"
   },
   "scripts": {
     "prebuild": "cpy --cwd=../../noble-idl/runtime nobleidl-core.nidl ../../js/runtime/src/",

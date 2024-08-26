@@ -12,7 +12,6 @@ pub fn run(definitions: &HashMap<QualifiedName, api::DefinitionInfo>) -> Result<
 	};
 
 	for (definition_name, def) in definitions {
-
 		let scope = TypeParameterScope {
 			parent_scope: scope,
 			type_parameters: &def.type_parameters,

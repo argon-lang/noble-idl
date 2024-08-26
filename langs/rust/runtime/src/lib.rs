@@ -1,79 +1,82 @@
-use std::{any::Any, collections::{HashMap, HashSet}, marker::PhantomData};
+use std::{collections::{HashMap, HashSet}, marker::PhantomData};
 
 use esexpr::{ESExpr, ESExprCodec, ESExprTag};
+
+pub mod erasure;
 
 
 include!("noble_idl_runtime.rs");
 
 
-pub struct Erased<'a>(Box<dyn Any + 'static>, PhantomData<&'a ()>);
 
-pub trait Erasure where Self: Sized {
-	type Concrete;
-	type Erased;
+pub trait ValueMapper: Copy {
+	type From: Clone + Send + Sync + 'static;
+	type To: Clone + Send + Sync + 'static;
 
-	fn erase(c: Self::Concrete) -> Self::Erased;
-	fn unerase(e: Self::Erased) -> Self::Concrete;
+	unsafe fn map(&self, from: Self::From) -> Self::To;
+	unsafe fn unmap(&self, to: Self::To) -> Self::From;
 }
 
-pub struct AnyErasure<'a, A>(PhantomData<A>, PhantomData<&'a ()>);
+#[derive(Clone, Copy)]
+pub struct ErasedMapper<E> {
+	eraser: E,
+}
 
-impl <'a, A: 'static> Erasure for AnyErasure<'a, A> {
-	type Concrete = A;
-	type Erased = Erased<'a>;
-
-	fn erase(a: A) -> Erased<'a> {
-		Erased(Box::new(a), PhantomData {})
-	}
-
-	fn unerase(e: Erased<'a>) -> A {
-		e.0
-			.downcast()
-			.map(|s| *s)
-			.unwrap()
+impl <'a, E: erasure::Eraser + 'static> ErasedMapper<E> {
+	pub fn for_eraser(eraser: E) -> Self {
+		ErasedMapper { eraser }
 	}
 }
 
-pub struct IdentityErasure<A>(PhantomData<A>);
+impl <'a, E: erasure::Eraser> ValueMapper for ErasedMapper<E> {
+	type From = E::Concrete;
+	type To = erasure::ErasedValue;
 
-impl <A> Erasure for IdentityErasure<A> {
-	type Concrete = A;
-	type Erased = A;
-
-	fn erase(c: A) -> A {
-		c
+	unsafe fn map(&self, from: Self::From) -> Self::To {
+		self.eraser.erase(from)
 	}
 
-	fn unerase(e: A) -> A {
-		e
+	unsafe fn unmap(&self, to: Self::To) -> Self::From {
+		self.eraser.unerase(to)
 	}
 }
 
+pub struct IdentityMapper<A>(PhantomData<* const A>);
+impl <A> IdentityMapper<A> {
+	pub fn new() -> Self {
+		IdentityMapper(PhantomData)
+	}
+}
 
-pub struct BoxErasure<A>(PhantomData<A>);
-impl <AE: Erasure> Erasure for BoxErasure<AE> {
-	type Concrete = Box<AE::Concrete>;
-	type Erased = Box<AE::Erased>;
+unsafe impl <A> Send for IdentityMapper<A> {}
+unsafe impl <A> Sync for IdentityMapper<A> {}
 
-	fn erase(a: Box<AE::Concrete>) -> Box<AE::Erased> {
-		Box::new(AE::erase(*a))
+impl <A> Clone for IdentityMapper<A> {
+	fn clone(&self) -> Self {
+		Self(self.0)
+	}
+}
+
+impl <A> Copy for IdentityMapper<A> {}
+
+
+impl <A: Clone + Send + Sync + 'static> ValueMapper for IdentityMapper<A> {
+	type From = A;
+	type To = A;
+
+	unsafe fn map(&self, from: A) -> A {
+		from
 	}
 
-	fn unerase(e: Box<AE::Erased>) -> Box<AE::Concrete> {
-		Box::new(AE::unerase(*e))
+	unsafe fn unmap(&self, to: A) -> A {
+		to
 	}
 }
 
 
 pub type Esexpr = ESExpr;
 
-#[allow(non_camel_case_types)]
-pub type Esexpr_Erasure = IdentityErasure<Esexpr>;
-
 pub type String = std::string::String;
-
-#[allow(non_camel_case_types)]
-pub type String_Erasure = IdentityErasure<String>;
 
 pub type Int = num_bigint::BigInt;
 
@@ -106,69 +109,67 @@ pub type Unit = ();
 
 pub type List<A> = Vec<A>;
 
+#[derive(Clone, Copy)]
+#[allow(non_camel_case_types)]
+pub struct List_Mapper<AMapper>(pub AMapper);
+impl <AMapper: ValueMapper> ValueMapper for List_Mapper<AMapper> {
+	type From = List<AMapper::From>;
+	type To = List<AMapper::To>;
+
+	unsafe fn map(&self, from: Self::From) -> Self::To {
+		from.into_iter().map(|x| self.0.map(x)).collect()
+	}
+
+	unsafe fn unmap(&self, to: Self::To) -> Self::From {
+		to.into_iter().map(|x| self.0.unmap(x)).collect()
+	}
+}
+
 impl <A> From<Box<ListRepr<Box<A>>>> for List<Box<A>> {
 	fn from(value: Box<ListRepr<Box<A>>>) -> Self {
 		value.values
 	}
 }
 
-#[allow(non_camel_case_types)]
-pub struct List_Erasure<ElemErasure>(ElemErasure);
-impl <AE: Erasure> Erasure for List_Erasure<AE> {
-	type Concrete = Vec<AE::Concrete>;
-	type Erased = Vec<AE::Erased>;
-
-	fn erase(a: Vec<AE::Concrete>) -> Vec<AE::Erased> {
-		a.into_iter()
-			.map(AE::erase)
-			.collect()
-	}
-
-	fn unerase(e: Vec<AE::Erased>) -> Vec<AE::Concrete> {
-		e.into_iter()
-			.map(AE::unerase)
-			.collect()
-	}
-}
-
-
 pub type Option<A> = std::option::Option<A>;
 pub type OptionalField<A> = std::option::Option<A>;
 
+#[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
-pub struct Option_Erasure<ElemErasure>(ElemErasure);
-impl <AE: Erasure> Erasure for Option_Erasure<AE> {
-	type Concrete = Option<AE::Concrete>;
-	type Erased = Option<AE::Erased>;
+pub struct Option_Mapper<AMapper>(pub AMapper);
+impl <AMapper: ValueMapper> ValueMapper for Option_Mapper<AMapper> {
+	type From = Option<AMapper::From>;
+	type To = Option<AMapper::To>;
 
-	fn erase(a: Option<AE::Concrete>) -> Option<AE::Erased> {
-		a.map(AE::erase)
+	unsafe fn map(&self, from: Self::From) -> Self::To {
+		from.map(|x| self.0.map(x))
 	}
 
-	fn unerase(e: Option<AE::Erased>) -> Option<AE::Concrete> {
-		e.map(AE::unerase)
+	unsafe fn unmap(&self, to: Self::To) -> Self::From {
+		to.map(|x| self.0.unmap(x))
 	}
 }
+
+#[allow(non_camel_case_types)]
+pub type OptionalField_Mapper<A> = Option_Mapper<A>;
+
 
 
 pub type Dict<A> = HashMap<String, A>;
 
+#[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
-pub struct Dict_Erasure<ElemErasure>(ElemErasure);
-impl <AE: Erasure> Erasure for Dict_Erasure<AE> {
-	type Concrete = Dict<AE::Concrete>;
-	type Erased = Dict<AE::Erased>;
+pub struct Dict_Mapper<AMapper>(pub AMapper);
+impl <AMapper: ValueMapper> ValueMapper for Dict_Mapper<AMapper> {
+	type From = Dict<AMapper::From>;
+	type To = Dict<AMapper::To>;
 
-	fn erase(a: Dict<AE::Concrete>) -> Dict<AE::Erased> {
-		a.into_iter()
-			.map(|(k, v)| (k, AE::erase(v)))
-			.collect()
+	unsafe fn map(&self, from: Self::From) -> Self::To {
+		from.into_iter().map(|(k, v)| (k, self.0.map(v))).collect()
 	}
 
-	fn unerase(e: Dict<AE::Erased>) -> Dict<AE::Concrete> {
-		e.into_iter()
-			.map(|(k, v)| (k, AE::unerase(v)))
-			.collect()
+	unsafe fn unmap(&self, to: Self::To) -> Self::From {
+		to.into_iter().map(|(k, v)| (k, self.0.unmap(v))).collect()
 	}
 }
 
