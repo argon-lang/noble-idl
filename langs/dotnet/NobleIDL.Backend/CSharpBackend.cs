@@ -403,6 +403,7 @@ internal class CSharpBackend {
                             default: throw new InvalidOperationException();
                         }
                         break;
+                    
                     case EsexprRecordFieldKind.Keyword keyword:
                         prop = prop.AddAttributeLists(AttributeList(SingletonSeparatedList(
                             KeywordAttr(keyword.Name)
@@ -422,7 +423,7 @@ internal class CSharpBackend {
                             {
                                 var defaultValueExpr = GetValueExpr(defaultValue.Value);
                                 prop = prop.AddAttributeLists(AttributeList(SingletonSeparatedList(
-                                    DefaultValueAttr(defaultValueExpr.ToString())
+                                    DefaultValueAttr(defaultValueExpr.NormalizeWhitespace().ToString())
                                 )));
                                 break;
                             }
@@ -430,16 +431,19 @@ internal class CSharpBackend {
                             default: throw new InvalidOperationException();
                         }
                         break;
+                    
                     case EsexprRecordFieldKind.Dict:
                         prop = prop.AddAttributeLists(AttributeList(SingletonSeparatedList(
                             DictAttr
                         )));
                         break;
+                    
                     case EsexprRecordFieldKind.Vararg:
                         prop = prop.AddAttributeLists(AttributeList(SingletonSeparatedList(
                             VarargAttr
                         )));
                         break;
+                    
                     default: throw new InvalidOperationException();
                 }
             }
@@ -447,17 +451,421 @@ internal class CSharpBackend {
             return prop;
         }).ToArray<MemberDeclarationSyntax>();
 
-    private ExpressionSyntax GetValueExpr(EsexprDecodedValue defaultValueValue) {
-        throw new NotImplementedException();
+    private ExpressionSyntax GetValueExpr(EsexprDecodedValue value) {
+        switch(value) {
+            case EsexprDecodedValue.Record record:
+            {
+                var fieldInits = record.Fields
+                    .Select(f =>
+                        AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            IdentifierName(ConvertIdPascal(f.Name)),
+                            GetValueExpr(f.Value)
+                        )
+                    )
+                    .ToArray<ExpressionSyntax>();
+
+                return ObjectCreationExpression(EmitType(record.T))
+                    .WithInitializer(
+                        InitializerExpression(SyntaxKind.ObjectInitializerExpression)
+                            .AddExpressions(fieldInits)
+                    );
+            }
+
+            case EsexprDecodedValue.Enum enumValue:
+            {
+                var fieldInits = enumValue.Fields
+                    .Select(f =>
+                        AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            IdentifierName(ConvertIdPascal(f.Name)),
+                            GetValueExpr(f.Value)
+                        )
+                    )
+                    .ToArray<ExpressionSyntax>();
+
+                TypeSyntax caseType = QualifiedName(
+                    (NameSyntax)EmitType(enumValue.T),
+                    IdentifierName(ConvertIdPascal(enumValue.CaseName))
+                );
+
+                return ObjectCreationExpression(caseType)
+                    .WithInitializer(
+                        InitializerExpression(SyntaxKind.ObjectInitializerExpression)
+                            .AddExpressions(fieldInits)
+                    );
+            }
+
+            case EsexprDecodedValue.Optional optional:
+            {
+                if(optional.Value.TryGetValue(out var elementValue)) {
+                    return InvocationExpression(
+                            QualifiedName(
+                                (NameSyntax)EmitTypeUnmapped(optional.T),
+                                IdentifierName("Some")
+                            )
+                    )
+                        .AddArgumentListArguments(Argument(GetValueExpr(elementValue)));
+                }
+                else {
+                    return QualifiedName(
+                        (NameSyntax)EmitTypeUnmapped(optional.T),
+                        IdentifierName("None")
+                    );
+                }
+            }
+
+            case EsexprDecodedValue.Vararg vararg:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(vararg.T),
+                            IdentifierName("FromValues")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        CollectionExpression(SeparatedList(
+                            vararg.Values
+                                .Select(v => ExpressionElement(GetValueExpr(v)))
+                                .ToArray<CollectionElementSyntax>()
+                        ))
+                    ));
+
+            case EsexprDecodedValue.Dict dict:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(dict.T),
+                            IdentifierName("FromValues")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        ObjectCreationExpression(
+                            QualifiedName(
+                                QualifiedName(
+                                    QualifiedName(
+                                        AliasQualifiedName(
+                                            IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                            IdentifierName("System")
+                                        ),
+                                        IdentifierName("Collections")
+                                    ),
+                                    IdentifierName("Generic")
+                                ),
+                                GenericName("Dictionary")
+                                    .AddTypeArgumentListArguments(
+                                        PredefinedType(Token(SyntaxKind.StringKeyword)),
+                                        EmitType(dict.ElementType)
+                                    )
+                            )
+                        )
+                            .WithInitializer(
+                                InitializerExpression(SyntaxKind.CollectionInitializerExpression)
+                                    .AddExpressions(
+                                        dict.Values
+                                            .Select(v =>
+                                                InitializerExpression(SyntaxKind.ComplexElementInitializerExpression)
+                                                    .AddExpressions(
+                                                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(v.Key)),
+                                                        GetValueExpr(v.Value)
+                                                    )
+                                            )
+                                            .ToArray<ExpressionSyntax>()
+                                    )
+                            )
+                    ));
+            
+            case EsexprDecodedValue.BuildFrom buildFrom:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(buildFrom.T),
+                            IdentifierName("BuildFrom")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        GetValueExpr(buildFrom.FromValue)
+                    ));
+                
+            case EsexprDecodedValue.FromBool fromBool:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(fromBool.T),
+                            IdentifierName("FromBool")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        LiteralExpression(fromBool.B
+                            ? SyntaxKind.TrueLiteralExpression
+                            : SyntaxKind.FalseLiteralExpression)
+                    ));
+
+            case EsexprDecodedValue.FromInt fromInt:
+            {
+                string? methodName = null;
+                ExpressionSyntax? valueExpr = null;
+
+                {
+                    if(fromInt.MinInt.TryGetValue(out var min) && fromInt.MaxInt.TryGetValue(out var max)) {
+                        if(min >= 0) {
+                            if(max <= byte.MaxValue) {
+                                methodName = "fromByte";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((byte)fromInt.I)
+                                );
+                            }
+                            else if(max <= ushort.MaxValue) {
+                                methodName = "fromUInt16";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((ushort)fromInt.I)
+                                );
+                            }
+                            else if(max <= uint.MaxValue) {
+                                methodName = "fromUInt32";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((uint)fromInt.I)
+                                );
+                            }
+                            else if(max <= ulong.MaxValue) {
+                                methodName = "fromUInt64";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((ulong)fromInt.I)
+                                );
+                            }
+                            else if(max <= UInt128.MaxValue) {
+                                methodName = "fromUInt128";
+                                var value128 = (UInt128)fromInt.I;
+                                valueExpr = ObjectCreationExpression(
+                                    QualifiedName(
+                                        AliasQualifiedName(
+                                            IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                            IdentifierName("System")
+                                        ),
+                                        IdentifierName("UInt128")
+                                    )
+                                ).AddArgumentListArguments(
+                                    Argument(LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(unchecked((ulong)(value128 >> 64)))
+                                    )),
+                                    Argument(LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(unchecked((ulong)value128))
+                                    ))
+                                );
+                            }
+                        }
+                        else {
+                            if(min >= sbyte.MinValue && max <= sbyte.MaxValue) {
+                                methodName = "fromSByte";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((sbyte)fromInt.I)
+                                );
+                            }
+                            else if(min >= short.MinValue && max <= short.MaxValue) {
+                                methodName = "fromInt16";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((short)fromInt.I)
+                                );
+                            }
+                            else if(min >= int.MinValue && max <= int.MaxValue) {
+                                methodName = "fromInt32";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((int)fromInt.I)
+                                );
+                            }
+                            else if(min >= long.MinValue && max <= long.MaxValue) {
+                                methodName = "fromInt64";
+                                valueExpr = LiteralExpression(
+                                    SyntaxKind.NumericLiteralExpression,
+                                    Literal((long)fromInt.I)
+                                );
+                            }
+                            else if(min >= Int128.MinValue && max <= Int128.MaxValue) {
+                                methodName = "fromInt128";
+                                var value128 = (Int128)fromInt.I;
+                                valueExpr = ObjectCreationExpression(
+                                    QualifiedName(
+                                        AliasQualifiedName(
+                                            IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                            IdentifierName("System")
+                                        ),
+                                        IdentifierName("UInt128")
+                                    )
+                                ).AddArgumentListArguments(
+                                    Argument(LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(unchecked((ulong)((UInt128)value128 >> 64)))
+                                    )),
+                                    Argument(LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(unchecked((ulong)value128))
+                                    ))
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if(methodName is null || valueExpr is null) {
+                    valueExpr = InvocationExpression(
+                        QualifiedName(
+                            QualifiedName(
+                                QualifiedName(
+                                    AliasQualifiedName(
+                                        IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                        IdentifierName("System")
+                                    ),
+                                    IdentifierName("Numerics")
+                                ),
+                                IdentifierName("BigInteger")
+                            ),
+                            IdentifierName("Parse")
+                        )
+                    ).AddArgumentListArguments(
+                        Argument(
+                            LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromInt.I.ToString()))
+                        )
+                    );
+                    
+                    if(fromInt.MinInt.TryGetValue(out var min) && min >= 0) {
+                        methodName = "FromNat";
+                        valueExpr = ObjectCreationExpression(
+                            QualifiedName(
+                                QualifiedName(
+                                    AliasQualifiedName(
+                                        IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                        IdentifierName("NobleIDL")
+                                    ),
+                                    IdentifierName("Runtime")
+                                ),
+                                IdentifierName("Nat")
+                            )
+                        ).AddArgumentListArguments(
+                            Argument(valueExpr)
+                        );
+                    }
+                    else {
+                        methodName = "FromBigInteger";
+                    }
+                }
+
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(fromInt.T),
+                            IdentifierName(methodName)
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(valueExpr));
+                
+            }
+                
+            case EsexprDecodedValue.FromStr fromStr:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitType(fromStr.T),
+                            IdentifierName("FromString")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromStr.S))
+                    ));
+                
+            case EsexprDecodedValue.FromBinary fromBinary:
+
+                static ExpressionSyntax CreateByteArrayExpression(byte[] byteArray) {
+                    var byteLiterals = byteArray
+                        .Select(b =>
+                            LiteralExpression(
+                                SyntaxKind.NumericLiteralExpression,
+                                Literal(b)
+                            )
+                        )
+                        .ToArray<ExpressionSyntax>();
+
+                    var arrayInitializer = InitializerExpression(
+                        SyntaxKind.ArrayInitializerExpression,
+                        SeparatedList(byteLiterals)
+                    );
+
+                    var arrayCreation = ArrayCreationExpression(
+                        ArrayType(
+                            PredefinedType(Token(SyntaxKind.ByteKeyword))
+                        ).WithRankSpecifiers(
+                            SingletonList(
+                                ArrayRankSpecifier(
+                                    SingletonSeparatedList<ExpressionSyntax>(
+                                        OmittedArraySizeExpression()
+                                    )
+                                )
+                            )
+                        )
+                    ).WithInitializer(arrayInitializer);
+
+                    return arrayCreation;
+                }
+
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitType(fromBinary.T),
+                            IdentifierName("FromByteArray")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        CreateByteArrayExpression(fromBinary.B)
+                    ));
+                
+                
+            case EsexprDecodedValue.FromFloat32 fromFloat32:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitType(fromFloat32.T),
+                            IdentifierName("FromSingle")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat32.F))
+                    ));
+                
+            case EsexprDecodedValue.FromFloat64 fromFloat64:
+                return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitType(fromFloat64.T),
+                            IdentifierName("FromDouble")
+                        )
+                    )
+                    .AddArgumentListArguments(Argument(
+                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat64.F))
+                    ));
+                
+            case EsexprDecodedValue.FromNull fromNull:
+                return InvocationExpression(
+                    QualifiedName(
+                        (NameSyntax)EmitType(fromNull.T),
+                        IdentifierName("FromNull")
+                    )
+                );
+            
+            default: throw new InvalidOperationException();
+        };
     }
 
     private TypeSyntax EmitType(TypeExpr t) {
-        var (res, _) = EmitTypeCommon(t);
+        var (res, _) = EmitTypeCommon(t, ignoreMapping: false);
+        return res;
+    }
+    
+    private TypeSyntax EmitTypeUnmapped(TypeExpr t) {
+        var (res, _) = EmitTypeCommon(t, ignoreMapping: true);
         return res;
     }
 
     private TypeSyntax? EmitReturnType(TypeExpr t) {
-        var (res, isVoid) = EmitTypeCommon(t);
+        var (res, isVoid) = EmitTypeCommon(t, ignoreMapping: false);
         if(isVoid) {
             return null;
         }
@@ -465,30 +873,30 @@ internal class CSharpBackend {
         return res;
     }
     
-    private (TypeSyntax, bool isVoid) EmitTypeCommon(TypeExpr t) {
+    private (TypeSyntax, bool isVoid) EmitTypeCommon(TypeExpr t, bool ignoreMapping) {
         switch(t) {
-            case TypeExpr.DefinedType { Name: var name, Args: var args } definedType:
+            case TypeExpr.DefinedType { Name: var name } definedType
+                when !ignoreMapping && GetMappedType(name) is {} mappedType:
             {
-                var mappedType = GetMappedType(name);
-                if(mappedType is null) {
-                    SimpleNameSyntax memberName;
-                    if(args.Count > 0) {
-                        memberName = GenericName(ConvertIdPascal(name.Name))
-                            .AddTypeArgumentListArguments(args.Select(EmitType).ToArray());
-                    }
-                    else {
-                        memberName = IdentifierName(ConvertIdPascal(name.Name));
-                    }
-
-                    var typeSyntax = GetNamespaceMember(name.Package, memberName);
-                    return (typeSyntax, false);
+                var typeParamMap = GetTypeParameterMapping(definedType);
+                var typeSyntax = MappedTypeToSyntax(mappedType, typeParamMap);
+                var isVoid = mappedType is CsharpMappedType.Void;
+                return (typeSyntax, isVoid);
+            }
+            
+            case TypeExpr.DefinedType { Name: var name, Args: var args }:
+            {
+                SimpleNameSyntax memberName;
+                if(args.Count > 0) {
+                    memberName = GenericName(ConvertIdPascal(name.Name))
+                        .AddTypeArgumentListArguments(args.Select(EmitType).ToArray());
                 }
                 else {
-                    var typeParamMap = GetTypeParameterMapping(definedType);
-                    var typeSyntax = MappedTypeToSyntax(mappedType, typeParamMap);
-                    var isVoid = mappedType is CsharpMappedType.Void;
-                    return (typeSyntax, isVoid);
+                    memberName = IdentifierName(ConvertIdPascal(name.Name));
                 }
+
+                var typeSyntax = GetNamespaceMember(name.Package, memberName);
+                return (typeSyntax, false);
             }
             
             case TypeExpr.TypeParameter tp:

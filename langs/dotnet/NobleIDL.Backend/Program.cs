@@ -7,10 +7,10 @@ namespace NobleIDL.Backend;
 public static class Program {
     public class CLIOptions {
         [Option('i', "input", Required = true, HelpText = "Input file")]
-        public required IEnumerable<string> InputDirectories { get; set; }
+        public required IEnumerable<string> InputFiles { get; set; }
         
-        [Option('l', "library", Required = true, HelpText = "Library file")]
-        public required IEnumerable<string> LibraryDirectories { get; set; }
+        [Option('l', "library", Required = false, HelpText = "Library file")]
+        public required IEnumerable<string> LibraryFiles { get; set; }
         
         [Option('o', "output", Required = true, HelpText = "Output file")]
         public required string OutputFile { get; set; }
@@ -47,13 +47,13 @@ public static class Program {
         var options = parsed.Value;
 
         var inputFiles = new List<string>();
-        foreach(var inputDir in options.InputDirectories) {
+        foreach(var inputDir in options.InputFiles) {
             cancellationTokenSource.Token.ThrowIfCancellationRequested();
             inputFiles.Add(await File.ReadAllTextAsync(inputDir, cancellationTokenSource.Token));
         }
 
         var libraryFiles = new List<string>();
-        foreach(var libDir in options.LibraryDirectories) {
+        foreach(var libDir in options.LibraryFiles) {
             cancellationTokenSource.Token.ThrowIfCancellationRequested();
             libraryFiles.Add(await File.ReadAllTextAsync(libDir, cancellationTokenSource.Token));
         }

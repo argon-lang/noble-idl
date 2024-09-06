@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.Runtime/ESExpr.Runtime.csproj" />
     <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.SourceGenerator/ESExpr.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../NobleIDL.Runtime/NobleIDL.Runtime.csproj" />
   </ItemGroup>
 
 </Project>

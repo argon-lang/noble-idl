@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.Runtime/ESExpr.Runtime.csproj" />
+  </ItemGroup>
+  
 </Project>
