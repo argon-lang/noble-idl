@@ -57,7 +57,6 @@ abstract class GenerateRustWasm : DefaultTask() {
 
         val pb = ProcessBuilder(listOf("cargo", "build", "-p", cargoProject.get(), "--target=wasm32-unknown-unknown", "--release"))
         pb.directory(cargoDirectory.get())
-        pb.environment().set("RUSTFLAGS", "-C target-feature=+multivalue")
         val process = pb.start()
         val exitCode = process.waitFor()
         if(exitCode != 0) {

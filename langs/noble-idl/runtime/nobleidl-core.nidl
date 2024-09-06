@@ -2,32 +2,38 @@ package nobleidl.core;
 
 @esexpr:(derive-codec)
 @java:(mapped-to "dev.argon.esexpr.ESExpr")
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Expr"))
 extern type esexpr;
 
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-str: #true)
 @java:(mapped-to "java.lang.String")
+@csharp:(mapped-to (member (global "System") "String"))
 extern type string;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-binary: #true)
 @java:(mapped-to (array "byte"))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Binary"))
 extern type binary;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true)
 @java:(mapped-to "java.math.BigInteger")
+@csharp:(mapped-to (member (member (global "System") "Numerics") "BigInteger"))
 extern type int;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0)
 @java:(mapped-to (annotated "java.math.BigInteger" "dev.argon.esexpr.Unsigned"))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Nat"))
 extern type nat;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-bool: #true)
 @java:(mapped-to "boolean")
+@csharp:(mapped-to (member (global "System") "Boolean"))
 extern type bool;
 
 
@@ -35,56 +41,67 @@ extern type bool;
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -128 max-int: 127)
 @java:(mapped-to "byte")
+@csharp:(mapped-to (member (global "System") "SByte"))
 extern type i8;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 255)
 @java:(mapped-to (annotated "byte" "dev.argon.esexpr.Unsigned"))
+@csharp:(mapped-to (member (global "System") "Byte"))
 extern type u8;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -32768 max-int: 32767)
 @java:(mapped-to "short")
+@csharp:(mapped-to (member (global "System") "Int16"))
 extern type i16;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 65535)
 @java:(mapped-to (annotated "short" "dev.argon.esexpr.Unsigned"))
+@csharp:(mapped-to (member (global "System") "UInt16"))
 extern type u16;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -2147483648 max-int: 2147483647)
 @java:(mapped-to "int")
+@csharp:(mapped-to (member (global "System") "Int32"))
 extern type i32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 4294967295)
 @java:(mapped-to "int")
 @java:(mapped-to (annotated "int" "dev.argon.esexpr.Unsigned"))
+@csharp:(mapped-to (member (global "System") "UInt32"))
 extern type u32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: -9223372036854775808 max-int: 9223372036854775807)
 @java:(mapped-to "long")
+@csharp:(mapped-to (member (global "System") "Int64"))
 extern type i64;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 18446744073709551615)
 @java:(mapped-to (annotated "long" "dev.argon.esexpr.Unsigned"))
+@csharp:(mapped-to (member (global "System") "UInt64"))
 extern type u64;
 
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-float32: #true)
 @java:(mapped-to "float")
+@csharp:(mapped-to (member (global "System") "Single"))
 extern type f32;
 
 @esexpr:(derive-codec)
-@esexpr:(literals allow-float32: #true)
+@esexpr:(literals allow-float64: #true)
 @java:(mapped-to "double")
+@csharp:(mapped-to (member (global "System") "Double"))
 extern type f64;
 
 @java:(mapped-to "void")
+@csharp:(mapped-to (void))
 extern type unit;
 
 @esexpr:(derive-codec)
@@ -93,6 +110,7 @@ extern type unit;
     build-literal-from: (defined-type (qualified-name (package-name "nobleidl" "core") "list-repr") (type-parameter "a" owner: "by-type"))
 )
 @java:(mapped-to (apply "java.util.List" (type-parameter "a")))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "VList" (type-parameter "a")))
 extern type list[a];
 
 @esexpr:(derive-codec)
@@ -105,16 +123,19 @@ record list-repr[a] {
 
 @esexpr:(derive-codec)
 @java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Option" (type-parameter "a")))
 extern type option[a];
 
 
 @esexpr:(allow-optional (type-parameter "a" owner: "by-type"))
 @java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Option" (type-parameter "a")))
 extern type optional-field[a];
 
 @esexpr:(derive-codec)
 @esexpr:(allow-dict (type-parameter "a" owner: "by-type"))
 @java:(mapped-to (apply "dev.argon.esexpr.KeywordMapping" (type-parameter "a")))
+@csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "VDict" (type-parameter "a")))
 extern type dict[
     @rust:(boxed-usage)
     a,

@@ -160,36 +160,31 @@ pub enum CompileModelError {
 }
 
 
-#[repr(C)]
-pub struct Buffer {
-    size: usize,
-    data: *mut u8,
+#[no_mangle]
+pub unsafe extern "C" fn nobleidl_alloc(size: usize) -> *mut u8 {
+	std::alloc::alloc(std::alloc::Layout::array::<u8>(size).unwrap())
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nobleidl_alloc(size: usize) -> Buffer {
-    let data = std::alloc::alloc(std::alloc::Layout::array::<u8>(size).unwrap());
-
-    Buffer {
-        size,
-        data,
-    }
+pub unsafe extern "C" fn nobleidl_free(ptr: *mut u8, size: usize) {
+    std::alloc::dealloc(ptr, std::alloc::Layout::array::<u8>(size).unwrap());
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn nobleidl_free(buffer: Buffer) {
-    std::alloc::dealloc(buffer.data, std::alloc::Layout::array::<u8>(buffer.size).unwrap());
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn nobleidl_compile_model(options: Buffer) -> Buffer {
-    let options = std::slice::from_raw_parts(options.data, options.size);
+pub unsafe extern "C" fn nobleidl_compile_model(options: *mut u8, options_size: usize, result_size: *mut usize) -> *mut u8 {
+    let options = std::slice::from_raw_parts(options, options_size);
 
     let model = compile_model_serialized(options);
 
     let buff = nobleidl_alloc(model.len());
 
-    std::ptr::copy(model.as_ptr(), buff.data, model.len());
+	if buff.is_null() {
+		return buff;
+	}
+
+    std::ptr::copy(model.as_ptr(), buff, model.len());
+
+	result_size.write_unaligned(model.len());
 
     buff
 }

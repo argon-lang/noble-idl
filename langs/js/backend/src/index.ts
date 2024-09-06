@@ -36,22 +36,28 @@ async function loadModelOptions(options: JavaScriptIDLCompilerOptions): Promise<
 
 
 interface Buffer {
+    readonly ptr: number,
     readonly size: number,
-    readonly data: number,
 }
 
-function nobleidl_alloc(size: number): Buffer {
-    const [ size2, data ] = compiler.nobleidl_alloc(size);
-    return { size: size2, data };
+function nobleidl_alloc(size: number): number {
+    return compiler.nobleidl_alloc(size);
 }
 
-function nobleidl_free(b: Buffer) {
-    compiler.nobleidl_free(b.size, b.data);
+function nobleidl_free(b: number, size: number) {
+    compiler.nobleidl_free(b, size);
 }
 
-function nobleidl_compile_model(options: Buffer): Buffer {
-    const [ resSize, resData ] = compiler.nobleidl_compile_model(options.size, options.data);
-    return { size: resSize, data: resData };
+function nobleidl_compile_model(options: number, options_size: number): Buffer {
+	const resultSizePtr = nobleidl_alloc(4);
+	try {
+		const result = compiler.nobleidl_compile_model(options, options_size, resultSizePtr);
+		const resultSize = new DataView(compiler.memory.buffer).getUint32(resultSizePtr, true);
+		return { size: resultSize, ptr: result };
+	}
+	finally {
+		nobleidl_free(resultSizePtr, 4);
+	}
 }
 
 async function* writeExprWithSP(expr: ESExpr): AsyncIterable<Uint8Array> {
@@ -82,17 +88,17 @@ async function streamToBuffer(data: AsyncIterable<Uint8Array>): Promise<Buffer> 
 
     const memory = new Uint8Array(compiler.memory.buffer);
 
-    let offset = buffer.data;
+    let offset = buffer;
     for(const part of parts) {
         memory.set(part, offset);
         offset += part.length;
     }
 
-    return buffer;
+    return { ptr: buffer, size };
 }
 
 function bufferToArray(b: Buffer): Uint8Array {
-    return new Uint8Array(compiler.memory.buffer, b.data, b.size);
+    return new Uint8Array(compiler.memory.buffer, b.ptr, b.size);
 }
 
 async function* singleton(b: Uint8Array): AsyncIterable<Uint8Array> {
@@ -102,7 +108,7 @@ async function* singleton(b: Uint8Array): AsyncIterable<Uint8Array> {
 async function loadModel(options: NobleIdlCompileModelOptions): Promise<NobleIdlCompileModelResult> {
     const optionsBuffer = await streamToBuffer(writeExprWithSP(NobleIdlCompileModelOptions.codec.encode(options)));
     try {
-        const resultBuffer = nobleidl_compile_model(optionsBuffer);
+        const resultBuffer = nobleidl_compile_model(optionsBuffer.ptr, optionsBuffer.size);
         const resultArray = bufferToArray(resultBuffer);
 
         try {
@@ -128,11 +134,11 @@ async function loadModel(options: NobleIdlCompileModelOptions): Promise<NobleIdl
             return result.value;
         }
         finally {
-            nobleidl_free(resultBuffer);
+            nobleidl_free(resultBuffer.ptr, resultBuffer.size);
         }
     }
     finally {
-        nobleidl_free(optionsBuffer);
+        nobleidl_free(optionsBuffer.ptr, optionsBuffer.size);
     }
 }
 

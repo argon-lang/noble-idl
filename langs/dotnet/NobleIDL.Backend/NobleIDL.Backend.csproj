@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" PrivateAssets="all" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+    <PackageReference Include="WebAssembly" Version="1.2.1" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="Wasm/noble_idl_compiler.wasm" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.Runtime/ESExpr.Runtime.csproj" />
+    <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.SourceGenerator/ESExpr.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

@@ -4,7 +4,6 @@ import dev.argon.esexpr.*;
 import dev.argon.jawawasm.engine.*;
 import dev.argon.jawawasm.format.ModuleFormatException;
 import dev.argon.jawawasm.format.binary.ModuleReader;
-import dev.argon.jawawasm.format.modules.Data;
 import dev.argon.nobleidl.compiler.api.*;
 
 import java.io.ByteArrayInputStream;
@@ -46,31 +45,38 @@ public class NobleIDLCompiler implements AutoCloseable {
 		engine.close();
 	}
 
-	private record Buffer(int size, int data) {}
+	private record Buffer(int ptr, int size) {}
 
-	private Buffer alloc(int size) {
+	private int alloc(int size) {
 		try {
 			Object[] results = FunctionResult.resolveWith(() -> ((WasmFunction)module.getExport("nobleidl_alloc")).invoke(new Object[] { size }));
-			return new Buffer((int)results[0], (int)results[1]);
+			return (int)results[0];
 		}
 		catch(ExecutionException ex) {
 			throw new RuntimeException(ex);
 		}
 	}
 
-	private void free(Buffer b) {
+	private void free(int b, int size) {
 		try {
-			FunctionResult.resolveWith(() -> ((WasmFunction)module.getExport("nobleidl_free")).invoke(new Object[] { b.size(), b.data() }));
+			FunctionResult.resolveWith(() -> ((WasmFunction)module.getExport("nobleidl_free")).invoke(new Object[] { b, size }));
 		}
 		catch(ExecutionException ex) {
 			throw new RuntimeException(ex);
 		}
 	}
 
-	private Buffer compileModule(Buffer options) {
+	private Buffer compileModel(int options, int options_size) {
 		try {
-			Object[] results = FunctionResult.resolveWith(() -> ((WasmFunction)module.getExport("nobleidl_compile_model")).invoke(new Object[] { options.size(), options.data() }));
-			return new Buffer((int)results[0], (int)results[1]);
+			int resultSizePtr = alloc(4);
+			try {
+				Object[] results = FunctionResult.resolveWith(() -> ((WasmFunction)module.getExport("nobleidl_compile_model")).invoke(new Object[] { options, options_size, resultSizePtr }));
+				int size = getMemory().loadI32(resultSizePtr);
+				return new Buffer((int)results[0], size);
+			}
+			finally {
+				free(resultSizePtr, 4);
+			}
 		}
 		catch(ExecutionException ex) {
 			throw new RuntimeException(ex);
@@ -95,19 +101,18 @@ public class NobleIDLCompiler implements AutoCloseable {
 
 		var data = os.toByteArray();
 
-		var memory = getMemory();
-
 		var buffer = alloc(data.length);
-		memory.copyFromArray(buffer.data(), 0, data.length, data);
+		var memory = getMemory();
+		memory.copyFromArray(buffer, 0, data.length, data);
 
-		return buffer;
+		return new Buffer(buffer, data.length);
 	}
 
 	private ESExpr bufferToExpr(Buffer buffer) throws NobleIDLCompileErrorException {
 		var data = new byte[buffer.size()];
 
 		var memory = getMemory();
-		memory.copyToArray(buffer.data(), 0, data.length, data);
+		memory.copyToArray(buffer.ptr(), 0, data.length, data);
 
 		var is = new ByteArrayInputStream(data);
 		List<ESExpr> exprs;
@@ -128,7 +133,7 @@ public class NobleIDLCompiler implements AutoCloseable {
 	public NobleIdlCompileModelResult loadModel(NobleIdlCompileModelOptions options) throws NobleIDLCompileErrorException {
 		var optionsBuffer = exprToBuffer(NobleIdlCompileModelOptions.codec().encode(options));
 		try {
-			var resultBuffer = compileModule(optionsBuffer);
+			var resultBuffer = compileModel(optionsBuffer.ptr(), optionsBuffer.size());
 			try {
 				var expr = bufferToExpr(resultBuffer);
 				try {
@@ -139,11 +144,11 @@ public class NobleIDLCompiler implements AutoCloseable {
 				}
 			}
 			finally {
-				free(resultBuffer);
+				free(resultBuffer.ptr(), resultBuffer.size());
 			}
 		}
 		finally {
-			free(optionsBuffer);
+			free(optionsBuffer.ptr(), optionsBuffer.size());
 		}
 	}
 
