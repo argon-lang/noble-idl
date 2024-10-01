@@ -1,0 +1,6 @@
+<Project>
+    <ItemGroup>
+        <NobleIDL Include="**/*.nidl" />
+    </ItemGroup>
+    <UsingTask TaskName="NobleIDL.GenerateTask.NobleIDLGenerate" AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\net8.0\NobleIDL.GenerateTask.dll" />
+</Project>

@@ -6,14 +6,18 @@ plugins {
     java
     application
     `java-library`
+    `maven-publish`
+    signing
 }
+
+group = "dev.argon.nobleidl"
+version = "0.1.0-SNAPSHOT"
 
 application {
     mainClass = "dev.argon.nobleidl.compiler.JavaNobleIDLCompiler"
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
@@ -22,6 +26,7 @@ dependencies {
     implementation(libs.jawawasm.engine)
     implementation(libs.apache.commons.text)
     implementation(libs.apache.commons.cli)
+    implementation(libs.asm)
     api(libs.esexpr.runtime)
     annotationProcessor(libs.esexpr.generator)
     api(project(":runtime"))
@@ -39,6 +44,51 @@ java {
 tasks.named<Test>("test") {
     useJUnitPlatform()
 }
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            artifactId = "nobleidl-java-compiler"
+            from(components["java"])
+
+            pom {
+                name = "Noble IDL Java Compiler"
+                description = "Noble IDL Compiler for Java"
+                url = "https://github.com/argon-lang/nobleidl"
+                licenses {
+                    license {
+                        name = "Apache License, Version 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "argon-dev"
+                        email = "argon@argon.dev"
+                        organization = "argon-lang"
+                        organizationUrl = "https://argon.dev"
+                    }
+                }
+                scm {
+                    connection = "scm:git:git@github.com:argon-lang/esexpr.git"
+                    developerConnection = "scm:git:git@github.com:argon-lang/esexpr.git"
+                    url = "https://github.com/argon-lang/nobleidl/tree/master/langs/java"
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(layout.buildDirectory.dir("repo"))
+        }
+    }
+}
+
+signing {
+    sign(publishing.publications["mavenJava"])
+}
+
 
 abstract class GenerateRustWasm : DefaultTask() {
 

@@ -5,7 +5,6 @@ plugins {
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
@@ -59,6 +58,8 @@ tasks.register("codegenNobleIDL") {
     doLast {
         val javaExe = File(System.getProperty("java.home"), "bin/java").toString()
 
+        val javaSourceDirs = sourceSets["main"].java.srcDirs.toList()
+
         val backendProjModules = objects.fileCollection()
         backendProjModules.setFrom(backendJar)
 
@@ -71,9 +72,13 @@ tasks.register("codegenNobleIDL") {
 
         val args = mutableListOf(javaExe, "--module-path", modulePath, "--module", "dev.argon.nobleidl.compiler/dev.argon.nobleidl.compiler.JavaNobleIDLCompiler")
 
-        for(mapping in packageMapping) {
-            args.add("--package-mapping")
-            args.add("${mapping.key}=${mapping.value}")
+        for(javaSourceDir in javaSourceDirs) {
+            if(javaSourceDir.equals(outputDir)) {
+                continue;
+            }
+
+            args.add("--java-source")
+            args.add(javaSourceDir.toString())
         }
 
         args.add("--input")

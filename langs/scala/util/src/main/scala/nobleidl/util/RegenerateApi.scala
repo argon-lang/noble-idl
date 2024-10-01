@@ -3,7 +3,7 @@ package nobleidl.util
 import dev.argon.esexpr.KeywordMapping
 import esexpr.Dictionary
 import nobleidl.compiler.{PackageImportMapping, ScalaIDLCompilerOptions, ScalaJSLanguageOptions, ScalaLanguageOptions, ScalaNobleIDLCompiler}
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import scala.jdk.CollectionConverters.*
@@ -15,12 +15,11 @@ object RegenerateApi extends ZIOAppDefault {
     for
       coreLib <- ZIO.readFile(Path.of("../noble-idl/runtime/nobleidl-core.nidl").nn)
       compilerApi <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api.nidl").nn)
-      jarMetadata <- ZIO.readFile(Path.of("../noble-idl/backend/jar-metadata.nidl").nn)
       javaAnns <- ZIO.readFile(Path.of("../noble-idl/backend/compiler-api-java-annotations.nidl").nn)
 
       _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
+        outputDir = Path.of("runtime/jvm/src/gen/scala"),
         languageOptions = ScalaLanguageOptions(
-          outputDir = "runtime/jvm/src/gen/scala",
           packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.core",
           ))),
@@ -36,8 +35,8 @@ object RegenerateApi extends ZIOAppDefault {
       ))
 
       _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
+        outputDir = Path.of("runtime/js/src/gen/scala"),
         languageOptions = ScalaLanguageOptions(
-          outputDir = "runtime/js/src/gen/scala",
           packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.core",
           ))),
@@ -53,8 +52,8 @@ object RegenerateApi extends ZIOAppDefault {
       ))
 
       _ <- ScalaNobleIDLCompiler.ScalaJSPlatformRunner.compile(ScalaIDLCompilerOptions(
+        outputDir = Path.of("runtime/js/src/gen/scala"),
         languageOptions = ScalaJSLanguageOptions(
-          outputDir = "runtime/js/src/gen/scala",
           packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.sjs.core",
           ))),
@@ -65,18 +64,23 @@ object RegenerateApi extends ZIOAppDefault {
       ))
 
       _ <- ScalaNobleIDLCompiler.ScalaPlatformRunner.compile(ScalaIDLCompilerOptions(
+        outputDir = Path.of("backend/src/gen/scala"),
         languageOptions = ScalaLanguageOptions(
-          outputDir = "backend/src/gen/scala",
           packageMapping = PackageMapping(Dictionary(Map(
             "nobleidl.core" -> "nobleidl.core",
             "nobleidl.compiler.api" -> "nobleidl.compiler.api",
             "nobleidl.compiler.api.java" -> "nobleidl.compiler.api.java",
-            "nobleidl.compiler.jar-metadata" -> "nobleidl.compiler.format",
           ))),
-          javaAdapters = None,
+          javaAdapters = Some(ScalaLanguageOptions.JavaAdapters(
+            packageMapping = PackageMapping(Dictionary(Map(
+              "nobleidl.core" -> "dev.argon.nobleidl.core",
+              "nobleidl.compiler.api" -> "dev.argon.nobleidl.compiler.api",
+              "nobleidl.compiler.api.java" -> "dev.argon.nobleidl.compiler.api.java",
+            )))
+          )),
           jsAdapters = None,
         ),
-        inputFileData = Seq(compilerApi, jarMetadata, javaAnns),
+        inputFileData = Seq(compilerApi, javaAnns),
         libraryFileData = Seq(coreLib),
       ))
     yield ()

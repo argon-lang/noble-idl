@@ -12,18 +12,16 @@
     "regenerate-api": "npm run build && node --enable-source-maps lib/regenerate-api.js",
     "build-wasm": "cargo build -p noble-idl-compiler --target=wasm32-unknown-unknown --release",
     "codegen": "npm run build-wasm && node generate-wasm-module.js",
-    "build": "npm run codegen && tsc --project .",
-    "test": "npm run build && vitest run --root lib"
+    "build": "npm run codegen && tsc --project ."
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^20.12.12",
-    "@types/validate-npm-package-name": "^4.0.2",
-    "vitest": "^1.6.0"
+    "@types/node": "^22.5.4",
+    "@types/validate-npm-package-name": "^4.0.2"
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.11",
+    "@argon-lang/esexpr": "^0.1.13",
     "@argon-lang/noble-idl-core": "file:../runtime",
     "typescript": "^5.5.4",
     "validate-npm-package-name": "^5.0.1"

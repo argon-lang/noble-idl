@@ -9,9 +9,6 @@ public static class Program {
         [Option('i', "input", Required = true, HelpText = "Input file")]
         public required IEnumerable<string> InputFiles { get; set; }
         
-        [Option('l', "library", Required = false, HelpText = "Library file")]
-        public required IEnumerable<string> LibraryFiles { get; set; }
-        
         [Option('o', "output", Required = true, HelpText = "Output file")]
         public required string OutputFile { get; set; }
         
@@ -51,12 +48,6 @@ public static class Program {
             cancellationTokenSource.Token.ThrowIfCancellationRequested();
             inputFiles.Add(await File.ReadAllTextAsync(inputDir, cancellationTokenSource.Token));
         }
-
-        var libraryFiles = new List<string>();
-        foreach(var libDir in options.LibraryFiles) {
-            cancellationTokenSource.Token.ThrowIfCancellationRequested();
-            libraryFiles.Add(await File.ReadAllTextAsync(libDir, cancellationTokenSource.Token));
-        }
         
         var namespaceMapping = options.NamespaceMapping
             .Select(mapping => {
@@ -82,7 +73,7 @@ public static class Program {
             },
             
             InputFileData = inputFiles.ToImmutableList(),
-            LibraryFileData = libraryFiles.ToImmutableList(),
+            LibraryFileData = [],
         };
         
         await CSharpNobleIDLCompiler.Compile(compilerOptions, options.ReferencedAssemblies, cancellationTokenSource.Token);

@@ -15,9 +15,9 @@ walkdir = "2.5.0"
 derive_more = "0.99.16"
 io-adapters = "0.3.0"
 itertools = "0.12.1"
-esexpr = "0.1.14"
-esexpr-binary = "0.1.14"
-esexpr-text = "0.1.14"
+esexpr = "0.1.15"
+esexpr-binary = "0.1.15"
+esexpr-text = "0.1.15"
 noble-idl-api = { path = "../noble-idl-api" }
 noble-idl-runtime = { path = "../langs/rust/runtime" }
 clap = { version = "4.5.9", features = ["derive"] }

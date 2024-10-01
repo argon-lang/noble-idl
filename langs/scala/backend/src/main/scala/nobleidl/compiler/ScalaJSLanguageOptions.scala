@@ -1,10 +1,9 @@
 package nobleidl.compiler
 
 import esexpr.*
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 
 final case class ScalaJSLanguageOptions(
-  outputDir: String,
   packageMapping: PackageMapping,
   packageImportMapping: PackageImportMapping,
 )

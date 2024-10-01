@@ -1,0 +1,13 @@
+<Project>
+    <Target Name="NobleIDLGenerate" BeforeTargets="BeforeCompile">
+        <NobleIDLGenerate
+                OutputFile="$(IntermediateOutputPath)\nobleidl\nobleidl.cs"
+                InputFiles="@(NobleIDL)"
+                Dependencies="@(ReferencePath)"
+                NobleIDLPackages="@(NobleIDLPackage)"
+        />
+        <ItemGroup>
+            <Compile Include="$(IntermediateOutputPath)\nobleidl\nobleidl.cs" />
+        </ItemGroup>
+    </Target>
+</Project>

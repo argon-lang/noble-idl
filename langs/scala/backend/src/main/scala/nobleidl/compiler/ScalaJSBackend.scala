@@ -2,7 +2,7 @@ package nobleidl.compiler
 
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.{java as _, *}
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
@@ -10,17 +10,18 @@ import zio.stream.*
 import java.nio.file.Path
 import java.util.Locale
 import scala.jdk.CollectionConverters.*
+import dev.argon.nobleidl.compiler.NobleIDLCompileErrorException
 
-private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguageOptions]) extends ScalaBackendBase {
+final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguageOptions]) extends ScalaBackendBase {
   import ScalaBackendBase.*
 
   private val options: ScalaJSLanguageOptions = genRequest.languageOptions
 
   protected override def model: NobleIdlModel = genRequest.model
   protected override def packageMappingRaw: PackageMapping = options.packageMapping
-  override protected def outputDir: Path = Path.of(options.outputDir).nn
 
-  private lazy val packageImportMapping = buildPackageMapping(options.packageImportMapping.mapping)
+  private lazy val packageImportMapping =
+    buildPackageMapping(options.packageImportMapping.mapping)
 
   protected override def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
@@ -168,7 +169,7 @@ private[compiler] class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[Sca
     yield ()
 
   private def getPackageImport(packageName: PackageName): ZIO[CodeWriter, NobleIDLCompileErrorException, String] =
-    ZIO.fromEither(packageImportMapping.get(packageName).toRight { NobleIDLCompileErrorException("Unmapped package import: " + packageName.display) })
+    ZIO.fromEither(packageImportMapping.get(packageName).toRight { NobleIDLCompileErrorException("Unmapped package JS import: " + packageName.display) })
 
   private def writeFields(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     ZIO.foreachDiscard(fields) { field =>

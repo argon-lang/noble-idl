@@ -1,0 +1,76 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0</Version>
+    <Title>Noble IDL MSBuild Tasks</Title>
+    <Authors>argon-dev</Authors>
+    <Description>Generates C# sources based on Noble IDL schemas</Description>
+    <Copyright>Copyright © argon.dev 2024</Copyright>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    
+    <NoWarn>NU5100</NoWarn>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
+    <TargetsForTfmSpecificBuildOutput>
+      $(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage
+    </TargetsForTfmSpecificBuildOutput>
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+    <RootNamespace>NobleIDL.MSBuildTask</RootNamespace>
+    
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="../NobleIDL.Backend/NobleIDL.Backend.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.11.4" PrivateAssets="all" ExcludeAssets="Runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.11.4" PrivateAssets="all" ExcludeAssets="Runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="build\NobleIDL.GenerateTask.props" PackagePath="build\" />
+    <Content Include="build\NobleIDL.GenerateTask.targets" PackagePath="build\" />
+    <Content Include="buildMultiTargeting\NobleIDL.GenerateTask.props" PackagePath="buildMultiTargeting\" />
+    <Content Include="buildMultiTargeting\NobleIDL.GenerateTask.targets" PackagePath="buildMultiTargeting\" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Include="docs\readme.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- https://learn.microsoft.com/en-us/visualstudio/msbuild/tutorial-custom-task-code-generation?view=vs-2022#bundle-dependencies-into-the-package -->
+  <Target
+          Name="CopyProjectReferencesToPackage"
+          DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <!-- The TargetPath is the path inside the package that the source file will be placed. This is already precomputed in the ReferenceCopyLocalPaths items' DestinationSubPath, so reuse it here. -->
+      <BuildOutputInPackage
+              Include="@(ReferenceCopyLocalPaths)"
+              TargetPath="%(ReferenceCopyLocalPaths.DestinationSubPath)" />
+    </ItemGroup>
+  </Target>
+  
+  <!-- https://learn.microsoft.com/en-us/visualstudio/msbuild/tutorial-custom-task-code-generation?view=vs-2022#generate-and-embed-a-depsjson-file -->
+  <Target
+          Name="AddBuildDependencyFileToBuiltProjectOutputGroupOutput"
+          BeforeTargets="BuiltProjectOutputGroup"
+          Condition=" '$(GenerateDependencyFile)' == 'true'">
+
+    <ItemGroup>
+      <BuiltProjectOutputGroupOutput
+              Include="$(ProjectDepsFilePath)"
+              TargetPath="$(ProjectDepsFileName)"
+              FinalOutputPath="$(ProjectDepsFilePath)" />
+    </ItemGroup>
+  </Target>
+</Project>

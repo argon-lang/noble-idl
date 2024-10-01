@@ -12,9 +12,9 @@ object ListRepr {
           _root_.nobleidl.core.List.javaAdapter[SA, JA](aAdapter).toJava(s_value.values),
         )
       }
-      override def fromJava(j: _root_.dev.argon.nobleidl.runtime.ListRepr[JA]): _root_.nobleidl.core.ListRepr[SA] = {
+      override def fromJava(j_value: _root_.dev.argon.nobleidl.runtime.ListRepr[JA]): _root_.nobleidl.core.ListRepr[SA] = {
         _root_.nobleidl.core.ListRepr[SA](
-          _root_.nobleidl.core.List.javaAdapter[SA, JA](aAdapter).fromJava(j.values().nn),
+          _root_.nobleidl.core.List.javaAdapter[SA, JA](aAdapter).fromJava(j_value.values().nn),
         )
       }
     }

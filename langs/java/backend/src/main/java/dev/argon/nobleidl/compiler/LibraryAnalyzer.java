@@ -2,21 +2,21 @@ package dev.argon.nobleidl.compiler;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.*;
 
 import dev.argon.esexpr.DecodeException;
 import dev.argon.esexpr.ESExpr;
 import dev.argon.esexpr.ESExprBinaryReader;
 import dev.argon.esexpr.SyntaxException;
-import dev.argon.nobleidl.compiler.format.NobleIdlJarOptions;
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 class LibraryAnalyzer implements Closeable {
 	private LibraryAnalyzer(FileSystem fs, Path libraryPath) {
-
 		this.fs = fs;
 		this.libraryPath = libraryPath;
 	}
@@ -44,52 +44,100 @@ class LibraryAnalyzer implements Closeable {
 
 
 	public void scan() throws IOException {
-		var optionsEsxFile = libraryPath.resolve("nobleidl-options.esxb");
-		if(!Files.exists(optionsEsxFile)) {
-			return;
-		}
+		boolean libHasMapping = false;
+		try(var files = Files.walk(libraryPath)) {
+			for(Iterator<Path> it = files.iterator(); it.hasNext(); ) {
+				var file = it.next();
 
-		ESExpr optionsExpr;
-		try(var is = fs.provider().newInputStream(optionsEsxFile)) {
-			var optionsExprOpt = ESExprBinaryReader.readEmbeddedStringTable(is).findFirst();
-			if(optionsExprOpt.isEmpty()) {
-				return;
+				if(!Files.isRegularFile(file)) {
+					continue;
+				}
+
+				var fileName = file.getFileName();
+				if(fileName == null || !fileName.toString().equals("package-info.class")) {
+					continue;
+				}
+
+				libHasMapping |= scanPackageInfo(file);
 			}
-
-			optionsExpr = optionsExprOpt.get();
 		}
-		catch(SyntaxException ex) {
-			System.err.println("Warning: could not parse nobleidl-options.esx: " + ex);
+
+		if(!libHasMapping) {
 			return;
 		}
 
-		NobleIdlJarOptions options;
-		try {
-			options = NobleIdlJarOptions.codec().decode(optionsExpr);
-		}
-		catch(DecodeException ex) {
-			System.err.println("Warning: could not decode nobleidl-options.esx: " + ex);
-			return;
-		}
+		var nobleIdlDir = libraryPath.resolve("nobleidl");
+		if(Files.isDirectory(nobleIdlDir)) {
+			try(var files = Files.walk(nobleIdlDir)) {
+				for(Iterator<Path> it = files.iterator(); it.hasNext(); ) {
+					var file = it.next();
+					
+					if(!Files.isRegularFile(file)) {
+						continue;
+					}
+					
+					var fileName = file.getFileName();
+					if(fileName == null || !file.getFileName().toString().endsWith(".nidl")) {
+						continue;
+					}
 
-		var javaOptions = options.backends().mapping().map().get("java");
-
-		if(javaOptions == null) {
-			return;
-		}
-
-		packageMapping.putAll(javaOptions.packageMapping().mapping().map());
-		for(var path : options.idlFiles()) {
-			var subPath = libraryPath.resolve(path);
-			if(!subPath.toAbsolutePath().startsWith(libraryPath.toAbsolutePath())) {
-				throw new RuntimeException("Invalid source path in nobleidl-options.esx. Paths must be within the library.");
+					var content = Files.readString(file, StandardCharsets.UTF_8);
+					sourceFiles.add(content);
+				}
 			}
-
-			String sourceCode = Files.readString(subPath);
-			sourceFiles.add(sourceCode);
 		}
 	}
 
+	private boolean scanPackageInfo(Path file) throws IOException {
+		boolean hasMapping = false;
+		try(var is = Files.newInputStream(file)) {
+			var reader = new ClassReader(is);
+
+			var visitor = new ClassVisitor(Opcodes.ASM9) {
+				public String packageName = null;
+				public String idlPackage = null;
+
+				@Override
+				public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+					String packageNameSlash;
+					int lastSlashIndex = name.lastIndexOf('/');
+					if(lastSlashIndex >= 0) {
+						packageNameSlash = name.substring(0, lastSlashIndex);
+					}
+					else {
+						packageNameSlash = "";
+					}
+
+					packageName = packageNameSlash.replace('/', '.');
+				}
+
+				@Override
+				public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+					if(!descriptor.equals("Ldev/argon/nobleidl/runtime/NobleIDLPackage;")) {
+						return null;
+					}
+
+					return new AnnotationVisitor(Opcodes.ASM9) {
+						@Override
+						public void visit(String name, Object value) {
+							if(name.equals("value") && value instanceof String idlPkg) {
+								idlPackage = idlPkg;
+							}
+						}
+					};
+				}
+			};
+
+			reader.accept(visitor, ClassReader.SKIP_CODE);
+
+			if(visitor.packageName != null && visitor.idlPackage != null) {
+				packageMapping.put(visitor.idlPackage, visitor.packageName);
+				hasMapping = true;
+			}
+		}
+
+		return hasMapping;
+	}
 
 
 	@Override

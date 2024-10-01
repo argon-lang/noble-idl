@@ -3,21 +3,23 @@ package nobleidl.compiler
 import nobleidl.compiler
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.{java as _, *}
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
+
+import dev.argon.nobleidl.compiler.NobleIDLCompileErrorException
 
 import java.nio.file.Path
 import java.util.Locale
 
 
-private[compiler] abstract class ScalaBackendBase {
+abstract class ScalaBackendBase private[compiler] extends Backend {
   import ScalaBackendBase.*
+  import Backend.*
 
   protected def model: NobleIdlModel
   protected def packageMappingRaw: PackageMapping
-  protected def outputDir: Path
 
   protected final lazy val packageMapping = buildPackageMapping(packageMappingRaw.mapping.dict)
 
@@ -42,7 +44,7 @@ private[compiler] abstract class ScalaBackendBase {
     ZStream.fromZIO(getScalaPackage(dfn.name.`package`))
       .map { pkg =>
         GeneratedFile(
-          path = pkg.split("\\.").nn.view.map(_.nn).foldLeft(outputDir)(_.resolve(_).nn).resolve(convertIdPascal(dfn.name.name) + ".scala").nn,
+          path = pkg.split("\\.").nn.view.map(_.nn).foldLeft(Path.of("."))(_.resolve(_).nn).resolve(convertIdPascal(dfn.name.name) + ".scala").nn,
           content = CodeWriter.withWriter(data)
         )
       }
@@ -170,14 +172,19 @@ private[compiler] abstract class ScalaBackendBase {
       .mkString
 
   protected final def convertIdCamel(kebab: String): String =
+    escapeIdentifier(convertIdCamelNoEscape(kebab))
+  
+  protected final def convertIdCamelNoEscape(kebab: String): String =
     val pascal = convertIdPascal(kebab)
-    val camel = pascal.substring(0, 1).nn.toLowerCase(Locale.ROOT).nn + pascal.substring(1).nn
-
-    if keywords.contains(camel) then
-      s"`$camel`"
+    pascal.substring(0, 1).nn.toLowerCase(Locale.ROOT).nn + pascal.substring(1).nn
+  end convertIdCamelNoEscape
+  
+  protected final def escapeIdentifier(id: String): String =
+    if keywords.contains(id) then
+      s"`$id`"
     else
-      camel
-  end convertIdCamel
+      id
+    
 
   protected final def convertIdConst(kebab: String): String =
     kebab.replace("-", "_").nn.toUpperCase(Locale.ROOT).nn
@@ -185,8 +192,6 @@ private[compiler] abstract class ScalaBackendBase {
 }
 
 private[compiler] object ScalaBackendBase {
-
-  final case class GeneratedFile(path: Path, content: Stream[NobleIDLCompileErrorException, String])
 
   val keywords = Seq(
     "abstract",

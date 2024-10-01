@@ -291,7 +291,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail("Binary value not allowed")? },
 			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float32 value not allowed")? },
 			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float64 value not allowed")? },
-			ESExpr::Null => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail("Null value not allowed")? },
+			ESExpr::Null(_) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail("Null value not allowed")? },
 		})
 	}
 

@@ -10,14 +10,13 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.SourceVersion;
 
-class JavaBackend {
+final class JavaBackend implements Backend {
 	public JavaBackend(NobleIdlGenerationRequest<JavaLanguageOptions> options) {
 		this.languageOptions = options.languageOptions();
 		this.model = options.model();
@@ -27,8 +26,6 @@ class JavaBackend {
 	private final JavaLanguageOptions languageOptions;
 	private final NobleIdlModel model;
 	private final Map<PackageName, String> packageMapping;
-
-	private List<String> outputFiles = new ArrayList<>();
 
 
 
@@ -40,53 +37,62 @@ class JavaBackend {
 		return packageMapping;
 	}
 
-
-	public NobleIdlGenerationResult result() {
-		return new NobleIdlGenerationResult(outputFiles);
+	@Override
+	public Stream<FileGenerator> emit() throws NobleIDLCompileErrorException {
+		return model.definitions()
+			.stream()
+			.filter(dfn -> !dfn.isLibrary())
+			.map(this::emitDefinition)
+			.filter(Objects::nonNull);
 	}
 
-	public void emit() throws IOException, NobleIDLCompileErrorException {
-		for(var dfn : model.definitions()) {
-			if(dfn.isLibrary()) {
-				continue;
-			}
-
-			emitDefinition(dfn);
-		}
-	}
-
-	private void emitDefinition(DefinitionInfo dfn) throws IOException, NobleIDLCompileErrorException {
-		switch(dfn.definition()) {
+	private FileGenerator emitDefinition(DefinitionInfo dfn) {
+		return switch(dfn.definition()) {
 			case Definition.Record(var r) -> emitRecord(dfn, r);
 			case Definition.Enum(var e) -> emitEnum(dfn, e);
 			case Definition.SimpleEnum(var e) -> emitSimpleEnum(dfn, e);
-			case Definition.ExternType(_) -> {}
+			case Definition.ExternType(_) -> null;
 			case Definition.Interface(var iface) -> emitInterface(dfn, iface);
 			case Definition.ExceptionType(var ex) -> emitExceptionType(dfn, ex);
-		}
+		};
 	}
 
-	private CodeWriter openFile(DefinitionInfo dfn) throws IOException, NobleIDLCompileErrorException {
-		var idlPackageName = dfn.name()._package();
-		var javaPackageName = getJavaPackage(idlPackageName);
+	@FunctionalInterface
+	private interface FileGeneratorCallback {
+		void write(CodeWriter w) throws IOException, NobleIDLCompileErrorException;
+	}
 
-		var path = Path.of(languageOptions.outputDir());
-		if(!javaPackageName.isEmpty()) {
-			var parts = javaPackageName.split("\\.");
-			for(String part : parts) {
-				path = path.resolve(part);
+	private FileGenerator fileGenerator(DefinitionInfo dfn, FileGeneratorCallback f) {
+		return new FileGenerator() {
+			@Override
+			public Path getPath() throws NobleIDLCompileErrorException {
+				var idlPackageName = dfn.name()._package();
+				var javaPackageName = getJavaPackage(idlPackageName);
+
+				var path = Path.of("");
+				if(!javaPackageName.isEmpty()) {
+					var parts = javaPackageName.split("\\.");
+					for(String part : parts) {
+						path = path.resolve(part);
+					}
+				}
+
+				path = path.resolve(convertIdPascal(dfn.name().name()) + ".java");
+
+				return path;
 			}
-		}
 
-		Files.createDirectories(path);
-
-		path = path.resolve(convertIdPascal(dfn.name().name()) + ".java");
-
-		return new CodeWriter(Files.newBufferedWriter(path, StandardCharsets.UTF_8));
+			@Override
+			public void generate(Writer writer) throws NobleIDLCompileErrorException, IOException {
+				try(var w = new CodeWriter(writer)) {
+					f.write(w);
+				}
+			}
+		};
 	}
 
-	private void emitRecord(DefinitionInfo dfn, RecordDefinition r) throws IOException, NobleIDLCompileErrorException {
-		try(var w = openFile(dfn)) {
+	private FileGenerator emitRecord(DefinitionInfo dfn, RecordDefinition r) {
+		return fileGenerator(dfn, w -> {
 			w.print("package ");
 			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
@@ -112,11 +118,11 @@ class JavaBackend {
 
 			w.dedent();
 			w.println("}");
-		}
+		});
 	}
 
-	private void emitEnum(DefinitionInfo dfn, EnumDefinition e) throws IOException, NobleIDLCompileErrorException {
-		try(var w = openFile(dfn)) {
+	private FileGenerator emitEnum(DefinitionInfo dfn, EnumDefinition e) {
+		return fileGenerator(dfn, w -> {
 			w.print("package ");
 			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
@@ -169,11 +175,11 @@ class JavaBackend {
 
 			w.dedent();
 			w.println("}");
-		}
+		});
 	}
 
-	private void emitSimpleEnum(DefinitionInfo dfn, SimpleEnumDefinition e) throws IOException, NobleIDLCompileErrorException {
-		try(var w = openFile(dfn)) {
+	private FileGenerator emitSimpleEnum(DefinitionInfo dfn, SimpleEnumDefinition e) {
+		return fileGenerator(dfn, w -> {
 			w.print("package ");
 			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
@@ -213,11 +219,11 @@ class JavaBackend {
 
 			w.dedent();
 			w.println("}");
-		}
+		});
 	}
 
-	private void emitInterface(DefinitionInfo dfn, InterfaceDefinition iface) throws IOException, NobleIDLCompileErrorException {
-		try(var w = openFile(dfn)) {
+	private FileGenerator emitInterface(DefinitionInfo dfn, InterfaceDefinition iface) {
+		return fileGenerator(dfn, w -> {
 			w.print("package ");
 			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
@@ -286,12 +292,12 @@ class JavaBackend {
 
 			w.dedent();
 			w.println("}");
-		}
+		});
 	}
 
 
-	private void emitExceptionType(DefinitionInfo dfn, ExceptionTypeDefinition ex) throws IOException, NobleIDLCompileErrorException {
-		try(var w = openFile(dfn)) {
+	private FileGenerator emitExceptionType(DefinitionInfo dfn, ExceptionTypeDefinition ex) {
+		return fileGenerator(dfn, w -> {
 			w.print("package ");
 			w.print(getJavaPackage(dfn.name()._package()));
 			w.println(";");
@@ -350,7 +356,7 @@ class JavaBackend {
 
 			w.dedent();
 			w.println("}");
-		}
+		});
 	}
 
 

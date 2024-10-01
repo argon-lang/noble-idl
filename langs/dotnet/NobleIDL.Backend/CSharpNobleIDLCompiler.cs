@@ -6,6 +6,7 @@ using NobleIDL.Backend.Api;
 namespace NobleIDL.Backend;
 
 public static class CSharpNobleIDLCompiler {
+    
     public static async ValueTask<NobleIdlGenerationResult> Compile(
         CSharpIDLCompilerOptions options,
         CancellationToken cancellationToken = default)
@@ -29,10 +30,13 @@ public static class CSharpNobleIDLCompiler {
             }
         }
 
-        var backend = new CSharpBackend(new NobleIdlGenerationRequest<CSharpLanguageOptions> {
-            Model = model,
-            LanguageOptions = options.LanguageOptions,
-        });
+        var backend = new CSharpBackend(
+            new NobleIdlGenerationRequest<CSharpLanguageOptions> {
+                Model = model,
+                LanguageOptions = options.LanguageOptions,
+            },
+            options.InputFileData
+        );
         await backend.Emit(cancellationToken);
 
         return backend.Result;
@@ -71,6 +75,7 @@ public static class CSharpNobleIDLCompiler {
                 case "NobleIDL.Runtime.NobleIDLSourceFileAttribute":
                 {
                     var reader = metadataReader.GetBlobReader(attribute.Value);
+                    reader.ReadUInt16();
                     var sourceText = reader.ReadSerializedString();
                     if(sourceText is null) {
                         throw new NobleIDLCompileErrorException("Error loading NobleIDLSourceFileAttribute data");
@@ -79,12 +84,13 @@ public static class CSharpNobleIDLCompiler {
                     options = options with {
                         LibraryFileData = [..options.LibraryFileData, sourceText],
                     };
-                    break;                    
+                    break;
                 }
                     
                 case "NobleIDL.Runtime.NobleIDLPackageMappingAttribute":
                 {
                     var reader = metadataReader.GetBlobReader(attribute.Value);
+                    reader.ReadUInt16();
                     var idlPackage = reader.ReadSerializedString();
                     var mappedNamespace = reader.ReadSerializedString();
                     if(idlPackage is null || mappedNamespace is null) {
@@ -97,7 +103,7 @@ public static class CSharpNobleIDLCompiler {
                                 Mapping = options.LanguageOptions.NamespaceMapping.Mapping.ImmutableDictionary
                                     .Add(idlPackage, mappedNamespace)
                                     .ToImmutableDictionary(),
-                            }
+                            },
                         },
                     };
                     break;                    

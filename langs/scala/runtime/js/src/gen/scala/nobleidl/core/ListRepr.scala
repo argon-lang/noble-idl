@@ -12,9 +12,9 @@ object ListRepr {
           override val values: _root_.nobleidl.sjs.core.List[JA] = _root_.nobleidl.core.List.jsAdapter[SA, JA](aAdapter).toJS(s_value.values)
         }
       }
-      override def fromJS(j: _root_.nobleidl.sjs.core.ListRepr[JA]): _root_.nobleidl.core.ListRepr[SA] = {
+      override def fromJS(j_value: _root_.nobleidl.sjs.core.ListRepr[JA]): _root_.nobleidl.core.ListRepr[SA] = {
         _root_.nobleidl.core.ListRepr[SA](
-          _root_.nobleidl.core.List.jsAdapter[SA, JA](aAdapter).fromJS(j.values),
+          _root_.nobleidl.core.List.jsAdapter[SA, JA](aAdapter).fromJS(j_value.values),
         )
       }
     }

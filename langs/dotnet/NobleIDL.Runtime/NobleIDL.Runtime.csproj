@@ -4,10 +4,21 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0</Version>
+    <Title>Noble IDL Runtime</Title>
+    <Authors>argon-dev</Authors>
+    <Description>Core runtime library for Noble IDL types</Description>
+    <Copyright>Copyright © argon.dev 2024</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../../esexpr/dotnet/ESExpr.Runtime/ESExpr.Runtime.csproj" />
+    <PackageReference Include="ESExpr.Runtime" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="docs\readme.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   
 </Project>

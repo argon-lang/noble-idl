@@ -10,16 +10,14 @@
   },
   "scripts": {
     "prebuild": "cpy --cwd=../../noble-idl/runtime nobleidl-core.nidl ../../js/runtime/src/",
-    "build": "npm run prebuild && tsc --project .",
-    "test": "npm run build && vitest run --root lib"
+    "build": "npm run prebuild && tsc --project ."
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^20.12.12",
+    "@types/node": "^22.5.4",
     "cpy-cli": "^5.0.0",
-    "typescript": "^5.5.4",
-    "vitest": "^1.6.0"
+    "typescript": "^5.5.4"
   },
   "NobleIDL": {
     "inputFiles": [
@@ -30,6 +28,6 @@
     }
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.11"
+    "@argon-lang/esexpr": "^0.1.13"
   }
 }

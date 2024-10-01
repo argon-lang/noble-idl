@@ -10,12 +10,14 @@ using TypeParameter = NobleIDL.Backend.Api.TypeParameter;
 namespace NobleIDL.Backend;
 
 internal class CSharpBackend {
-    public CSharpBackend(NobleIdlGenerationRequest<CSharpLanguageOptions> request) {
+    public CSharpBackend(NobleIdlGenerationRequest<CSharpLanguageOptions> request, IReadOnlyList<string> inputSources) {
         this.request = request;
+        this.inputSources = inputSources;
         namespaceMapping = GetNamespaceMapping(request.LanguageOptions);
     }
     
     private readonly NobleIdlGenerationRequest<CSharpLanguageOptions> request;
+    private readonly IReadOnlyList<string> inputSources;
     private readonly Dictionary<PackageName, NameSyntax?> namespaceMapping;
     
     private NobleIdlModel Model => request.Model;
@@ -96,6 +98,30 @@ internal class CSharpBackend {
     private CompilationUnitSyntax EmitImpl(CancellationToken cancellationToken) {
         var file = CompilationUnit();
 
+        foreach(var inputSource in inputSources) {
+            var attr =
+                Attribute(
+                    QualifiedName(
+                        QualifiedName(
+                            AliasQualifiedName(
+                                IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                IdentifierName("NobleIDL")
+                            ),
+                            IdentifierName("Runtime")
+                        ),
+                        IdentifierName("NobleIDLSourceFile")
+                    )
+                )
+                    .AddArgumentListArguments(
+                        AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(inputSource)))
+                    );
+            
+            var attrList = AttributeList(SingletonSeparatedList(attr))
+                .WithTarget(AttributeTargetSpecifier(Token(SyntaxKind.AssemblyKeyword)));
+            
+            file = file.AddAttributeLists(attrList);
+        }
+
         var groups = Model.Definitions
             .Where(dfn => !dfn.IsLibrary)
             .GroupBy(dfn => dfn.Name.Package)
@@ -105,6 +131,39 @@ internal class CSharpBackend {
         
         foreach(var (package, dfns) in groups) {
             cancellationToken.ThrowIfCancellationRequested();
+
+            var ns = GetNamespace(package);
+            string namespaceStr;
+            if(ns is null) {
+                namespaceStr = "";
+            }
+            else {
+                namespaceStr = RemoveGlobalPrefix(ns).ToString();
+            }
+            
+            var attr =
+                Attribute(
+                        QualifiedName(
+                            QualifiedName(
+                                AliasQualifiedName(
+                                    IdentifierName(Token(SyntaxKind.GlobalKeyword)),
+                                    IdentifierName("NobleIDL")
+                                ),
+                                IdentifierName("Runtime")
+                            ),
+                            IdentifierName("NobleIDLPackageMapping")
+                        )
+                    )
+                    .AddArgumentListArguments(
+                        AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(package.ToString()))),
+                        AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(namespaceStr)))
+                    );
+            
+            var attrList = AttributeList(SingletonSeparatedList(attr))
+                .WithTarget(AttributeTargetSpecifier(Token(SyntaxKind.AssemblyKeyword)));
+
+            file = file.AddAttributeLists(attrList);
+            
             file = file.AddMembers(EmitNamespace(package, dfns, cancellationToken));
         }
 
@@ -193,7 +252,7 @@ internal class CSharpBackend {
             baseType = GenericName(recName)
                 .WithTypeArgumentList(TypeArgumentList(SeparatedList<TypeSyntax>(
                     dfn.TypeParameters.Select(tp => tp switch {
-                        TypeParameter.Type t => IdentifierName(t.Name),
+                        TypeParameter.Type t => IdentifierName(ConvertIdPascal(t.Name)),
                         _ => throw new InvalidOperationException(),
                     }).ToArray()
                 )));
@@ -273,6 +332,10 @@ internal class CSharpBackend {
     private MemberDeclarationSyntax EmitInterfaceDefinition(DefinitionInfo dfn, InterfaceDefinition iface) {
         var ifaceDecl = InterfaceDeclaration(ConvertIdPascal(dfn.Name.Name));
 
+        if(dfn.TypeParameters.Count > 0) {
+            ifaceDecl = ifaceDecl.AddTypeParameterListParameters(EmitTypeParameters(dfn.TypeParameters));
+        }
+
         foreach(var method in iface.Methods) {
             var returnType = ValueTaskType(EmitReturnType(method.ReturnType));
             var methodDecl = MethodDeclaration(returnType, ConvertIdPascal(method.Name));
@@ -284,11 +347,13 @@ internal class CSharpBackend {
             methodDecl = methodDecl.AddParameterListParameters(
                 method.Parameters
                     .Select(p =>
-                        Parameter(Identifier(ConvertIdPascal(p.Name)))
+                        Parameter(Identifier(ConvertIdCamel(p.Name)))
                             .WithType(EmitType(p.ParameterType))
                     )
                     .ToArray()
             );
+
+            methodDecl = methodDecl.WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
             ifaceDecl = ifaceDecl.AddMembers(methodDecl);
         }
@@ -1140,4 +1205,17 @@ internal class CSharpBackend {
         string.Concat(
             kebab.Split("-").Select(s => s.Substring(0, 1).ToUpperInvariant() + s.Substring(1))
         );
+
+    private string ConvertIdCamel(string kebab) {
+        var idStr = string.Concat(
+            kebab.Split("-").Select((s, i) => i == 0 ? s : s.Substring(0, 1).ToUpperInvariant() + s.Substring(1))
+        );
+
+        if(SyntaxFacts.GetKeywordKind(idStr) != SyntaxKind.None) {
+            idStr = "@" + idStr;
+        }
+
+        return idStr;
+    }
+        
 }

@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <NobleIDL Include="**/*.nidl" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <NobleIDLPackage Include="nobleidl.example">
+      <Namespace>NobleIDL.Tests</Namespace>
+    </NobleIDLPackage>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="../NobleIDL.Runtime/NobleIDL.Runtime.csproj" />
+  </ItemGroup>
+
+  <UsingTask
+          TaskName="NobleIDL.GenerateTask.NobleIDLGenerate"
+          AssemblyFile="../NobleIDL.GenerateTask/bin/$(Configuration)/$(TargetFramework)/NobleIDL.GenerateTask.dll"
+  />
+
+  <Target Name="NobleIDLGenerate" BeforeTargets="BeforeCompile">
+    <NobleIDLGenerate
+            OutputFile="$(IntermediateOutputPath)\nobleidl\nobleidl.cs"
+            InputFiles="@(NobleIDL)"
+            Dependencies="@(ReferencePath)"
+            NobleIDLPackages="@(NobleIDLPackage)"
+    />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)\nobleidl\nobleidl.cs" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BuildNobleIDLTasks" BeforeTargets="NobleIDLGenerate">
+    <MSBuild Projects="../NobleIDL.GenerateTask/NobleIDL.GenerateTask.csproj" Targets="Build" />
+  </Target>
+
+</Project>

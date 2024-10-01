@@ -1,13 +1,10 @@
 package nobleidl.compiler
 
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 import esexpr.*
 import nobleidl.compiler.ScalaLanguageOptions.{JSAdapters, JavaAdapters}
 
-final case class ScalaLanguageOptions(
-  @keyword
-  outputDir: String,
-  
+final case class ScalaLanguageOptions(  
   @keyword
   packageMapping: PackageMapping,
 

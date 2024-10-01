@@ -5,7 +5,7 @@ import esexpr.unsigned.{UByte, UInt, ULong, UShort}
 import nobleidl.compiler
 import nobleidl.compiler.CodeWriter.Operations.*
 import nobleidl.compiler.api.{TypeExpr, java as _, *}
-import nobleidl.compiler.format.PackageMapping
+import nobleidl.compiler.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
@@ -14,16 +14,17 @@ import _root_.java.nio.file.Path
 import _root_.java.util.Locale
 import nobleidl.compiler.api.java.{JavaAnnExternType, JavaMappedType}
 
+import javax.lang.model.SourceVersion
 import scala.jdk.CollectionConverters.*
+import dev.argon.nobleidl.compiler.NobleIDLCompileErrorException
 
-private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOptions]) extends ScalaBackendBase {
+final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOptions]) extends ScalaBackendBase {
   import ScalaBackendBase.*
 
   private val options: ScalaLanguageOptions = genRequest.languageOptions
 
   protected override def model: NobleIdlModel = genRequest.model
   protected override def packageMappingRaw: PackageMapping = options.packageMapping
-  override protected def outputDir: Path = Path.of(options.outputDir).nn
 
   protected override def emitRecord(dfn: DefinitionInfo, r: RecordDefinition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     for
@@ -512,7 +513,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                       _ <- write(", ").when(index > 0)
                       _ <- adapterWriter.writeAdapterExpr(param.parameterType, TypePosition.Normal)
                       _ <- write(".fromJava(param_")
-                      _ <- write(convertIdCamel(param.name))
+                      _ <- write(convertIdCamelNoEscape(param.name))
                       _ <- write(")")
                     yield ()
                   }
@@ -521,7 +522,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
 
               for
                 _ <- write("override def ")
-                _ <- write(convertIdCamel(m.name))
+                _ <- write(convertIdJava(m.name))
                 _ <- writeTypeParameters(m.typeParameters, prefix = "T", constraintType = ConstraintType.Java)
                 _ <- write("(")
 
@@ -534,7 +535,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                       case tp: TypeParameter.Type =>
                         for
                           _ <- write("class_")
-                          _ <- write(convertIdCamel(tp.name))
+                          _ <- write(convertIdCamelNoEscape(tp.name))
                           _ <- write(": _root_.java.lang.Class[")
                           _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByMethod), TypePosition.ReturnType)
                           _ <- write("]")
@@ -544,7 +545,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                   m.parameters.view.map { param =>
                     for
                       _ <- write("param_")
-                      _ <- write(convertIdCamel(param.name))
+                      _ <- write(convertIdCamelNoEscape(param.name))
                       _ <- write(": ")
                       _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(param.parameterType, TypePosition.Normal)
                     yield ()
@@ -568,7 +569,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                       _ <- AdapterScalaTypeExprWriter.writeTypeExpr(throwsType, TypePosition.Normal)
                       _ <- write("](")
                       _ <- write("class_")
-                      _ <- write(convertIdCamel(name))
+                      _ <- write(convertIdCamelNoEscape(name))
                       _ <- writeln(")")
                     yield ()
 
@@ -602,7 +603,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
               def writeMethodCall: ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
                 for
                   _ <- write("j_value.")
-                  _ <- write(convertIdCamel(m.name))
+                  _ <- write(convertIdJava(m.name))
                   _ <- write("(")
 
                   argWriters = Seq(
@@ -624,7 +625,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                       for
                         _ <- adapterWriter.writeAdapterExpr(param.parameterType, TypePosition.Normal)
                         _ <- write(".toJava(param_")
-                        _ <- write(convertIdCamel(param.name))
+                        _ <- write(convertIdCamelNoEscape(param.name))
                         _ <- write(")")
                       yield ()
                     },
@@ -646,7 +647,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
                   for
                     _ <- write(", ").when(index > 0)
                     _ <- write("param_")
-                    _ <- write(convertIdCamel(param.name))
+                    _ <- write(convertIdCamelNoEscape(param.name))
                     _ <- write(": ")
                     _ <- AdapterScalaTypeExprWriter.writeTypeExpr(param.parameterType, TypePosition.Normal)
                   yield ()
@@ -891,7 +892,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
         for
           _ <- adapterWriter.writeAdapterExpr(field.fieldType, TypePosition.Normal)
           _ <- write(".fromJava(j_value.")
-          _ <- write(convertIdCamel(field.name))
+          _ <- write(convertIdJava(field.name))
           _ <- writeln("().nn),")
         yield ()
       }
@@ -1216,7 +1217,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
           case (tp: TypeParameter.Type, index) =>
             for
               _ <- write(", ").when(index > 0)
-              _ <- write(convertIdCamel(tp.name))
+              _ <- write(convertIdCamelNoEscape(tp.name))
               _ <- write("Adapter: ")
               _ <- adapterWriter.writeAdapterType(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByType), TypePosition.Normal)
             yield ()
@@ -1332,6 +1333,17 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
       case _: TypeExpr.TypeParameter => false
     }
 
+  
+  private def convertIdJava(kebab: String): String =
+    val id = convertIdCamelNoEscape(kebab)
+    
+    val prefixed =
+      if SourceVersion.isKeyword(id) then "_" + id
+      else id
+    
+    escapeIdentifier(prefixed)
+  end convertIdJava
+  
 
   private object AdapterScalaTypeExprWriter extends TypeExprWriter {
     override def writeTypeParameter(parameter: TypeExpr.TypeParameter, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
@@ -1379,7 +1391,7 @@ private[compiler] class ScalaBackend(genRequest: NobleIdlGenerationRequest[Scala
           yield ()
 
         case TypeExpr.TypeParameter(name, TypeParameterOwner.ByType) =>
-          write(convertIdCamel(name) + "Adapter")
+          write(convertIdCamelNoEscape(name) + "Adapter")
 
         case TypeExpr.TypeParameter(_, TypeParameterOwner.ByMethod) =>
           write(s"_root_.nobleidl.core.JavaAdapter.identity[") *>
