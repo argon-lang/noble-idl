@@ -385,8 +385,6 @@ impl <'a> ESExprOptionParser<'a> {
 				let kind =
 					if is_vararg {
 						let Some(vararg_metadata) = get_type_name(&field.field_type).and_then(|ftn| self.vararg_container_types.get(ftn)) else {
-							eprintln!("{:?}", def_name);
-							eprintln!("{:?}", self.vararg_container_types);
 							return Err(CheckError::ESExprInvalidVarargFieldType(def_name.clone(), case_name.map(str::to_owned), field.name.clone()));
 						};
 

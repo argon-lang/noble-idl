@@ -1033,7 +1033,7 @@ final class JavaBackend implements Backend {
 					var className = convertIdPascal(name.name());
 					var javaArgs = new ArrayList<JavaTypeExpr>();
 					for(var arg : args) {
-						javaArgs.add(typeExprToJava(arg, ignoreMapping).boxed());
+						javaArgs.add(typeExprToJava(arg, false).boxed());
 					}
 					yield new JavaTypeExpr.NormalType(packageName, className, javaArgs);
 				}

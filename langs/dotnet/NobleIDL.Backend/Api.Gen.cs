@@ -788,7 +788,7 @@ namespace NobleIDL.Backend.Api
             public required global::System.String Name { get; init; }
 
             [global::ESExpr.Runtime.Keyword("constraints")]
-            [global::ESExpr.Runtime.DefaultValue("global::NobleIDL.Runtime.List<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint>.BuildFrom(new global::NobleIDL.Runtime.ListRepr<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint> { Values = global::NobleIDL.Runtime.List<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint>.FromValues([]) })")]
+            [global::ESExpr.Runtime.DefaultValue("global::NobleIDL.Runtime.List<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint>.BuildFrom(new global::NobleIDL.Runtime.ListRepr<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint> { Values = global::NobleIDL.Runtime.List<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint>.FromCollection([]) })")]
             public required global::ESExpr.Runtime.VList<global::NobleIDL.Backend.Api.TypeParameterTypeConstraint> Constraints { get; init; }
 
             [global::ESExpr.Runtime.Keyword("annotations")]

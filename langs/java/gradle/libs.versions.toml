@@ -7,7 +7,8 @@ apache-commons-text = "1.12.0"
 asm = "9.7"
 
 [libraries]
-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version = "junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.1" }
 esexpr-generator = { module = "dev.argon.esexpr:esexpr-generator" , version.ref = "esexpr" }
 esexpr-runtime = { module = "dev.argon.esexpr:esexpr-java-runtime" , version.ref = "esexpr" }
 jawawasm-engine = { module = "dev.argon.jawawasm:wasm-engine", version.ref = "jawawasm" }

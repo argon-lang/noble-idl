@@ -672,8 +672,42 @@ impl <'a> ModEmitter<'a> {
 			EsexprDecodedValue::FromInt { t, i, min_int, max_int } => self.emit_literal_int(t, i, min_int.as_ref(), max_int.as_ref()),
 			EsexprDecodedValue::FromStr { t, s } => self.emit_literal_primitive::<&str>(t, parse_quote!(&'static ::std::primitive::str), s),
 			EsexprDecodedValue::FromBinary { t, b } => self.emit_literal_binary(t, &b.0),
-			EsexprDecodedValue::FromFloat32 { t, f } => self.emit_literal_primitive::<f32>(t, parse_quote!(::std::primitive::f32), *f),
-			EsexprDecodedValue::FromFloat64 { t, f } => self.emit_literal_primitive::<f64>(t, parse_quote!(::std::primitive::f64), *f),
+			EsexprDecodedValue::FromFloat32 { t, f } => {
+				let te = parse_quote!(::std::primitive::f32);
+				if f.is_nan() {
+					let value = quote! { #te::NAN };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else if *f == f32::INFINITY {
+					let value = quote! { #te::INFINITY };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else if *f == f32::NEG_INFINITY {
+					let value = quote! { #te::NEG_INFINITY };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else {
+					self.emit_literal_primitive::<f32>(t, te, *f)
+				}
+			},
+			EsexprDecodedValue::FromFloat64 { t, f } => {
+				let te = parse_quote!(::std::primitive::f64);
+				if f.is_nan() {
+					let value = quote! { #te::NAN };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else if *f == f64::INFINITY {
+					let value = quote! { #te::INFINITY };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else if *f == f64::NEG_INFINITY {
+					let value = quote! { #te::NEG_INFINITY };
+					self.emit_literal_primitive(t, te, value)
+				}
+				else {
+					self.emit_literal_primitive::<f64>(t, te, *f)
+				}
+			},
 			EsexprDecodedValue::FromNull { t } => self.emit_literal_null(t),
 		}
 	}
@@ -751,7 +785,7 @@ impl <'a> ModEmitter<'a> {
 
 
 		Ok(parse_quote! {
-			<#t as std::convert::From<std::vec::Vec<#et>>>::from(#v)
+			<#t as ::std::convert::From<std::vec::Vec<#et>>>::from(#v)
 		})
 	}
 
@@ -760,13 +794,13 @@ impl <'a> ModEmitter<'a> {
 		let et = self.emit_type_expr(element_type)?;
 		let v = values.iter().map(|(k, v)| {
 			let v = self.emit_value(v)?;
-			Ok(parse_quote! { (#k, #v) })
+			Ok(parse_quote! { (<::std::primitive::str as std::borrow::ToOwned>::to_owned(#k), #v) })
 		}).collect::<Result<Vec<syn::Expr>, EmitError>>()?;
 
-		let v: syn::Expr = parse_quote! { ::std::collection::HashMap::from([#(#v),*]) };
+		let v: syn::Expr = parse_quote! { ::std::collections::HashMap::from([#(#v),*]) };
 
 		Ok(parse_quote! {
-			<#t as ::std::convert::From<::std::collection::HashMap<::std::string::String, #et>>>::from(#v)
+			<#t as ::std::convert::From<::std::collections::HashMap<::std::string::String, #et>>>::from(#v)
 		})
 	}
 
@@ -781,6 +815,10 @@ impl <'a> ModEmitter<'a> {
 	}
 
 	fn emit_literal_primitive<T: quote::ToTokens>(&self, t: &TypeExpr, prim_type: syn::Type, value: T) -> Result<syn::Expr, EmitError> {
+		self.emit_literal_primitive_expr::<T, T>(t, prim_type, value)
+	}
+
+	fn emit_literal_primitive_expr<T: quote::ToTokens, V: quote::ToTokens>(&self, t: &TypeExpr, prim_type: syn::Type, value: V) -> Result<syn::Expr, EmitError> {
 		let t = self.emit_type_expr(t)?;
 
 		Ok(parse_quote! {

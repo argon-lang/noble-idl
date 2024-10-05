@@ -134,6 +134,9 @@ extern type optional-field[a];
 
 @esexpr:(derive-codec)
 @esexpr:(allow-dict (type-parameter "a" owner: "by-type"))
+@esexpr:(literals
+    build-literal-from: (defined-type (qualified-name (package-name "nobleidl" "core") "dict-repr") (type-parameter "a" owner: "by-type"))
+)
 @java:(mapped-to (apply "dev.argon.esexpr.KeywordMapping" (type-parameter "a")))
 @csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "VDict" (type-parameter "a")))
 extern type dict[
@@ -141,3 +144,10 @@ extern type dict[
     a,
 ];
 
+
+@esexpr:(derive-codec)
+@esexpr:(constructor "dict")
+record dict-repr[a] {
+    @esexpr:(dict)
+    values: dict[a];
+}

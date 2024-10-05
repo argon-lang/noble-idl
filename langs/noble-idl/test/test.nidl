@@ -1,0 +1,361 @@
+package nobleidl.test;
+
+import nobleidl.core;
+
+@esexpr:(derive-codec)
+@esexpr:(constructor "si-pair")
+record string-int-pair {
+    s: string;
+    @esexpr:(keyword name: "int-value")
+    i: int;
+}
+
+record pair[a, b] {
+    x: a;
+    y: b;
+}
+
+record scalar-builtins {
+    a: string;
+    b: binary;
+    c: int;
+    d: nat;
+    e: i8;
+    f: u8;
+    g: i16;
+    h: u16;
+    i: i32;
+    j: u32;
+    k: i64;
+    l: u64;
+    m: f32;
+    n: f64;
+    o: unit;
+}
+
+record list-builtins {
+    a: list[string];
+    b: list[binary];
+    c: list[int];
+    d: list[nat];
+    e: list[i8];
+    f: list[u8];
+    g: list[i16];
+    h: list[u16];
+    i: list[i32];
+    j: list[u32];
+    k: list[i64];
+    l: list[u64];
+    m: list[f32];
+    n: list[f64];
+    o: list[unit];
+}
+
+record option-builtins {
+    a: option[string];
+    b: option[binary];
+    c: option[int];
+    d: option[nat];
+    e: option[i8];
+    f: option[u8];
+    g: option[i16];
+    h: option[u16];
+    i: option[i32];
+    j: option[u32];
+    k: option[i64];
+    l: option[u64];
+    m: option[f32];
+    n: option[f64];
+    o: option[unit];
+}
+
+@esexpr:(derive-codec)
+enum string-or-int {
+    @esexpr:(constructor "str-value")
+    a {
+        @esexpr:(keyword name: "str")
+        s: string;
+    },
+    @esexpr:(inline-value)
+    b {
+        i: int;
+    },
+}
+
+@esexpr:(derive-codec)
+simple enum my-simple-enum {
+    a,
+    b,
+    c,
+}
+
+
+@esexpr:(derive-codec)
+record many-values {
+    @esexpr:(vararg)
+    args: list[int];
+
+    @esexpr:(dict)
+    kwargs: dict[int];
+}
+
+enum either[a, b] {
+    left { value: a; },
+    right { value: b; },
+}
+
+extern type my-extern;
+
+extern type my-extern2[a];
+
+record extern-user {
+    e: my-extern;
+    e2: string;
+}
+
+interface do-something {
+    to-str(value: string-or-int): string;
+    run(n: int): unit;
+    add(a: int, b: int): int;
+}
+
+interface function[a, b] {
+    apply(x: a): b;
+}
+
+interface function-with-error[a, b, e: exception] {
+    apply(x: a): b throws e;
+}
+
+interface function-with-error2[a, b] {
+    apply[e: exception](x: a): b throws e;
+}
+
+exception operation-failure of i32;
+
+interface operation[a] {
+    run[b](s: list[a], f: function[a, b]): list[b] throws operation-failure;
+}
+
+
+record shadowed-type {}
+
+record shadowing-container[shadowed-type] {
+    a: shadowed-type;
+    b: nobleidl.test.shadowed-type;
+}
+
+
+enum mutual-a {
+    next {
+        value: mutual-b;
+    },
+    empty,
+}
+
+enum mutual-b {
+    next {
+        value: mutual-a;
+    },
+    empty,
+}
+
+
+
+@esexpr: (derive-codec)
+record using-optional-field {
+    @esexpr: (keyword)
+    @esexpr: (optional)
+    field: optional-field[i32];
+}
+
+@esexpr: (derive-codec)
+record using-dict-field {
+    @esexpr: (dict)
+    field: dict[i32];
+}
+
+
+@esexpr: (derive-codec)
+record default-values {
+    @esexpr: (keyword)
+    @esexpr: (default-value #true)
+    bool-true: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    bool-false: bool;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value "abc")
+    str-value: string;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #"ABCDEF")
+    binary-value: binary;
+
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    int-value55: int;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 18446744073709551616)
+    int-beyond-int64: int;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55)
+    int-minus55: int;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -18446744073709551617)
+    int-beyond-neg-int64: int;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    nat-value55: nat;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 18446744073709551616)
+    nat-beyond-int64: nat;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    i8-value55: i8;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55)
+    i8-minus55: i8;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    u8-value55: u8;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 255)
+    u8-value255: u8;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    i16-value55: i16;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55)
+    i16-minus55: i16;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    u16-value55: u16;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 65535)
+    u16-value-max: u16;
+
+    
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    i32-value55: i32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55)
+    i32-minus55: i32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    u32-value55: u32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 4294967295)
+    u32-value-max: u32;
+
+    
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    i64-value55: i64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55)
+    i64-minus55: i64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55)
+    u64-value55: u64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 18446744073709551615)
+    u64-value-max: u64;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55.0f)
+    f32-value55: f32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55.0f)
+    f32-minus55: f32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float32:nan)
+    f32-nan: f32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float32:+inf)
+    f32-inf: f32;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float32:-inf)
+    f32-minus-inf: f32;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 55.0)
+    f64-value55: f64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value -55.0)
+    f64-minus55: f64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float64:nan)
+    f64-nan: f64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float64:+inf)
+    f64-inf: f64;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #float64:-inf)
+    f64-minus-inf: f64;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value (list 1 2 3))
+    list-value: list[i32];
+
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value (using-optional-field field: 4))
+    optional-field-some: using-optional-field;
+
+    @esexpr: (keyword)
+    @esexpr: (default-value (using-optional-field))
+    optional-field-none: using-optional-field;
+
+
+    @esexpr: (keyword)
+    @esexpr: (default-value (dict a: 1 b: 2))
+    dict-value: dict[i32];
+
+    @esexpr: (keyword)
+    @esexpr: (default-value (using-dict-field a: 1 b: 2))
+    dict-field-value: using-dict-field;
+}
+
+
+
+

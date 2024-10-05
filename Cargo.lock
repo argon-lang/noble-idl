@@ -199,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr"
-version = "0.1.15"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db5dca00cf7f7b771394835a9ae32d4eae5ffb889a7e6968ce8041edf4f438ae"
+checksum = "3e2d1f8c4f28a52ccdbc2991d50b6af291e22ed4c4e007623e64d26a26307e44"
 dependencies = [
  "derive_more",
  "esexpr-derive",
@@ -211,9 +211,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-binary"
-version = "0.1.15"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a29ede84a176791d88a65a038ba04bbbd463f399745741165eb44d95437e58"
+checksum = "0061de5a3866a5a0c64ba7e77478846f8db29dd588bac2e7509d375cd34f3211"
 dependencies = [
  "derive_more",
  "esexpr",
@@ -223,9 +223,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-derive"
-version = "0.1.15"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24638c1873ad5f896fbdcc261fdebc0fbe7d584f3d521bc8d5a865b7a7562d4a"
+checksum = "ef5c2ae5c980f7e32c3f032d73dc9326b4a3a36d25dc6202659728a7772edbf6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "esexpr-text"
-version = "0.1.15"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bedea287d072eb4d3878ced6eb1c8dfd854d4f64d8c5589836e261a03f411e35"
+checksum = "b262aaa0d77d9051edd09c7a354944e0320183d09eecd91e0676559948ed05f4"
 dependencies = [
  "esexpr",
  "hexfloat2",
@@ -390,21 +390,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "noble-idl-example"
-version = "0.1.0"
-dependencies = [
- "esexpr",
- "noble-idl-compiler-rust",
- "noble-idl-runtime",
-]
-
-[[package]]
 name = "noble-idl-runtime"
 version = "0.1.0"
 dependencies = [
  "esexpr",
  "num-bigint",
  "num-integer",
+]
+
+[[package]]
+name = "noble-idl-test"
+version = "0.1.0"
+dependencies = [
+ "esexpr",
+ "noble-idl-compiler-rust",
+ "noble-idl-runtime",
+ "num-bigint",
 ]
 
 [[package]]

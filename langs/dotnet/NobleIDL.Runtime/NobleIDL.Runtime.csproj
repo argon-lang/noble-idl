@@ -14,7 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ESExpr.Runtime" Version="0.1.0" />
+    <PackageReference Include="ESExpr.Runtime" Version="0.1.2" />
+    <PackageReference Include="ESExpr.SourceGenerator" Version="0.1.2" />
   </ItemGroup>
 
   <ItemGroup>

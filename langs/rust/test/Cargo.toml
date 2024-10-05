@@ -1,0 +1,16 @@
+[package]
+name = "noble-idl-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+esexpr = "0.1.12"
+noble-idl-runtime = { path = "../runtime" }
+num-bigint = "0.4.6"
+
+[build-dependencies]
+noble-idl-compiler-rust = { path = "../backend" }
+
+
+[package.metadata.noble-idl.package_mapping]
+"nobleidl.test" = ""

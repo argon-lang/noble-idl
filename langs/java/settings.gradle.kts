@@ -14,5 +14,5 @@ rootProject.name = "noble-idl-java"
 include("runtime")
 include("backend")
 include("gradle-plugin")
-include("example")
+include("test")
 include("util")

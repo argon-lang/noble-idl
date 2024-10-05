@@ -109,6 +109,18 @@ pub type Unit = ();
 
 pub type List<A> = Vec<A>;
 
+impl <A> From<ListRepr<A>> for Vec<A> {
+	fn from(value: ListRepr<A>) -> Self {
+		value.values
+	}
+}
+
+impl <A> From<Box<ListRepr<A>>> for Vec<A> {
+	fn from(value: Box<ListRepr<A>>) -> Self {
+		(*value).values
+	}
+}
+
 #[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub struct List_Mapper<AMapper>(pub AMapper);
@@ -122,12 +134,6 @@ impl <AMapper: ValueMapper> ValueMapper for List_Mapper<AMapper> {
 
 	unsafe fn unmap(&self, to: Self::To) -> Self::From {
 		to.into_iter().map(|x| self.0.unmap(x)).collect()
-	}
-}
-
-impl <A> From<Box<ListRepr<Box<A>>>> for List<Box<A>> {
-	fn from(value: Box<ListRepr<Box<A>>>) -> Self {
-		value.values
 	}
 }
 
@@ -174,6 +180,13 @@ impl <AMapper: ValueMapper> ValueMapper for Dict_Mapper<AMapper> {
 }
 
 
+impl <A> From<Box<DictRepr<A>>> for HashMap<String, A> {
+	fn from(value: Box<DictRepr<A>>) -> Self {
+		(*value).values
+	}
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Binary(pub Vec<u8>);
 
@@ -186,6 +199,12 @@ impl From<Binary> for Vec<u8> {
 impl From<Vec<u8>> for Binary {
     fn from(value: Vec<u8>) -> Self {
         Binary(value)
+    }
+}
+
+impl From<&[u8]> for Binary {
+    fn from(value: &[u8]) -> Self {
+        Binary(value.to_vec())
     }
 }
 

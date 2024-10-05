@@ -29,7 +29,7 @@ public static class I8 {
 }
 
 public static class U8 {
-    public static byte FromSByte(byte i) => i;
+    public static byte FromByte(byte i) => i;
 }
 
 public static class I16 {
@@ -41,19 +41,19 @@ public static class U16 {
 }
 
 public static class I32 {
-    public static short FromInt32(short i) => i;
+    public static int FromInt32(int i) => i;
 }
 
 public static class U32 {
-    public static ushort FromUInt32(ushort i) => i;
+    public static uint FromUInt32(uint i) => i;
 }
 
 public static class I64 {
-    public static short FromInt64(short i) => i;
+    public static long FromInt64(long i) => i;
 }
 
 public static class U64 {
-    public static ushort FromUInt64(ushort i) => i;
+    public static ulong FromUInt64(ulong i) => i;
 }
 
 public static class F32 {
@@ -65,17 +65,19 @@ public static class F64 {
 }
 
 public static class List<T> {
-    public static VList<T> FromValues(ImmutableList<T> values) => values;
+    public static VList<T> FromCollection(ImmutableList<T> values) => values;
 
     public static VList<T> BuildFrom(ListRepr<T> repr) => repr.Values;
 }
 
-public static class Option<T> {
+public static class OptionalField<T> {
     public static ESExpr.Runtime.Option<T> Some(T value) => new ESExpr.Runtime.Option<T>(value);
     public static ESExpr.Runtime.Option<T> None => ESExpr.Runtime.Option<T>.Empty;
 }
 
 public static class Dict<T> {
-    public static VDict<T> FromValues(IReadOnlyDictionary<string, T> values) =>
+    public static VDict<T> FromDictionary(IReadOnlyDictionary<string, T> values) =>
         values.ToImmutableDictionary();
+    
+    public static VDict<T> BuildFrom(DictRepr<T> repr) => repr.Values;
 }

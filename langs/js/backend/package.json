@@ -21,7 +21,7 @@
     "@types/validate-npm-package-name": "^4.0.2"
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.13",
+    "@argon-lang/esexpr": "^0.1.14",
     "@argon-lang/noble-idl-core": "file:../runtime",
     "typescript": "^5.5.4",
     "validate-npm-package-name": "^5.0.1"

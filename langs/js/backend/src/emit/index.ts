@@ -1142,10 +1142,32 @@ class ModEmitter {
 					value.maxInt !== undefined &&
 					value.maxInt <= BigInt(Number.MAX_SAFE_INTEGER)
 				) {
-					return fromValue("fromNumberInteger", ts.factory.createNumericLiteral(Number(value.i)));
+					let valueExpr: ts.Expression;
+					if(value.i >= 0) {
+						valueExpr = ts.factory.createNumericLiteral(Number(value.i));
+					}
+					else {
+						valueExpr = ts.factory.createPrefixUnaryExpression(
+							ts.SyntaxKind.MinusToken,
+							ts.factory.createNumericLiteral(-Number(value.i))
+						);
+					}
+
+					return fromValue("fromNumberInteger", valueExpr);
 				}
 				else {
-					return fromValue("fromBigInt", ts.factory.createBigIntLiteral(value.i.toString() + "n"));
+					let valueExpr: ts.Expression;
+					if(value.i >= 0) {
+						valueExpr = ts.factory.createBigIntLiteral(value.i.toString() + "n");
+					}
+					else {
+						valueExpr = ts.factory.createPrefixUnaryExpression(
+							ts.SyntaxKind.MinusToken,
+							ts.factory.createBigIntLiteral((-value.i).toString() + "n")
+						);
+					}
+
+					return fromValue("fromBigInt", valueExpr);
 				}
 
 			case "from-str":
@@ -1164,10 +1186,59 @@ class ModEmitter {
 				));
 
 			case "from-float32":
-				return fromValue("fromNumberFloat32", ts.factory.createNumericLiteral(value.f));
+			{
+				let valueExpr: ts.Expression;
+				if(Number.isNaN(value.f)) {
+					valueExpr = ts.factory.createPropertyAccessExpression(
+						ts.factory.createIdentifier("Number"),
+						ts.factory.createIdentifier("NaN")
+					);
+				}
+				else if(!Number.isFinite(value.f)) {
+					valueExpr = ts.factory.createPropertyAccessExpression(
+						ts.factory.createIdentifier("Number"),
+						ts.factory.createIdentifier(value.f >= 0 ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY")
+					);
+				}
+				else if(value.f >= 0) {
+					return ts.factory.createNumericLiteral(Number(value.f));
+				}
+				else {
+					return ts.factory.createPrefixUnaryExpression(
+						ts.SyntaxKind.MinusToken,
+						ts.factory.createNumericLiteral(-Number(value.f))
+					);
+				}
+				return fromValue("fromNumberFloat32", valueExpr);
+			}
 
 			case "from-float64":
-				return fromValue("fromNumberFloat64", ts.factory.createNumericLiteral(value.f));
+			{
+
+				let valueExpr: ts.Expression;
+				if(Number.isNaN(value.f)) {
+					valueExpr = ts.factory.createPropertyAccessExpression(
+						ts.factory.createIdentifier("Number"),
+						ts.factory.createIdentifier("NaN")
+					);
+				}
+				else if(!Number.isFinite(value.f)) {
+					valueExpr = ts.factory.createPropertyAccessExpression(
+						ts.factory.createIdentifier("Number"),
+						ts.factory.createIdentifier(value.f >= 0 ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY")
+					);
+				}
+				else if(value.f >= 0) {
+					return ts.factory.createNumericLiteral(Number(value.f));
+				}
+				else {
+					return ts.factory.createPrefixUnaryExpression(
+						ts.SyntaxKind.MinusToken,
+						ts.factory.createNumericLiteral(-Number(value.f))
+					);
+				}
+				return fromValue("fromNumberFloat64", valueExpr);
+			}
 
 			case "from-null":
 				return ts.factory.createCallExpression(

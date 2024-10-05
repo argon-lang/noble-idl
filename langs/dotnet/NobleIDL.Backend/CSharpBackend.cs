@@ -584,7 +584,7 @@ internal class CSharpBackend {
                 return InvocationExpression(
                         QualifiedName(
                             (NameSyntax)EmitTypeUnmapped(vararg.T),
-                            IdentifierName("FromValues")
+                            IdentifierName("FromCollection")
                         )
                     )
                     .AddArgumentListArguments(Argument(
@@ -599,7 +599,7 @@ internal class CSharpBackend {
                 return InvocationExpression(
                         QualifiedName(
                             (NameSyntax)EmitTypeUnmapped(dict.T),
-                            IdentifierName("FromValues")
+                            IdentifierName("FromDictionary")
                         )
                     )
                     .AddArgumentListArguments(Argument(
@@ -671,35 +671,35 @@ internal class CSharpBackend {
                     if(fromInt.MinInt.TryGetValue(out var min) && fromInt.MaxInt.TryGetValue(out var max)) {
                         if(min >= 0) {
                             if(max <= byte.MaxValue) {
-                                methodName = "fromByte";
+                                methodName = "FromByte";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((byte)fromInt.I)
                                 );
                             }
                             else if(max <= ushort.MaxValue) {
-                                methodName = "fromUInt16";
+                                methodName = "FromUInt16";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((ushort)fromInt.I)
                                 );
                             }
                             else if(max <= uint.MaxValue) {
-                                methodName = "fromUInt32";
+                                methodName = "FromUInt32";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((uint)fromInt.I)
                                 );
                             }
                             else if(max <= ulong.MaxValue) {
-                                methodName = "fromUInt64";
+                                methodName = "FromUInt64";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((ulong)fromInt.I)
                                 );
                             }
                             else if(max <= UInt128.MaxValue) {
-                                methodName = "fromUInt128";
+                                methodName = "FromUInt128";
                                 var value128 = (UInt128)fromInt.I;
                                 valueExpr = ObjectCreationExpression(
                                     QualifiedName(
@@ -723,35 +723,35 @@ internal class CSharpBackend {
                         }
                         else {
                             if(min >= sbyte.MinValue && max <= sbyte.MaxValue) {
-                                methodName = "fromSByte";
+                                methodName = "FromSByte";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((sbyte)fromInt.I)
                                 );
                             }
                             else if(min >= short.MinValue && max <= short.MaxValue) {
-                                methodName = "fromInt16";
+                                methodName = "FromInt16";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((short)fromInt.I)
                                 );
                             }
                             else if(min >= int.MinValue && max <= int.MaxValue) {
-                                methodName = "fromInt32";
+                                methodName = "FromInt32";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((int)fromInt.I)
                                 );
                             }
                             else if(min >= long.MinValue && max <= long.MaxValue) {
-                                methodName = "fromInt64";
+                                methodName = "FromInt64";
                                 valueExpr = LiteralExpression(
                                     SyntaxKind.NumericLiteralExpression,
                                     Literal((long)fromInt.I)
                                 );
                             }
                             else if(min >= Int128.MinValue && max <= Int128.MaxValue) {
-                                methodName = "fromInt128";
+                                methodName = "FromInt128";
                                 var value128 = (Int128)fromInt.I;
                                 valueExpr = ObjectCreationExpression(
                                     QualifiedName(
@@ -759,7 +759,7 @@ internal class CSharpBackend {
                                             IdentifierName(Token(SyntaxKind.GlobalKeyword)),
                                             IdentifierName("System")
                                         ),
-                                        IdentifierName("UInt128")
+                                        IdentifierName("Int128")
                                     )
                                 ).AddArgumentListArguments(
                                     Argument(LiteralExpression(
@@ -804,7 +804,7 @@ internal class CSharpBackend {
                                 QualifiedName(
                                     AliasQualifiedName(
                                         IdentifierName(Token(SyntaxKind.GlobalKeyword)),
-                                        IdentifierName("NobleIDL")
+                                        IdentifierName("ESExpr")
                                     ),
                                     IdentifierName("Runtime")
                                 ),
@@ -832,7 +832,7 @@ internal class CSharpBackend {
             case EsexprDecodedValue.FromStr fromStr:
                 return InvocationExpression(
                         QualifiedName(
-                            (NameSyntax)EmitType(fromStr.T),
+                            (NameSyntax)EmitTypeUnmapped(fromStr.T),
                             IdentifierName("FromString")
                         )
                     )
@@ -876,41 +876,69 @@ internal class CSharpBackend {
 
                 return InvocationExpression(
                         QualifiedName(
-                            (NameSyntax)EmitType(fromBinary.T),
+                            (NameSyntax)EmitTypeUnmapped(fromBinary.T),
                             IdentifierName("FromByteArray")
                         )
                     )
                     .AddArgumentListArguments(Argument(
                         CreateByteArrayExpression(fromBinary.B)
                     ));
-                
-                
+
+
             case EsexprDecodedValue.FromFloat32 fromFloat32:
+            {
+                ExpressionSyntax floatValue;
+                if(float.IsNaN(fromFloat32.F)) {
+                    floatValue = ParseExpression("float.NaN");
+                }
+                else if(float.IsPositiveInfinity(fromFloat32.F)) {
+                    floatValue = ParseExpression("float.PositiveInfinity");
+                }
+                else if(float.IsNegativeInfinity(fromFloat32.F)) {
+                    floatValue = ParseExpression("float.NegativeInfinity");
+                }
+                else {
+                    floatValue = LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat32.F));
+                }
+
                 return InvocationExpression(
                         QualifiedName(
-                            (NameSyntax)EmitType(fromFloat32.T),
+                            (NameSyntax)EmitTypeUnmapped(fromFloat32.T),
                             IdentifierName("FromSingle")
                         )
                     )
-                    .AddArgumentListArguments(Argument(
-                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat32.F))
-                    ));
-                
+                    .AddArgumentListArguments(Argument(floatValue));
+            }
+
             case EsexprDecodedValue.FromFloat64 fromFloat64:
+            {
+                ExpressionSyntax floatValue;
+                if(double.IsNaN(fromFloat64.F)) {
+                    floatValue = ParseExpression("float.NaN");
+                }
+                else if(double.IsPositiveInfinity(fromFloat64.F)) {
+                    floatValue = ParseExpression("float.PositiveInfinity");
+                }
+                else if(double.IsNegativeInfinity(fromFloat64.F)) {
+                    floatValue = ParseExpression("float.NegativeInfinity");
+                }
+                else {
+                    floatValue = LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat64.F));
+                }
+                
                 return InvocationExpression(
                         QualifiedName(
-                            (NameSyntax)EmitType(fromFloat64.T),
+                            (NameSyntax)EmitTypeUnmapped(fromFloat64.T),
                             IdentifierName("FromDouble")
                         )
                     )
-                    .AddArgumentListArguments(Argument(
-                        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fromFloat64.F))
-                    ));
+                    .AddArgumentListArguments(Argument(floatValue));
+            }
                 
             case EsexprDecodedValue.FromNull fromNull:
                 return InvocationExpression(
                     QualifiedName(
-                        (NameSyntax)EmitType(fromNull.T),
+                        (NameSyntax)EmitTypeUnmapped(fromNull.T),
                         IdentifierName("FromNull")
                     )
                 );

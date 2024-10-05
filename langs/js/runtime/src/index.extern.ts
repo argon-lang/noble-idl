@@ -1,6 +1,6 @@
 import * as esexpr from "@argon-lang/esexpr";
 import { ESExpr, type ESExprCodec } from "@argon-lang/esexpr";
-import type { ListRepr } from "./index.js";
+import { DictRepr, type ListRepr } from "./index.js";
 
 
 export type Esexpr = ESExpr;
@@ -175,14 +175,17 @@ export namespace List {
 	}
 }
 
-export type Option<A> = { readonly value: A } | null;
+export type Option<A> = esexpr.Option<A>;
 export namespace Option {
 	export function codec<A>(aCodec: ESExprCodec<A>): ESExprCodec<Option<A>> {
 		return esexpr.optionCodec(aCodec);
 	}
 
+	export const some = esexpr.Option.some;
+	export const get = esexpr.Option.get;
+
 	export function fromElement<A>(value: A): Option<A> {
-		return { value };
+		return some(value);
 	}
 
 	export function empty<A>(): Option<A> {
@@ -207,6 +210,39 @@ export namespace OptionalField {
 
 export type Dict<A> = ReadonlyMap<string, A>;
 export namespace Dict {
+	class DictCodec<A> implements ESExprCodec<Dict<A>> {
+		constructor(aCodec: ESExprCodec<A>) {
+			this.#inner = DictRepr.codec(aCodec);
+		}
+
+		#inner: ESExprCodec<DictRepr<A>>;
+
+		get tags(): ReadonlySet<esexpr.ESExprTag> {
+			return this.#inner.tags;
+		}
+
+		encode(value: Dict<A>): esexpr.ESExpr {
+			return this.#inner.encode({ values: value });
+		}
+		decode(expr: esexpr.ESExpr): esexpr.DecodeResult<Dict<A>> {
+			const res = this.#inner.decode(expr);
+			if(res.success) {
+				return {
+					success: true,
+					value: res.value.values,
+				};
+			}
+			else {
+				return res;
+			}
+		}
+
+	}
+
+	export function codec<A>(aCodec: ESExprCodec<A>): ESExprCodec<Dict<A>> {
+		return new DictCodec<A>(aCodec);
+	}
+
 	export function dictCodec<A>(aCodec: ESExprCodec<A>): esexpr.MappedValueCodec<Dict<A>> {
 		return esexpr.mapMappedValueCodec(aCodec);
 	}
@@ -214,5 +250,11 @@ export namespace Dict {
 	export function fromMap<A>(map: ReadonlyMap<string, A>): ReadonlyMap<string, A> {
 		return map;
 	}
+
+	export function buildFrom<A>(repr: DictRepr<A>): Dict<A> {
+		return repr.values;
+	}
 }
+
+
 

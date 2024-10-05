@@ -1015,7 +1015,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               yield ()
           }
 
-          _ <- write(")")
+          _ <- write("))")
         yield ()
 
       case EsexprDecodedValue.BuildFrom(t, _, fromValue) =>
@@ -1046,11 +1046,11 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         def writeUnsignedIntValue(typeName: String, value: String): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
           for
             _ <- writeStaticMethod(t, "from" + typeName)
-            _ <- write("((")
-            _ <- write(value)
-            _ <- write(").to")
+            _ <- write("(_root_.esexpr.unsigned.to")
             _ <- write(typeName)
-            _ <- write(")")
+            _ <- write("(")
+            _ <- write(value)
+            _ <- write("))")
           yield ()
 
         (minValue, maxValue) match {
@@ -1081,9 +1081,9 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
           case _ =>
             for
               _ <- writeStaticMethod(t, "fromBigInt")
-              _ <- write("(\"")
+              _ <- write("(_root_.scala.math.BigInt(\"")
               _ <- write(value.toString)
-              _ <- write("\")")
+              _ <- write("\"))")
             yield ()
         }
 
@@ -1099,7 +1099,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         for
           _ <- writeStaticMethod(t, "fromBinary")
           _ <- write("(_root_.scala.IArray[_root_.scala.Byte](")
-          _ <- ZIO.foreachDiscard(b.view.zipWithIndex) { (value, index) =>
+          _ <- ZIO.foreachDiscard(b.array.view.zipWithIndex) { (value, index) =>
             write(", ").when(index > 0) *> write(value.toString)
           }
           _ <- write("))")
@@ -1117,7 +1117,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
             else if f.isNegInfinity then
               "_root_.scala.Float.NegativeInfinity"
             else
-              java.lang.Float.toHexString(f).nn + "f"
+              s"_root_.java.lang.Float.intBitsToFloat(${ java.lang.Float.floatToRawIntBits(f) })"
           )
           _ <- write(")")
         yield ()
@@ -1134,7 +1134,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
             else if f.isNegInfinity then
               "_root_.scala.Double.NegativeInfinity"
             else
-              java.lang.Double.toHexString(f).nn + "f"
+              s"_root_.java.lang.Double.longBitsToDouble(${ java.lang.Double.doubleToRawLongBits(f) })"
           )
           _ <- write(")")
         yield ()
@@ -1596,7 +1596,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
       ZIO.fromEither(
         jsPackageMapping.get(packageName)
           .toRight {
-            NobleIDLCompileErrorException("Unmapped Java package: " + packageName.display)
+            NobleIDLCompileErrorException("Unmapped JS package: " + packageName.display)
           }
       )
 

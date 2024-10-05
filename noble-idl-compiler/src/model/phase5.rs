@@ -250,7 +250,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			ESExpr::Constructor { .. } => {
 				let Some(mut build_from) = esexpr_options.literals.build_literal_from.clone() else { self.fail("Default value was a constructor, but no build-literal-from was specified.")? };
 				if !build_from.substitute(&mapping) {
-					self.fail("Could not substitute types.")?
+					self.fail("Could not substitute types in build-from type.")?
 				}
 
 				let build_from_type_name = match build_from.as_ref() {
@@ -287,11 +287,11 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				}
 			},
 
-			ESExpr::Str(s) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() } } else { self.fail("String value not allowed")? },
-			ESExpr::Binary(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail("Binary value not allowed")? },
-			ESExpr::Float32(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float32 value not allowed")? },
-			ESExpr::Float64(f) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float64 value not allowed")? },
-			ESExpr::Null(_) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail("Null value not allowed")? },
+			ESExpr::Str(s) => if esexpr_options.literals.allow_str { EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() } } else { self.fail("String value not allowed")? },
+			ESExpr::Binary(b) => if esexpr_options.literals.allow_binary { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail("Binary value not allowed")? },
+			ESExpr::Float32(f) => if esexpr_options.literals.allow_float32 { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float32 value not allowed")? },
+			ESExpr::Float64(f) => if esexpr_options.literals.allow_float64 { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float64 value not allowed")? },
+			ESExpr::Null(_) => if esexpr_options.literals.allow_null { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail("Null value not allowed")? },
 		})
 	}
 
@@ -313,8 +313,34 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 			let mut field_type = field.field_type.clone();
 			if !field_type.substitute(&mapping) {
-				self.fail("Could not substitute types.")?;
+				self.fail("Could not substitute types in field.")?;
 			}
+
+			let make_field_mapping = || -> Result<_, CheckError> {
+				match field_type.as_ref() {
+					TypeExpr::DefinedType(field_type_name, field_type_args) => {
+						let Some(field_type_dfn) = self.outer_parser.definitions.get(field_type_name.as_ref()) else {
+							self.fail("Could not find field type definition")?
+						};
+
+						Ok(
+							field_type_dfn.type_parameters
+								.iter()
+								.map(|tp| tp.name())
+								.zip(
+									field_type_args
+										.iter()
+										.map(Box::as_ref)
+								)
+								.collect::<HashMap<_, _>>()
+						)
+					},
+
+					TypeExpr::TypeParameter { .. } => {
+						Ok(HashMap::new())
+					},
+				}
+			};
 
 			let value = match options.kind.as_ref() {
 				EsexprRecordFieldKind::Positional(mode) => {
@@ -344,8 +370,9 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 					match mode.as_ref() {
 						EsexprRecordKeywordMode::Optional(element_type) => {
 							let mut element_type = element_type.as_ref().clone();
-							if !element_type.substitute(&mapping) {
-								self.fail("Could not substitute types.")?;
+							if !element_type.substitute(&make_field_mapping()?) {
+								println!("subst {:?} {:?}", element_type, mapping);
+								self.fail("Could not substitute types in optional field element type.")?;
 							}
 
 							let value = kwargs.remove(&field.name)
@@ -383,8 +410,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 				EsexprRecordFieldKind::Dict(element_type) => {
 					let mut element_type = element_type.as_ref().clone();
-					if !element_type.substitute(&mapping) {
-						self.fail("Could not substitute types.")?;
+					if !element_type.substitute(&make_field_mapping()?) {
+						self.fail("Could not substitute types in dictionary field element type.")?;
 					}
 
 					let mut dict = HashMap::new();
@@ -402,8 +429,8 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 				EsexprRecordFieldKind::Vararg(element_type) => {
 					let mut element_type = element_type.as_ref().clone();
-					if !element_type.substitute(&mapping) {
-						self.fail("Could not substitute types.")?;
+					if !element_type.substitute(&make_field_mapping()?) {
+						self.fail("Could not substitute types in vararg field element type.")?;
 					}
 
 					let mut vararg = Vec::new();

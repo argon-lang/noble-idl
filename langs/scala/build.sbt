@@ -47,11 +47,11 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
     Compile / packageBin / packageOptions += Package.ManifestAttributes("Automatic-Module-Name" -> "dev.argon.nobleidl.core.scala"),
 
     libraryDependencies  ++= Seq(
-      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.1-SNAPSHOT",
+      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.2",
     ),
     
     Compile / unmanagedSourceDirectories ++= Seq(
-      baseDirectory.value / "../shared/src/gen/scala",
+      baseDirectory.value / "src/gen/scala",
       baseDirectory.value / "../shared/src/main/java",
     ),
 
@@ -83,31 +83,9 @@ lazy val backend = project.in(file("backend"))
       "org.ow2.asm" % "asm" % "9.7",
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
-      "dev.argon" %%% "argon-async-util" % "0.1.1-SNAPSHOT",
+      "dev.argon" %%% "argon-async-util" % "1.0.0",
       "dev.argon.nobleidl" % "nobleidl-java-compiler" % "0.1.0-SNAPSHOT",
     ),
-
-    Compile / resourceGenerators += Def.task {
-      val outputFile = (Compile / resourceManaged).value / "nobleidl/compiler/noble-idl-compiler.wasm"
-
-      val cargoProject = "noble-idl-compiler"
-      val cargoDirectory = baseDirectory.value / "../../.."
-      val compiledFile = cargoDirectory / "target/wasm32-unknown-unknown/release" / (cargoProject.replace("-", "_") + ".wasm")
-
-
-      val exitCode = Process(
-        Seq("cargo", "build", "-p", cargoProject, "--target=wasm32-unknown-unknown", "--release"),
-        cargoDirectory,
-      ).!
-      if(exitCode != 0) {
-        throw new RuntimeException(s"Cargo failed with exit code $exitCode")
-      }
-
-
-      IO.copyFile(compiledFile, outputFile)
-
-      Seq(outputFile)
-    },
 
     name := "nobleidl-scala-compiler",
   )
@@ -122,16 +100,21 @@ val util = project.in(file("util"))
     run / baseDirectory := file("."),
   )
 
-val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("example"))
+val nidl_test = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("test"))
   .dependsOn(runtime)
   .jvmSettings(
-
-    Compile / unmanagedJars += baseDirectory.value / "../../../java/example/build/libs/example.jar",
     libraryDependencies += "org.jetbrains" % "annotations" % "24.0.0",
+
+    Compile / unmanagedJars += file("../java/test/build/libs/test.jar")
   )
   .settings(
     buildSettings,
     publish / skip := true,
+    
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-test" % zioVersion % "test",
+      "dev.zio" %%% "zio-test-sbt" % zioVersion % "test",
+    ),
 
     Compile / sourceGenerators += Def.task {
       val s = streams.value
@@ -206,8 +189,8 @@ val example = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in
     name := "nobleidl-scala-example",
   )
 
-lazy val exampleJVM = example.jvm
-lazy val exampleJS = example.js
+lazy val nidl_testJVM = nidl_test.jvm
+lazy val nidl_testJS = nidl_test.js
 
 
 lazy val sbtPlugin = project.in(file("sbt-plugin"))

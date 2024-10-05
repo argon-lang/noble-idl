@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-esexpr = "0.1.15"
+esexpr = "0.1.17"
 num-bigint = "0.4.6"
 noble-idl-runtime = { path = "../langs/rust/runtime" }

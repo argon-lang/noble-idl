@@ -13,8 +13,8 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
-    <PackageReference Include="ESExpr.Runtime" Version="0.1.1" />
-    <PackageReference Include="ESExpr.SourceGenerator" Version="0.1.1" />
+    <PackageReference Include="ESExpr.Runtime" Version="0.1.2" />
+    <PackageReference Include="ESExpr.SourceGenerator" Version="0.1.2" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
     <PackageReference Include="WebAssembly" Version="1.2.1" />

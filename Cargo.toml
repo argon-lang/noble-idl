@@ -4,7 +4,7 @@ resolver = "2"
 members = [
     "langs/rust/runtime",
     "langs/rust/backend",
-    "langs/rust/example",
+    "langs/rust/test",
     "noble-idl-api",
     "noble-idl-compiler",
 ]

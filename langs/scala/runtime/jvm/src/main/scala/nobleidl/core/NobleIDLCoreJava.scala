@@ -28,8 +28,8 @@ trait StringObjectPlatformSpecific {
 trait BinaryObjectPlatformSpecific {
   def javaAdapter(): JavaAdapter[Binary, Array[Byte]] =
     new JavaAdapter[Binary, Array[Byte]] {
-      override def toJava(s: Binary): Array[Byte] = IArray.genericWrapArray(s).toArray
-      override def fromJava(j: Array[Byte]): Binary = IArray(j*)
+      override def toJava(s: Binary): Array[Byte] = IArray.genericWrapArray(s.array).toArray
+      override def fromJava(j: Array[Byte]): Binary = Binary(IArray(j*))
     }
 }
 

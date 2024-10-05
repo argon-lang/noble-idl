@@ -28,8 +28,8 @@ trait StringObjectPlatformSpecific {
 trait BinaryObjectPlatformSpecific {
   def jsAdapter(): JSAdapter[Binary, Uint8Array] =
     new JSAdapter[Binary, Uint8Array] {
-      override def toJS(s: Binary): Uint8Array = TypedArrayUtil.fromByteArray(IArray.genericWrapArray(s).toArray)
-      override def fromJS(j: Uint8Array): Binary = IArray(TypedArrayUtil.toByteArray(j)*)
+      override def toJS(s: Binary): Uint8Array = TypedArrayUtil.fromByteArray(IArray.genericWrapArray(s.array).toArray)
+      override def fromJS(j: Uint8Array): Binary = Binary(IArray(TypedArrayUtil.toByteArray(j)*))
     }
 }
 
