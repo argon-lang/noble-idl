@@ -770,7 +770,14 @@ final class JavaBackend implements Backend {
 			}
 			case EsexprDecodedValue.FromNull fromNull -> {
 				writeStaticMethod(w, fromNull.t(), "fromNull");
-				w.write("()");
+				w.write("(");
+
+				var maxLevel = fromNull.maxLevel().orElse(null);
+				if(maxLevel != null) {
+					w.write(maxLevel.intValueExact());
+				}
+
+				w.write(")");
 			}
 		}
 	}

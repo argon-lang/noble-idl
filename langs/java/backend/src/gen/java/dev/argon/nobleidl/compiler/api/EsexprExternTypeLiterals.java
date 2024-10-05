@@ -29,9 +29,15 @@ public record EsexprExternTypeLiterals(
 	@dev.argon.esexpr.Keyword("allow-null")
 	@dev.argon.esexpr.DefaultValue("dev.argon.nobleidl.runtime.Bool.fromBoolean(false)")
 	@org.jetbrains.annotations.NotNull boolean allowNull,
+	@dev.argon.esexpr.Keyword("null-max-level")
+	@dev.argon.esexpr.OptionalValue
+	java.util.@org.jetbrains.annotations.NotNull Optional<java.math.@dev.argon.esexpr.Unsigned BigInteger> nullMaxLevel,
 	@dev.argon.esexpr.Keyword("build-literal-from")
 	@dev.argon.esexpr.OptionalValue
-	java.util.@org.jetbrains.annotations.NotNull Optional<dev.argon.nobleidl.compiler.api.TypeExpr> buildLiteralFrom
+	java.util.@org.jetbrains.annotations.NotNull Optional<dev.argon.nobleidl.compiler.api.TypeExpr> buildLiteralFrom,
+	@dev.argon.esexpr.Keyword("build-literal-from-adjust-null")
+	@dev.argon.esexpr.DefaultValue("dev.argon.nobleidl.runtime.Bool.fromBoolean(false)")
+	@org.jetbrains.annotations.NotNull boolean buildLiteralFromAdjustNull
 ) {
 	public static dev.argon.esexpr.ESExprCodec<dev.argon.nobleidl.compiler.api.EsexprExternTypeLiterals> codec() {
 		return dev.argon.nobleidl.compiler.api.EsexprExternTypeLiterals_CodecImpl.INSTANCE;

@@ -84,7 +84,12 @@ public sealed interface EsexprDecodedValue {
 	) implements dev.argon.nobleidl.compiler.api.EsexprDecodedValue {}
 	@dev.argon.esexpr.Constructor("from-null")
 	record FromNull(
-		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull TypeExpr t
+		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull TypeExpr t,
+		@dev.argon.esexpr.OptionalValue
+		java.util.@org.jetbrains.annotations.NotNull Optional<java.math.@dev.argon.esexpr.Unsigned BigInteger> level,
+		@dev.argon.esexpr.Keyword("max-level")
+		@dev.argon.esexpr.OptionalValue
+		java.util.@org.jetbrains.annotations.NotNull Optional<java.math.@dev.argon.esexpr.Unsigned BigInteger> maxLevel
 	) implements dev.argon.nobleidl.compiler.api.EsexprDecodedValue {}
 	public static dev.argon.esexpr.ESExprCodec<dev.argon.nobleidl.compiler.api.EsexprDecodedValue> codec() {
 		return dev.argon.nobleidl.compiler.api.EsexprDecodedValue_CodecImpl.INSTANCE;

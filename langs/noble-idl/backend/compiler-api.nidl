@@ -408,7 +408,16 @@ record esexpr-extern-type-literals {
 
     @esexpr: (keyword)
     @esexpr: (optional)
+    null-max-level: optional-field[nat];
+
+    @esexpr: (keyword)
+    @esexpr: (optional)
     build-literal-from: optional-field[type-expr];
+    
+    @esexpr: (keyword)
+    @esexpr: (default-value #false)
+    build-literal-from-adjust-null: bool;
+
 }
 
 @esexpr: (derive-codec)
@@ -561,6 +570,13 @@ enum esexpr-decoded-value {
 
     from-null {
         t: type-expr;
+
+        @esexpr: (optional)
+        level: optional-field[nat];
+
+        @esexpr: (keyword)
+        @esexpr: (optional)
+        max-level: optional-field[nat];
     },
 }
 

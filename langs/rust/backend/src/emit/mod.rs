@@ -709,7 +709,11 @@ impl <'a> ModEmitter<'a> {
 					self.emit_literal_primitive::<f64>(t, te, *f)
 				}
 			},
-			EsexprDecodedValue::FromNull { t } => self.emit_literal_null(t),
+			EsexprDecodedValue::FromNull { t, level: Some(level), max_level } =>
+				self.emit_literal_null(t, level, max_level.as_ref()),
+
+			EsexprDecodedValue::FromNull { t, level: None, max_level } =>
+				self.emit_literal_null(t, &BigUint::ZERO, max_level.as_ref()),
 		}
 	}
 
@@ -917,12 +921,26 @@ impl <'a> ModEmitter<'a> {
 		})
 	}
 
-	fn emit_literal_null(&self, t: &TypeExpr) -> Result<syn::Expr, EmitError> {
-		let t = self.emit_type_expr(t)?;
+	fn emit_literal_null(&self, t: &TypeExpr, level: &BigUint, max_level: Option<&BigUint>) -> Result<syn::Expr, EmitError> {
+		if max_level.is_some_and(|ml| *ml == BigUint::ZERO) {
+			let t = self.emit_type_expr(t)?;
 
-		Ok(parse_quote! {
-			<#t as ::std::default::Default>::default()
-		})
+			Ok(parse_quote! {
+				<#t as ::std::default::Default>::default()
+			})
+		}
+		else {
+			let t = self.emit_type_expr(t)?;
+
+			let level = syn::Expr::Lit(syn::ExprLit {
+				attrs: vec![],
+				lit: syn::Lit::Int(syn::LitInt::new(&format!("{}usize", level), proc_macro2::Span::call_site()))
+			});
+
+			Ok(parse_quote! {
+				<#t as ::noble_idl_runtime::FromNull>::from_null(#level)
+			})
+		}
 	}
 
 

@@ -336,6 +336,26 @@ record default-values {
     @esexpr: (default-value (list 1 2 3))
     list-value: list[i32];
 
+    @esexpr: (keyword)
+    @esexpr: (default-value 4)
+    option-some: option[i32];
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #null)
+    option-none: option[i32];
+
+    @esexpr: (keyword)
+    @esexpr: (default-value 4)
+    option2-some-some: option[option[i32]];
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #null1)
+    option2-some-none: option[option[i32]];
+
+    @esexpr: (keyword)
+    @esexpr: (default-value #null)
+    option2-none: option[option[i32]];
+
 
 
     @esexpr: (keyword)

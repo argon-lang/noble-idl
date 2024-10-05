@@ -1244,14 +1244,26 @@ class ModEmitter {
 			}
 
 			case "from-null":
+			{
+				let args: readonly ts.Expression[];
+				if(value.maxLevel === 0n) {
+					args = [];
+				}
+				else {
+					args = [
+						ts.factory.createBigIntLiteral((value.level ?? 0n).toString() + "n"),
+					];
+				}
+
 				return ts.factory.createCallExpression(
 					ts.factory.createPropertyAccessExpression(
 						this.#emitTypeModule(t.name),
 						"fromNull",
 					),
 					typeArgs(),
-					[],
+					args,
 				);
+			}
 
 
 		}

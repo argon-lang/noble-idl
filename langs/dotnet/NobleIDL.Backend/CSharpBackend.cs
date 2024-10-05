@@ -943,12 +943,24 @@ internal class CSharpBackend {
             }
                 
             case EsexprDecodedValue.FromNull fromNull:
-                return InvocationExpression(
-                    QualifiedName(
-                        (NameSyntax)EmitTypeUnmapped(fromNull.T),
-                        IdentifierName("FromNull")
-                    )
-                );
+                if(fromNull.MaxLevel.IsSome) {
+                    var level = fromNull.Level.TryGetValue(out var l) ? l.BigIntegerValue : 0;
+                    
+                    return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(fromNull.T),
+                            IdentifierName("FromNull")
+                        )
+                    ).AddArgumentListArguments(Argument(ParseExpression(level.ToString())));
+                }
+                else {
+                    return InvocationExpression(
+                        QualifiedName(
+                            (NameSyntax)EmitTypeUnmapped(fromNull.T),
+                            IdentifierName("FromNull")
+                        )
+                    );
+                }
             
             default: throw new InvalidOperationException();
         };

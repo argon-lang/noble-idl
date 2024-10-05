@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use esexpr::{ESExpr, ESExprCodec, ESExprTag};
 use noble_idl_api::*;
 use noble_idl_runtime::Binary;
+use num_bigint::BigUint;
 
 use super::{tag_scanner::{TagScanner, TagScannerState}, CheckError};
 
@@ -89,7 +90,6 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 							let mut value_parser = ValueParser {
 								outer_parser: self,
 								seen_fields: HashSet::new(),
-								seen_decode_types: HashSet::new(),
 
 								dfn,
 								case_name,
@@ -120,7 +120,6 @@ impl <'a> ESExprOptionDefaultValueParser<'a> {
 struct ValueParser<'a, 'b> {
 	outer_parser: &'b mut ESExprOptionDefaultValueParser<'a>,
 	seen_fields: HashSet<FieldKey>,
-	seen_decode_types: HashSet<QualifiedName>,
 
 	dfn: &'a DefinitionInfo,
 	case_name: Option<&'a str>,
@@ -169,7 +168,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 				match dfn.definition.as_ref() {
 					Definition::Record(r) => self.parse_record_value(dfn, r, t, args, value),
 					Definition::Enum(e) => self.parse_enum_value(dfn, e, t, args, value),
-					Definition::SimpleEnum(_) => todo!(),
+					Definition::SimpleEnum(e) => self.parse_simple_enum_value(e, t, value),
 					Definition::ExternType(et) => self.parse_extern_type_value(dfn, et, t, args, value),
 					Definition::Interface(_) => self.fail("Cannot define value for an interface."),
 					Definition::ExceptionType(_) => self.fail("Cannot define value for an exception."),
@@ -233,7 +232,26 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 		self.fail("Unexpected case")?
 	}
 
-	fn parse_extern_type_value(&mut self, dfn: &'a DefinitionInfo, et: &'a ExternTypeDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
+	fn parse_simple_enum_value(&mut self, e: &'a SimpleEnumDefinition, t: &TypeExpr, value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
+		let ESExpr::Str(case_name) = value else { self.fail(format!("Expected a string for a simple enum type, got: {:?}", value))? };
+
+		for c in &e.cases {
+			let case_options = c.esexpr_options.as_ref().ok_or_else(|| self.error("Missing esexpr options"))?;
+
+			if case_options.name != case_name {
+				continue;
+			}
+
+			return Ok(EsexprDecodedValue::SimpleEnum {
+				t: Box::new(t.clone()),
+				case_name: c.name.clone(),
+			});
+		}
+
+		self.fail("Unexpected case")?
+	}
+
+	fn parse_extern_type_value(&mut self, dfn: &'a DefinitionInfo, et: &'a ExternTypeDefinition, t: &TypeExpr, type_args: &[Box<TypeExpr>], mut value: ESExpr) -> Result<EsexprDecodedValue, CheckError> {
 		let Some(esexpr_options) = et.esexpr_options.as_ref() else { self.fail("Missing esexpr options")? };
 
 		let mapping = dfn.type_parameters
@@ -246,53 +264,79 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			)
 			.collect::<HashMap<_, _>>();
 
-		Ok(match &value {
-			ESExpr::Constructor { .. } => {
-				let Some(mut build_from) = esexpr_options.literals.build_literal_from.clone() else { self.fail("Default value was a constructor, but no build-literal-from was specified.")? };
-				if !build_from.substitute(&mapping) {
-					self.fail("Could not substitute types in build-from type.")?
-				}
 
-				let build_from_type_name = match build_from.as_ref() {
-						TypeExpr::DefinedType(name, _) => name.as_ref(),
-						TypeExpr::TypeParameter { .. } => self.fail("Cannot build from a type parameter.")?,
-					};
+		match &value {
+			ESExpr::Bool(b) if esexpr_options.literals.allow_bool =>
+				return Ok(EsexprDecodedValue::FromBool { t: Box::new(t.clone()), b: *b }),
 
-				if !self.seen_decode_types.insert(build_from_type_name.clone()) {
-					self.fail("Duplicate decode type")?
-				}
-
-				let dec_value = self.parse_value(&build_from, value)?;
-				self.seen_decode_types.remove(&build_from_type_name);
-
-				EsexprDecodedValue::BuildFrom {
+			ESExpr::Int(i) if esexpr_options.literals.allow_int =>
+				return Ok(EsexprDecodedValue::FromInt {
 					t: Box::new(t.clone()),
-					from_type: build_from,
+					i: i.clone(),
+					min_int: esexpr_options.literals.min_int.clone(),
+					max_int: esexpr_options.literals.max_int.clone(),
+				}),
 
-					from_value: Box::new(dec_value),
-				}
-			},
-			ESExpr::Bool(b) => if esexpr_options.literals.allow_bool { EsexprDecodedValue::FromBool { t: Box::new(t.clone()), b: *b } } else { self.fail("Bool value not allowed")? },
-			ESExpr::Int(i) => {
-				if esexpr_options.literals.allow_int {
-					EsexprDecodedValue::FromInt {
-						t: Box::new(t.clone()),
-						i: i.clone(),
-						min_int: esexpr_options.literals.min_int.clone(),
-						max_int: esexpr_options.literals.max_int.clone(),
-					}
-				}
-				else {
-					self.fail("Int value not allowed for this type")?
-				}
-			},
+			ESExpr::Str(s) if esexpr_options.literals.allow_str =>
+				return Ok(EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() }),
 
-			ESExpr::Str(s) => if esexpr_options.literals.allow_str { EsexprDecodedValue::FromStr { t: Box::new(t.clone()), s: s.clone() } } else { self.fail("String value not allowed")? },
-			ESExpr::Binary(b) => if esexpr_options.literals.allow_binary { EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) } } else { self.fail("Binary value not allowed")? },
-			ESExpr::Float32(f) => if esexpr_options.literals.allow_float32 { EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float32 value not allowed")? },
-			ESExpr::Float64(f) => if esexpr_options.literals.allow_float64 { EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f } } else { self.fail("Float64 value not allowed")? },
-			ESExpr::Null(_) => if esexpr_options.literals.allow_null { EsexprDecodedValue::FromNull { t: Box::new(t.clone()) } } else { self.fail("Null value not allowed")? },
-		})
+			ESExpr::Binary(b) if esexpr_options.literals.allow_binary =>
+				return Ok(EsexprDecodedValue::FromBinary { t: Box::new(t.clone()), b: Binary(b.clone()) }),
+
+			ESExpr::Float32(f) if esexpr_options.literals.allow_float32 =>
+				return Ok(EsexprDecodedValue::FromFloat32 { t: Box::new(t.clone()), f: *f }),
+
+			ESExpr::Float64(f) if esexpr_options.literals.allow_float64 =>
+				return Ok(EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f }),
+
+			ESExpr::Null(level) if esexpr_options.literals.allow_null =>
+				return Ok(EsexprDecodedValue::FromNull {
+					t: Box::new(t.clone()),
+					level:
+						if *level == BigUint::ZERO {
+							None
+						}
+						else {
+							Some(level.clone())
+						},
+
+					max_level: esexpr_options.literals.null_max_level.clone(),
+				}),
+
+			_ => {},
+		}
+
+		if let Some(mut build_from) = esexpr_options.literals.build_literal_from.clone() {
+			if !build_from.substitute(&mapping) {
+				self.fail("Could not substitute types in build-from type.")?
+			}
+
+			if esexpr_options.literals.build_literal_from_adjust_null {
+				if let ESExpr::Null(level) = &mut value {
+					*level -= 1u32;
+				}
+			}
+
+			let dec_value = self.parse_value(&build_from, value)?;
+
+			return Ok(EsexprDecodedValue::BuildFrom {
+				t: Box::new(t.clone()),
+				from_type: build_from,
+
+				from_value: Box::new(dec_value),
+			})
+		}
+
+		match &value {
+			ESExpr::Constructor { .. } => self.fail("Constructor value not allowed")?,
+			ESExpr::Bool(_) => self.fail("Bool value not allowed")?,
+			ESExpr::Int(_) => self.fail("Int value not allowed for this type")?,
+			ESExpr::Str(_) => self.fail("String value not allowed")?,
+			ESExpr::Binary(_) => self.fail("Binary value not allowed")?,
+			ESExpr::Float32(_) => self.fail("Float32 value not allowed")?,
+			ESExpr::Float64(_) => self.fail("Float64 value not allowed")?,
+			ESExpr::Null(_) => self.fail("Null value not allowed")?,
+		}
 	}
 
 	fn parse_field_values(&mut self, dfn: &'a DefinitionInfo, case_name: Option<&'a str>, type_args: &[Box<TypeExpr>], fields: &'a [Box<RecordField>], mut args: VecDeque<ESExpr>, mut kwargs: HashMap<String, ESExpr>) -> Result<Vec<Box<EsexprDecodedFieldValue>>, CheckError> {

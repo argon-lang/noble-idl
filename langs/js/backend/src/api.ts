@@ -151,6 +151,8 @@ export type EsexprDecodedValue = {
 } | {
     $type: "from-null";
     t: TypeExpr;
+    level: nobleidl__core.OptionalField<nobleidl__core.Nat>;
+    maxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
 };
 export namespace EsexprDecodedValue {
     export const codec: $esexpr.ESExprCodec<EsexprDecodedValue> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprDecodedValue>({
@@ -214,7 +216,9 @@ export namespace EsexprDecodedValue {
             "f": $esexpr.positionalFieldCodec(nobleidl__core.F64.codec)
         }),
         "from-null": $esexpr.caseCodec("from-null", {
-            "t": $esexpr.positionalFieldCodec(TypeExpr.codec)
+            "t": $esexpr.positionalFieldCodec(TypeExpr.codec),
+            "level": $esexpr.optionalPositionalFieldCodec(nobleidl__core.OptionalField.optionalCodec<nobleidl__core.Nat>(nobleidl__core.Nat.codec)),
+            "maxLevel": $esexpr.optionalKeywordFieldCodec("max-level", nobleidl__core.OptionalField.optionalCodec<nobleidl__core.Nat>(nobleidl__core.Nat.codec))
         })
     }));
 }
@@ -255,7 +259,9 @@ export interface EsexprExternTypeLiterals {
     allowFloat32: nobleidl__core.Bool;
     allowFloat64: nobleidl__core.Bool;
     allowNull: nobleidl__core.Bool;
+    nullMaxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
     buildLiteralFrom: nobleidl__core.OptionalField<TypeExpr>;
+    buildLiteralFromAdjustNull: nobleidl__core.Bool;
 }
 export namespace EsexprExternTypeLiterals {
     export const codec: $esexpr.ESExprCodec<EsexprExternTypeLiterals> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprExternTypeLiterals>("literals", {
@@ -268,7 +274,9 @@ export namespace EsexprExternTypeLiterals {
         "allowFloat32": $esexpr.defaultKeywordFieldCodec("allow-float32", () => nobleidl__core.Bool.fromBoolean(false), nobleidl__core.Bool.codec),
         "allowFloat64": $esexpr.defaultKeywordFieldCodec("allow-float64", () => nobleidl__core.Bool.fromBoolean(false), nobleidl__core.Bool.codec),
         "allowNull": $esexpr.defaultKeywordFieldCodec("allow-null", () => nobleidl__core.Bool.fromBoolean(false), nobleidl__core.Bool.codec),
-        "buildLiteralFrom": $esexpr.optionalKeywordFieldCodec("build-literal-from", nobleidl__core.OptionalField.optionalCodec<TypeExpr>(TypeExpr.codec))
+        "nullMaxLevel": $esexpr.optionalKeywordFieldCodec("null-max-level", nobleidl__core.OptionalField.optionalCodec<nobleidl__core.Nat>(nobleidl__core.Nat.codec)),
+        "buildLiteralFrom": $esexpr.optionalKeywordFieldCodec("build-literal-from", nobleidl__core.OptionalField.optionalCodec<TypeExpr>(TypeExpr.codec)),
+        "buildLiteralFromAdjustNull": $esexpr.defaultKeywordFieldCodec("build-literal-from-adjust-null", () => nobleidl__core.Bool.fromBoolean(false), nobleidl__core.Bool.codec)
     }));
 }
 export interface EsexprExternTypeOptions {

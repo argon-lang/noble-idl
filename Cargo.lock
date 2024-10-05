@@ -363,6 +363,7 @@ dependencies = [
  "noble-idl-api",
  "noble-idl-runtime",
  "nom",
+ "num-bigint",
  "tempfile",
  "toml",
  "walkdir",

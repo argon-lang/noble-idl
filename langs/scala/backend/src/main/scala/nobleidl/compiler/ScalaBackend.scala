@@ -1150,7 +1150,15 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         yield ()
 
 
-      case EsexprDecodedValue.FromNull(t) =>
+      case EsexprDecodedValue.FromNull(t, level, Some(maxLevel)) =>
+        for
+          _ <- writeStaticMethod(t, "fromNull")
+          _ <- write("(")
+          _ <- write(level.fold("0")(_.toString))
+          _ <- write(")")
+        yield ()
+        
+      case EsexprDecodedValue.FromNull(t, level, _) =>
         for
           _ <- writeStaticMethod(t, "fromNull")
         yield ()

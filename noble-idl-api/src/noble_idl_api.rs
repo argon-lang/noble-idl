@@ -275,7 +275,14 @@ pub enum EsexprDecodedValue {
     #[constructor = "from-float64"]
     FromFloat64 { t: ::std::boxed::Box<crate::TypeExpr>, f: ::noble_idl_runtime::F64 },
     #[constructor = "from-null"]
-    FromNull { t: ::std::boxed::Box<crate::TypeExpr> },
+    FromNull {
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        #[optional]
+        level: ::noble_idl_runtime::OptionalField<::noble_idl_runtime::Nat>,
+        #[keyword = "max-level"]
+        #[optional]
+        max_level: ::noble_idl_runtime::OptionalField<::noble_idl_runtime::Nat>,
+    },
 }
 #[derive(
     ::std::fmt::Debug,
@@ -343,11 +350,17 @@ pub struct EsexprExternTypeLiterals {
     #[keyword = "allow-null"]
     #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
     pub allow_null: ::noble_idl_runtime::Bool,
+    #[keyword = "null-max-level"]
+    #[optional]
+    pub null_max_level: ::noble_idl_runtime::OptionalField<::noble_idl_runtime::Nat>,
     #[keyword = "build-literal-from"]
     #[optional]
     pub build_literal_from: ::noble_idl_runtime::OptionalField<
         ::std::boxed::Box<crate::TypeExpr>,
     >,
+    #[keyword = "build-literal-from-adjust-null"]
+    #[default_value = "< :: noble_idl_runtime :: Bool as :: std :: convert :: From < :: std :: primitive :: bool > > :: from (false)"]
+    pub build_literal_from_adjust_null: ::noble_idl_runtime::Bool,
 }
 #[derive(
     ::std::fmt::Debug,

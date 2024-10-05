@@ -84,6 +84,11 @@ enum EsexprDecodedValue derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
   @_root_.esexpr.constructor("from-null")
   case FromNull(
     t: _root_.nobleidl.compiler.api.TypeExpr,
+    @_root_.esexpr.optional
+    level: _root_.nobleidl.core.OptionalField[_root_.nobleidl.core.Nat],
+    @_root_.esexpr.keyword("max-level")
+    @_root_.esexpr.optional
+    maxLevel: _root_.nobleidl.core.OptionalField[_root_.nobleidl.core.Nat],
   )
 }
 object EsexprDecodedValue {
@@ -166,6 +171,8 @@ object EsexprDecodedValue {
           case s_value: _root_.nobleidl.compiler.api.EsexprDecodedValue.FromNull =>
             new _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.FromNull(
               _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().toJava(s_value.t),
+              _root_.nobleidl.core.OptionalField.javaAdapter[_root_.nobleidl.core.Nat, _root_.java.math.BigInteger](_root_.nobleidl.core.Nat.javaAdapter()).toJava(s_value.level),
+              _root_.nobleidl.core.OptionalField.javaAdapter[_root_.nobleidl.core.Nat, _root_.java.math.BigInteger](_root_.nobleidl.core.Nat.javaAdapter()).toJava(s_value.maxLevel),
             )
         }
       }
@@ -246,6 +253,8 @@ object EsexprDecodedValue {
           case j_value: _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.FromNull =>
             new _root_.nobleidl.compiler.api.EsexprDecodedValue.FromNull(
               _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().fromJava(j_value.t().nn),
+              _root_.nobleidl.core.OptionalField.javaAdapter[_root_.nobleidl.core.Nat, _root_.java.math.BigInteger](_root_.nobleidl.core.Nat.javaAdapter()).fromJava(j_value.level().nn),
+              _root_.nobleidl.core.OptionalField.javaAdapter[_root_.nobleidl.core.Nat, _root_.java.math.BigInteger](_root_.nobleidl.core.Nat.javaAdapter()).fromJava(j_value.maxLevel().nn),
             )
           case _ => throw new _root_.scala.MatchError(j_value)
         }

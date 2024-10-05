@@ -23,5 +23,6 @@ noble-idl-runtime = { path = "../langs/rust/runtime" }
 clap = { version = "4.5.9", features = ["derive"] }
 clap_derive = "4.5.8"
 nom = "7.1.3"
+num-bigint = "0.4.6"
 
 

@@ -124,7 +124,9 @@ impl ESExprOptionParseExtern {
 					allow_float32: false,
 					allow_float64: false,
 					allow_null: false,
+					null_max_level: None,
 					build_literal_from: None,
+					build_literal_from_adjust_null: false,
 				})),
 			}))
 		}
