@@ -14,6 +14,11 @@ public sealed interface EsexprDecodedValue {
 		@dev.argon.esexpr.Vararg
 		java.util.@org.jetbrains.annotations.NotNull List<dev.argon.nobleidl.compiler.api.EsexprDecodedFieldValue> fields
 	) implements dev.argon.nobleidl.compiler.api.EsexprDecodedValue {}
+	@dev.argon.esexpr.Constructor("simple-enum")
+	record SimpleEnum(
+		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull TypeExpr t,
+		java.lang.@org.jetbrains.annotations.NotNull String caseName
+	) implements dev.argon.nobleidl.compiler.api.EsexprDecodedValue {}
 	@dev.argon.esexpr.Constructor("optional")
 	record Optional(
 		dev.argon.nobleidl.compiler.api.@org.jetbrains.annotations.NotNull TypeExpr t,

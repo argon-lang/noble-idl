@@ -561,6 +561,13 @@ internal class CSharpBackend {
                     );
             }
 
+            case EsexprDecodedValue.SimpleEnum simpleEnumValue:
+                return QualifiedName(
+                    (NameSyntax)EmitType(simpleEnumValue.T),
+                    IdentifierName(ConvertIdPascal(simpleEnumValue.CaseName))
+                );
+            
+
             case EsexprDecodedValue.Optional optional:
             {
                 if(optional.Value.TryGetValue(out var elementValue)) {

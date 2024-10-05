@@ -99,6 +99,10 @@ export type EsexprDecodedValue = {
     caseName: nobleidl__core.String;
     fields: nobleidl__core.List<EsexprDecodedFieldValue>;
 } | {
+    $type: "simple-enum";
+    t: TypeExpr;
+    caseName: nobleidl__core.String;
+} | {
     $type: "optional";
     t: TypeExpr;
     elementType: TypeExpr;
@@ -158,6 +162,10 @@ export namespace EsexprDecodedValue {
             "t": $esexpr.positionalFieldCodec(TypeExpr.codec),
             "caseName": $esexpr.positionalFieldCodec(nobleidl__core.String.codec),
             "fields": $esexpr.varargFieldCodec(nobleidl__core.List.varargCodec<EsexprDecodedFieldValue>(EsexprDecodedFieldValue.codec))
+        }),
+        "simple-enum": $esexpr.caseCodec("simple-enum", {
+            "t": $esexpr.positionalFieldCodec(TypeExpr.codec),
+            "caseName": $esexpr.positionalFieldCodec(nobleidl__core.String.codec)
         }),
         "optional": $esexpr.caseCodec("optional", {
             "t": $esexpr.positionalFieldCodec(TypeExpr.codec),

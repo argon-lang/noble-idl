@@ -554,7 +554,7 @@ final class JavaBackend implements Backend {
 				w.write("new ");
 				javaType.writeQualifiedClassName(w);
 				w.write(".");
-				w.write(enumValue.caseName());
+				w.write(convertIdPascal(enumValue.caseName()));
 				javaType.writeArgs(w);
 				w.write("(");
 
@@ -569,6 +569,13 @@ final class JavaBackend implements Backend {
 				}
 
 				w.write(")");
+			}
+
+			case EsexprDecodedValue.SimpleEnum simpleEnumValue -> {
+				var javaType = (JavaTypeExpr.NormalType)typeExprToJava(simpleEnumValue.t());
+				javaType.writeQualifiedClassName(w);
+				w.write(".");
+				w.write(convertIdConst(simpleEnumValue.caseName()));
 			}
 
 			case EsexprDecodedValue.Optional optional -> {

@@ -664,6 +664,7 @@ impl <'a> ModEmitter<'a> {
 		match value {
 			EsexprDecodedValue::Record { t, fields } => self.emit_record_value(t, fields),
 			EsexprDecodedValue::Enum { t, case_name, fields } => self.emit_enum_value(t, case_name, fields),
+			EsexprDecodedValue::SimpleEnum { t, case_name } => self.emit_simple_enum_value(t, case_name),
 			EsexprDecodedValue::Optional { t, element_type, value } => self.emit_optional_value(t, element_type, value.as_deref()),
 			EsexprDecodedValue::Vararg { t, element_type, values } => self.emit_vararg_value(t, element_type, values),
 			EsexprDecodedValue::Dict { t, element_type, values } => self.emit_dict_value(t, element_type, values),
@@ -747,6 +748,18 @@ impl <'a> ModEmitter<'a> {
 
 		Ok(parse_quote! {
 			::std::boxed::Box::new(#value)
+		})
+	}
+
+	fn emit_simple_enum_value(&self, t: &TypeExpr, case_name: &str) -> Result<syn::Expr, EmitError> {
+		let mut path = DefaultTypeEmitter(self).get_literal_type_path(t)?;
+		path.segments.push(syn::PathSegment {
+			ident: convert_id_pascal(case_name),
+			arguments: syn::PathArguments::None,
+		});
+
+		Ok(parse_quote! {
+			::std::boxed::Box::new(#path)
 		})
 	}
 

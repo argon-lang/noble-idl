@@ -219,6 +219,11 @@ pub enum EsexprDecodedValue {
             ::std::boxed::Box<crate::EsexprDecodedFieldValue>,
         >,
     },
+    #[constructor = "simple-enum"]
+    SimpleEnum {
+        t: ::std::boxed::Box<crate::TypeExpr>,
+        case_name: ::noble_idl_runtime::String,
+    },
     #[constructor = "optional"]
     Optional {
         t: ::std::boxed::Box<crate::TypeExpr>,
@@ -725,7 +730,7 @@ pub enum TypeParameter {
     Type {
         name: ::noble_idl_runtime::String,
         #[keyword = "constraints"]
-        #[default_value = "< :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as :: std :: convert :: From < :: std :: boxed :: Box < :: noble_idl_runtime :: ListRepr < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > > :: from (:: std :: boxed :: Box :: new (:: noble_idl_runtime :: ListRepr :: < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > { values : < :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as std :: convert :: From < std :: vec :: Vec < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > :: from (:: std :: vec ! []) }))"]
+        #[default_value = "< :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as :: std :: convert :: From < :: std :: boxed :: Box < :: noble_idl_runtime :: ListRepr < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > > :: from (:: std :: boxed :: Box :: new (:: noble_idl_runtime :: ListRepr :: < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > { values : < :: noble_idl_runtime :: List < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > as :: std :: convert :: From < std :: vec :: Vec < :: std :: boxed :: Box < crate :: TypeParameterTypeConstraint > > > > :: from (:: std :: vec ! []) }))"]
         constraints: ::noble_idl_runtime::List<
             ::std::boxed::Box<crate::TypeParameterTypeConstraint>,
         >,

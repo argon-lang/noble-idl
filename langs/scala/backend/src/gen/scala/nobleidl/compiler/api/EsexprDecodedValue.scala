@@ -13,6 +13,11 @@ enum EsexprDecodedValue derives _root_.esexpr.ESExprCodec, _root_.scala.CanEqual
     @_root_.esexpr.vararg
     fields: _root_.nobleidl.core.List[_root_.nobleidl.compiler.api.EsexprDecodedFieldValue],
   )
+  @_root_.esexpr.constructor("simple-enum")
+  case SimpleEnum(
+    t: _root_.nobleidl.compiler.api.TypeExpr,
+    caseName: _root_.nobleidl.core.String,
+  )
   @_root_.esexpr.constructor("optional")
   case Optional(
     t: _root_.nobleidl.compiler.api.TypeExpr,
@@ -97,6 +102,11 @@ object EsexprDecodedValue {
               _root_.nobleidl.core.String.javaAdapter().toJava(s_value.caseName),
               _root_.nobleidl.core.List.javaAdapter[_root_.nobleidl.compiler.api.EsexprDecodedFieldValue, _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedFieldValue](_root_.nobleidl.compiler.api.EsexprDecodedFieldValue.javaAdapter()).toJava(s_value.fields),
             )
+          case s_value: _root_.nobleidl.compiler.api.EsexprDecodedValue.SimpleEnum =>
+            new _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.SimpleEnum(
+              _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().toJava(s_value.t),
+              _root_.nobleidl.core.String.javaAdapter().toJava(s_value.caseName),
+            )
           case s_value: _root_.nobleidl.compiler.api.EsexprDecodedValue.Optional =>
             new _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.Optional(
               _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().toJava(s_value.t),
@@ -171,6 +181,11 @@ object EsexprDecodedValue {
               _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().fromJava(j_value.t().nn),
               _root_.nobleidl.core.String.javaAdapter().fromJava(j_value.caseName().nn),
               _root_.nobleidl.core.List.javaAdapter[_root_.nobleidl.compiler.api.EsexprDecodedFieldValue, _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedFieldValue](_root_.nobleidl.compiler.api.EsexprDecodedFieldValue.javaAdapter()).fromJava(j_value.fields().nn),
+            )
+          case j_value: _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.SimpleEnum =>
+            new _root_.nobleidl.compiler.api.EsexprDecodedValue.SimpleEnum(
+              _root_.nobleidl.compiler.api.TypeExpr.javaAdapter().fromJava(j_value.t().nn),
+              _root_.nobleidl.core.String.javaAdapter().fromJava(j_value.caseName().nn),
             )
           case j_value: _root_.dev.argon.nobleidl.compiler.api.EsexprDecodedValue.Optional =>
             new _root_.nobleidl.compiler.api.EsexprDecodedValue.Optional(

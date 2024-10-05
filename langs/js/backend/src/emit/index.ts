@@ -1052,6 +1052,9 @@ class ModEmitter {
 					true,
 				);
 
+			case "simple-enum":
+				return ts.factory.createStringLiteral(value.caseName);
+
 			case "optional":
 				{
 					if (value.value === undefined) {

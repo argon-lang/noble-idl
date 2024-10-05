@@ -956,6 +956,16 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
           _ <- write(")")
         yield ()
 
+      case EsexprDecodedValue.SimpleEnum(t, caseName) =>
+        for
+          t <- t match {
+            case t: TypeExpr.DefinedType => ZIO.succeed(t)
+            case _ => ZIO.fail(NobleIDLCompileErrorException("Expected a defined type for a simple enum"))
+          }
+
+          _ <- ScalaTypeExprWriter.writeDefinedTypeCase(t, caseName, TypePosition.Normal)
+        yield ()
+
       case EsexprDecodedValue.Optional(t, elementType, value) =>
         for
           _ <- writeStaticMethod(t, "fromOptional")

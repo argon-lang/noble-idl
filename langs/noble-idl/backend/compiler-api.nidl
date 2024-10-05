@@ -486,6 +486,11 @@ enum esexpr-decoded-value {
         fields: list[esexpr-decoded-field-value ];
     },
 
+    simple-enum {
+        t: type-expr;
+        case-name: string;
+    },
+
     optional {
         t: type-expr;
         element-type: type-expr;
