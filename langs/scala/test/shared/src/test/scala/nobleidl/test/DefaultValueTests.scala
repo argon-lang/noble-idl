@@ -53,6 +53,11 @@ object DefaultValueTests extends ZIOSpecDefault {
           assertTrue(v.f64Inf.isPosInfinity) &&
           assertTrue(v.f64MinusInf.isNegInfinity) &&
           assertTrue(v.listValue == Seq(1, 2, 3)) &&
+          assertTrue(v.optionSome.contains(4)) &&
+          assertTrue(v.optionNone.isEmpty) &&
+          assertTrue(v.option2SomeSome.contains(Some(4))) &&
+          assertTrue(v.option2SomeNone.contains(None)) &&
+          assertTrue(v.option2None.isEmpty) &&
           assertTrue(v.optionalFieldSome.field.contains(4)) &&
           assertTrue(v.optionalFieldNone.field.isEmpty) &&
           assertTrue(v.dictValue.dict == Map("a" -> 1, "b" -> 2)) &&

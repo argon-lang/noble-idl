@@ -289,7 +289,7 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 			ESExpr::Float64(f) if esexpr_options.literals.allow_float64 =>
 				return Ok(EsexprDecodedValue::FromFloat64 { t: Box::new(t.clone()), f: *f }),
 
-			ESExpr::Null(level) if esexpr_options.literals.allow_null =>
+			ESExpr::Null(level) if esexpr_options.literals.allow_null && !esexpr_options.literals.null_max_level.as_ref().is_some_and(|max| *level > *max) =>
 				return Ok(EsexprDecodedValue::FromNull {
 					t: Box::new(t.clone()),
 					level:
@@ -313,6 +313,9 @@ impl <'a, 'b> ValueParser<'a, 'b> {
 
 			if esexpr_options.literals.build_literal_from_adjust_null {
 				if let ESExpr::Null(level) = &mut value {
+					if let Some(max_level) = esexpr_options.literals.null_max_level.as_ref() {
+						*level -= max_level;
+					}
 					*level -= 1u32;
 				}
 			}

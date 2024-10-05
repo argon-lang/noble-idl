@@ -60,6 +60,12 @@ public class DefaultValueTests {
 
 		assertEquals(List.of(1, 2, 3), v.listValue());
 
+		assertEquals(Optional.of(4), v.optionSome());
+		assertEquals(Optional.empty(), v.optionNone());
+		assertEquals(Optional.of(Optional.of(4)), v.option2SomeSome());
+		assertEquals(Optional.of(Optional.empty()), v.option2SomeNone());
+		assertEquals(Optional.empty(), v.option2None());
+
 		assertEquals(Optional.of(4), v.optionalFieldSome().field());
 		assertEquals(Optional.empty(), v.optionalFieldNone().field());
 

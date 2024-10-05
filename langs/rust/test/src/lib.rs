@@ -62,6 +62,12 @@ mod tests {
 
 		assert_eq!([1, 2, 3], &v.list_value[..]);
 
+		assert_eq!(Some(4), v.option_some);
+		assert_eq!(None, v.option_none);
+		assert_eq!(Some(Some(4)), v.option2_some_some);
+		assert_eq!(Some(None), v.option2_some_none);
+		assert_eq!(None, v.option2_none);
+
 		assert_eq!(Some(4), v.optional_field_some.as_ref().field);
 		assert_eq!(None, v.optional_field_none.as_ref().field);
 

@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import * as nidlTest from "./index.js";
+import { Option } from "@argon-lang/noble-idl-core";
 
 test("Default value", () => {
 	const vRes = nidlTest.DefaultValues.codec.decode({
@@ -58,6 +59,12 @@ test("Default value", () => {
 	expect(v.f64MinusInf).toBe(Number.NEGATIVE_INFINITY);
 
 	expect(v.listValue).toStrictEqual([ 1, 2, 3 ]);
+
+	expect(v.optionSome).toBe(4);
+	expect(v.optionNone).toBe(null);
+	expect(v.option2SomeSome).toBe(4);
+	expect(v.option2SomeNone).toBe(Option.some(null));
+	expect(v.option2None).toBe(null);
 
 	expect(v.optionalFieldSome.field).toBe(4);
 	expect(v.optionalFieldNone.field).toBeUndefined();

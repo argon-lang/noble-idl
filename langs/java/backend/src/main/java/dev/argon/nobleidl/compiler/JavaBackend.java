@@ -773,8 +773,8 @@ final class JavaBackend implements Backend {
 				w.write("(");
 
 				var maxLevel = fromNull.maxLevel().orElse(null);
-				if(maxLevel != null) {
-					w.write(maxLevel.intValueExact());
+				if(maxLevel == null || !maxLevel.equals(BigInteger.ZERO)) {
+					w.write(Integer.toString(fromNull.level().orElse(BigInteger.ZERO).intValueExact()));
 				}
 
 				w.write(")");

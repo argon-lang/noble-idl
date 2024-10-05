@@ -191,6 +191,14 @@ export namespace Option {
 	export function empty<A>(): Option<A> {
 		return null;
 	}
+
+	export function buildFrom<A>(value: A): Option<A> {
+		return some(value);
+	}
+
+	export function fromNull<A>(): Option<A> {
+		return null;
+	}
 }
 
 export type OptionalField<A> = A | undefined;

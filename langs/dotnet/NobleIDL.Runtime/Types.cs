@@ -70,6 +70,11 @@ public static class List<T> {
     public static VList<T> BuildFrom(ListRepr<T> repr) => repr.Values;
 }
 
+public static class Option<T> {
+    public static ESExpr.Runtime.Option<T> BuildFrom(T value) => new ESExpr.Runtime.Option<T>(value);
+    public static ESExpr.Runtime.Option<T> FromNull() => ESExpr.Runtime.Option<T>.Empty;
+}
+
 public static class OptionalField<T> {
     public static ESExpr.Runtime.Option<T> Some(T value) => new ESExpr.Runtime.Option<T>(value);
     public static ESExpr.Runtime.Option<T> None => ESExpr.Runtime.Option<T>.Empty;

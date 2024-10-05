@@ -109,7 +109,10 @@ object List extends ListObjectPlatformSpecific {
 }
 
 type Option[+A] = scala.Option[A]
-object Option extends OptionObjectPlatformSpecific
+object Option extends OptionObjectPlatformSpecific {
+  def buildFrom[A](value: A): Option[A] = Some(value)
+  def fromNull[A]: Option[A] = None 
+}
 
 type OptionalField[+A] = scala.Option[A]
 object OptionalField extends OptionalFieldObjectPlatformSpecific {

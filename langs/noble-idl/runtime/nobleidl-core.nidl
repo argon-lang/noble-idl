@@ -122,10 +122,12 @@ record list-repr[a] {
 
 
 @esexpr:(derive-codec)
-//@esexpr:(literals
-//    build-literal-from: (type-parameter "a" owner: "by-type")
-//    allow-null: #true
-//)
+@esexpr:(literals
+	build-literal-from: (type-parameter "a" owner: "by-type")
+	build-literal-from-adjust-null: #true
+	allow-null: #true
+	null-max-level: 0
+)
 @java:(mapped-to (apply "java.util.Optional" (type-parameter "a")))
 @csharp:(mapped-to (member (member (global "ESExpr") "Runtime") "Option" (type-parameter "a")))
 extern type option[a];

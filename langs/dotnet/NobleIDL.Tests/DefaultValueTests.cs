@@ -1,6 +1,5 @@
 using System.Numerics;
 using ESExpr.Runtime;
-using NUnit.Framework.Legacy;
 
 namespace NobleIDL.Tests;
 
@@ -57,7 +56,13 @@ public class DefaultValueTests {
             
             Assert.That(v.ListValue, Is.EquivalentTo((VList<int>)[ 1, 2, 3 ]));
             
-            Assert.That(v.OptionalFieldSome.Field.TryGetValue(out var value) && value == 4, Is.True);
+            Assert.That(v.OptionSome, Is.EqualTo(new Option<int>(4)));
+            Assert.That(v.OptionNone.IsSome, Is.False);
+            Assert.That(v.Option2SomeSome, Is.EqualTo(new Option<Option<int>>(new Option<int>(4))));
+            Assert.That(v.Option2SomeNone, Is.EqualTo(new Option<Option<int>>(new Option<int>())));
+            Assert.That(v.Option2None.IsSome, Is.False);
+            
+            Assert.That(v.OptionalFieldSome.Field, Is.EqualTo(new Option<int>(4)));
             Assert.That(v.OptionalFieldNone.Field.IsSome, Is.False);
             
             Assert.That(v.DictValue, Is.EquivalentTo(new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 }));
