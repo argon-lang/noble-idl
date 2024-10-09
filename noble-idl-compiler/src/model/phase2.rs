@@ -141,7 +141,7 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 			inner.check_type_parameters(Some(&method.name), &method.type_parameters)?;
 
 			for param in &method.parameters {
-				self.check_type(&param.parameter_type)?;
+				inner.check_type(&param.parameter_type)?;
 			}
 
 			inner.check_type(&method.return_type)?;

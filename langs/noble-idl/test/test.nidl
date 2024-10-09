@@ -135,6 +135,10 @@ interface function-with-error2[a, b] {
     apply[e: exception](x: a): b throws e;
 }
 
+interface function-with-error-user[a] {
+    apply[b, e: exception](x: function-with-error[a, b, e]): b throws e;
+}
+
 exception operation-failure of i32;
 
 interface operation[a] {
