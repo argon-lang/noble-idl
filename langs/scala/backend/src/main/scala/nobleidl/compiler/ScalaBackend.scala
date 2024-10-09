@@ -9,10 +9,12 @@ import nobleidl.compiler.PackageMapping
 import org.apache.commons.text.StringEscapeUtils
 import zio.*
 import zio.stream.*
+import scala.reflect.TypeTest
 
 import _root_.java.nio.file.Path
 import _root_.java.util.Locale
 import nobleidl.compiler.api.java.{JavaAnnExternType, JavaMappedType}
+import nobleidl.compiler.api.scalaAnns.*
 
 import javax.lang.model.SourceVersion
 import scala.jdk.CollectionConverters.*
@@ -47,6 +49,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
       _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeCompanionBaseTypes[ScalaAnnRecord, ScalaAnnRecord.CompanionExtends](dfn.annotations)(_.`type`)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -139,6 +142,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
       _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeCompanionBaseTypes[ScalaAnnEnum, ScalaAnnEnum.CompanionExtends](dfn.annotations)(_.`type`)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -338,6 +342,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
       _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeCompanionBaseTypes[ScalaAnnSimpleEnum, ScalaAnnSimpleEnum.CompanionExtends](dfn.annotations)(_.`type`)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -490,6 +495,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
       _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeCompanionBaseTypes[ScalaAnnInterface, ScalaAnnInterface.CompanionExtends](dfn.annotations)(_.`type`)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -714,6 +720,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
       _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
+      _ <- writeCompanionBaseTypes[ScalaAnnException, ScalaAnnException.CompanionExtends](dfn.annotations)(_.`type`)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -928,6 +935,26 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         yield ()
       }
     yield ()
+
+  private def writeCompanionBaseTypes[T <: Matchable, C <: T]
+  (anns: Seq[api.Annotation])
+  (using TypeTest[T, C], ESExprCodec[T])
+  (getType: C => String)
+  : ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    ZStream.fromIterable(anns)
+        .filter(_.scope == "scala")
+        .mapZIO(ann => ZIO.fromEither(summon[ESExprCodec[T]].decode(ann.value)))
+        .mapError(ex => NobleIDLCompileErrorException("Could not decode scala scoped annotation", ex))
+        .collect {
+          case c: C => c
+        }
+        .zipWithIndex
+        .foreach { (ann, index) =>
+          val extendKeyword = if index > 0 then " with " else " extends "
+          write(extendKeyword) *> write(getType(ann))
+        }
+
+
 
   private def writeDecodedValue(value: EsexprDecodedValue): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     value match {

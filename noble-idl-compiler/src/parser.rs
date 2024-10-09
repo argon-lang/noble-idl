@@ -315,7 +315,7 @@ fn method_parameters(input: &str) -> IResult<&str, Vec<ast::InterfaceMethodParam
         terminated(
             separated_list1(
                 sym(","),
-                cut(method_parameter),
+                method_parameter,
             ),
             opt(sym(",")),
         ),

@@ -1,0 +1,41 @@
+
+package nobleidl.compiler.api.scala;
+
+import nobleidl.core;
+
+
+@esexpr:(derive-codec)
+enum scala-ann-record {
+    companion-extends {
+        type: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum scala-ann-enum {
+    companion-extends {
+        type: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum scala-ann-simple-enum {
+    companion-extends {
+        type: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum scala-ann-interface {
+    companion-extends {
+        type: string;
+    },
+}
+
+@esexpr:(derive-codec)
+enum scala-ann-exception {
+    companion-extends {
+        type: string;
+    },
+}
+

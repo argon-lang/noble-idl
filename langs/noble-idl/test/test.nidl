@@ -123,6 +123,10 @@ interface function[a, b] {
     apply(x: a): b;
 }
 
+interface getter-function[a] {
+    apply(): a;
+}
+
 interface function-with-error[a, b, e: exception] {
     apply(x: a): b throws e;
 }
