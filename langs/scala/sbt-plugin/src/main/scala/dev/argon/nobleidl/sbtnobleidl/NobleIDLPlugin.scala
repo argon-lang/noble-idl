@@ -39,7 +39,7 @@ object NobleIDLPlugin extends AutoPlugin {
 
         val depRes = (Compile / dependencyResolution).value
 
-        val depCP = (Compile / dependencyClasspath).value
+        val depCP = (Compile / dependencyClasspathAsJars).value
 
         val generateScala = (Compile / generateNobleIdlScala).value
         val generateScalaJs = (Compile / generateNobleIdlScalaJs).value

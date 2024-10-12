@@ -540,9 +540,9 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                     .map {
                       case tp: TypeParameter.Type =>
                         for
-                          _ <- write("class_")
+                          _ <- write("errorType_")
                           _ <- write(convertIdCamelNoEscape(tp.name))
-                          _ <- write(": _root_.java.lang.Class[")
+                          _ <- write(": _root_.dev.argon.nobleidl.runtime.ErrorType[")
                           _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByMethod), TypePosition.ReturnType)
                           _ <- write("]")
                         yield ()
@@ -569,12 +569,12 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                 _ <- m.throws match {
                   case Some(throwsType @ TypeExpr.TypeParameter(name, TypeParameterOwner.ByMethod)) =>
                     for
-                      _ <- write("given _root_.nobleidl.core.ErrorWrapper[")
+                      _ <- write("given _root_.nobleidl.core.ErrorType[")
                       _ <- AdapterScalaTypeExprWriter.writeTypeExpr(throwsType, TypePosition.Normal)
-                      _ <- write("] = _root_.nobleidl.core.ErrorWrapper.fromJavaClass[")
+                      _ <- write("] = _root_.nobleidl.core.ErrorType.fromJavaErrorType[")
                       _ <- AdapterScalaTypeExprWriter.writeTypeExpr(throwsType, TypePosition.Normal)
                       _ <- write("](")
-                      _ <- write("class_")
+                      _ <- write("errorType_")
                       _ <- write(convertIdCamelNoEscape(name))
                       _ <- writeln(")")
                     yield ()
@@ -582,11 +582,34 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                   case _ => ZIO.unit
                 }
 
-                _ <- write("_root_.dev.argon.util.async.JavaExecuteIO.runInterruptable(")
-                _ <- writeMethodCall
-                _ <- write(".map(")
+                _ <- write("_root_.nobleidl.core.JavaIOInterop.runScala[")
+                
+                
+                _ <- ZIO.foreachDiscard(m.throws) { throwsClause =>
+                  AdapterScalaTypeExprWriter.writeTypeExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ") *>
+                    adapterWriter.adaptedExprWriter.writeTypeExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ")
+                }
+
+                _ <- AdapterScalaTypeExprWriter.writeTypeExpr(m.returnType, TypePosition.ReturnType)
+                _ <- write(", ")
+                _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(m.returnType, TypePosition.ReturnType)
+
+
+                _ <- write("](")
+
+
+                _ <- ZIO.foreachDiscard(m.throws) { throwsClause =>
+                  adapterWriter.writeAdapterExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ")
+                }
                 _ <- adapterWriter.writeAdapterExpr(m.returnType, TypePosition.ReturnType)
-                _ <- writeln(".toJava))")
+
+
+                _ <- write(")(")
+                _ <- writeMethodCall
+                _ <- writeln(")")
 
                 _ <- dedent()
                 _ <- writeln("}")
@@ -620,9 +643,9 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                       .map {
                         case tp: TypeParameter.Type =>
                           for
-                            _ <- write("summon[_root_.nobleidl.core.ErrorWrapper[")
+                            _ <- write("_root_.nobleidl.core.ErrorType.toJavaErrorType(summon[_root_.nobleidl.core.ErrorType[")
                             _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByMethod), TypePosition.ReturnType)
-                            _ <- write("]].javaClass")
+                            _ <- write("]])")
                           yield ()
                       },
 
@@ -668,22 +691,49 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                 _ <- writeln("] = {")
                 _ <- indent()
 
-                _ <- write("_root_.dev.argon.util.async.JavaExecuteIO.runJava[")
-                _ <- m.throws match {
-                  case Some(throwsClause) => AdapterScalaTypeExprWriter.writeTypeExpr(throwsClause, TypePosition.Normal)
-                  case _: None.type => write("_root_.scala.Nothing")
+                _ <- write("_root_.nobleidl.core.JavaIOInterop.runJava[")
+                _ <- ZIO.foreachDiscard(m.throws) { throwsClause =>
+                  AdapterScalaTypeExprWriter.writeTypeExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ") *>
+                    adapterWriter.adaptedExprWriter.writeTypeExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ")
                 }
+
+                _ <- AdapterScalaTypeExprWriter.writeTypeExpr(m.returnType, TypePosition.ReturnType)
                 _ <- write(", ")
                 _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(m.returnType, TypePosition.ReturnType)
-                _ <- writeln("] {")
+                _ <- write("](")
+
+                _ <- ZIO.foreachDiscard(m.throws) { throwsClause =>
+                  adapterWriter.writeAdapterExpr(throwsClause, TypePosition.Normal) *>
+                    write(", ")
+                }
+                _ <- adapterWriter.writeAdapterExpr(m.returnType, TypePosition.ReturnType)
+
+                _ <- ZIO.foreachDiscard(m.throws) {
+                  case throwsClause @ TypeExpr.DefinedType(name, _) =>
+                    write(", _root_.nobleidl.core.ErrorType.fromJavaErrorType(_root_.dev.argon.nobleidl.runtime.ErrorType.fromClass(_root_.scala.Predef.classOf[") *>
+                      adapterWriter.adaptedExprWriter.writeDefinedType(throwsClause, TypePosition.Normal) *>
+                      write("]))")
+
+                  case TypeExpr.TypeParameter(name, TypeParameterOwner.ByType) =>
+                    write(", summon[_root_.nobleidl.core.ErrorType[J") *>
+                      write(convertIdPascal(name)) *>
+                      write("]]")
+
+                  case TypeExpr.TypeParameter(name, TypeParameterOwner.ByMethod) =>
+                    write(", summon[_root_.nobleidl.core.ErrorType[T") *>
+                      write(convertIdPascal(name)) *>
+                      write("]]")
+                }
+                
+                _ <- writeln(") {")
                 _ <- indent()
 
                 _ <- writeMethodCall
 
                 _ <- dedent()
-                _ <- write("}.map(")
-                _ <- adapterWriter.writeAdapterExpr(m.returnType, TypePosition.ReturnType)
-                _ <- writeln(".fromJava)")
+                _ <- writeln("}")
 
                 _ <- dedent()
                 _ <- writeln("}")
@@ -725,69 +775,6 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
       _ <- indent()
 
       dfnType = definitionAsType(dfn)
-
-      _ <- write("private final class WrappedError(cause: _root_.zio.Cause[")
-      _ <- writeTypeExpr(dfnType)
-      _ <- writeln("]) extends _root_.dev.argon.util.async.ErrorWrapper.WrappedErrorBase(cause)")
-
-
-      _ <- ZIO.foreach(options.javaAdapters) { javaAdapters =>
-        val javaTypeExprWriter = JavaTypeExprWriter(buildPackageMapping(javaAdapters.packageMapping.mapping.dict))
-        for
-          _ <- write("given _root_.nobleidl.core.ErrorWrapper[")
-          _ <- writeTypeExpr(dfnType)
-          _ <- writeln("] = new _root_.nobleidl.core.ErrorWrapper[")
-          _ <- writeTypeExpr(dfnType)
-          _ <- writeln("] {")
-          _ <- indent()
-
-          _ <- write("override type JavaClass = ")
-          _ <- javaTypeExprWriter.writeTypeExpr(dfnType, TypePosition.Normal)
-          _ <- writeln()
-
-          _ <- writeln("override type EX = WrappedError | JavaClass")
-
-          _ <- writeln("override val javaClass: _root_.java.lang.Class[JavaClass] = _root_.scala.Predef.classOf[JavaClass]")
-
-          _ <- writeln("override def exceptionTypeTest: _root_.scala.reflect.TypeTest[_root_.java.lang.Throwable, EX] = summon")
-
-          _ <- write("override def wrap(error: _root_.zio.Cause[")
-          _ <- writeTypeExpr(dfnType)
-          _ <- writeln("]): EX =")
-          _ <- indent()
-          _ <- writeln("if error.isFailure && error.stripFailures.isEmpty then")
-          _ <- indent()
-          _ <- writeln("error.failures match {")
-          _ <- indent()
-          _ <- write("case List(e: ")
-          _ <- writeTypeExpr(dfnType)
-          _ <- writeln(") => javaAdapter().toJava(e)")
-          _ <- writeln("case _ => WrappedError(error)")
-          _ <- dedent()
-          _ <- writeln("}")
-          _ <- dedent()
-          _ <- writeln("else")
-          _ <- indent()
-          _ <- writeln("WrappedError(error)")
-          _ <- dedent()
-          _ <- dedent()
-
-          _ <- write("override def unwrap(ex: EX): _root_.zio.Cause[")
-          _ <- writeTypeExpr(dfnType)
-          _ <- writeln("] =")
-          _ <- indent()
-          _ <- writeln("ex match {")
-          _ <- indent()
-          _ <- write("case ex: JavaClass => _root_.zio.Cause.fail(javaAdapter().fromJava(ex))")
-          _ <- writeln("case ex: WrappedError => ex.cause")
-          _ <- dedent()
-          _ <- writeln("}")
-          _ <- dedent()
-
-          _ <- dedent()
-          _ <- writeln("}")
-        yield ()
-      }
 
       _ <- writeJavaAdapters(dfn)(
         writeToJava = adapterWriter => {
@@ -1275,8 +1262,10 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               case tp: TypeParameter.Type if tp.constraints.contains(TypeParameterTypeConstraint.Exception()) =>
                 Seq(
                   for
-                    _ <- write("_root_.dev.argon.util.async.ErrorWrapper[")
+                    _ <- write("_root_.nobleidl.core.ErrorType[")
                     _ <- AdapterScalaTypeExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByType), TypePosition.Normal)
+                    _ <- write("], _root_.nobleidl.core.ErrorType[")
+                    _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByType), TypePosition.Normal)
                     _ <- write("]")
                   yield ()
                 )
@@ -1380,14 +1369,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
   
   private def convertIdJava(kebab: String): String =
-    val id = convertIdCamelNoEscape(kebab)
-    
-    val prefixed =
-      if SourceVersion.isKeyword(id) then "_" + id
-      else id
-    
-    escapeIdentifier(prefixed)
-  end convertIdJava
+    dev.argon.nobleidl.compiler.JavaBackendUtils.convertIdCamel(kebab)
   
 
   private object AdapterScalaTypeExprWriter extends TypeExprWriter {
@@ -1415,7 +1397,6 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         _ <- adaptedExprWriter.writeTypeExpr(t, pos)
         _ <- write("]")
       yield ()
-
 
     def writeAdapterExpr(t: TypeExpr, pos: TypePosition): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
       t match {
@@ -1478,6 +1459,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                 _ <- write(", ").when(index > 0)
                 _ <- write("S")
                 _ <- write(convertIdPascal(param.name))
+                _ <- write(" <: _root_.java.lang.Throwable").when(param.constraints.contains(TypeParameterTypeConstraint.Exception()))
                 _ <- write(", J")
                 _ <- write(convertIdPascal(param.name))
                 _ <- write(" <: _root_.java.lang.Throwable").when(param.constraints.contains(TypeParameterTypeConstraint.Exception()))

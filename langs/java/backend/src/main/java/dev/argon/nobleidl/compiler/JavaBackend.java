@@ -15,6 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.SourceVersion;
+import static dev.argon.nobleidl.compiler.JavaBackendUtils.*;
 
 final class JavaBackend implements Backend {
 	public JavaBackend(NobleIdlGenerationRequest<JavaLanguageOptions> options) {
@@ -259,10 +260,10 @@ final class JavaBackend implements Backend {
 							}
 							needsComma = true;
 
-							w.print("java.lang.Class<");
+							w.print("dev.argon.nobleidl.runtime.ErrorType<");
 							writeTypeExpr(w, new TypeExpr.TypeParameter(typeParam.name(), TypeParameterOwner.BY_METHOD));
-							w.print("> class_");
-							w.print(convertIdCamel(typeParam.name()));
+							w.print("> errorType_");
+							w.print(convertIdCamelNoEscape(typeParam.name()));
 						}
 					}
 				}
@@ -481,7 +482,7 @@ final class JavaBackend implements Backend {
 					w.print("dev.argon.esexpr.ESExprCodec<");
 					w.print(convertIdPascal(type.name()));
 					w.print("> ");
-					w.print(convertIdCamel(type.name()));
+					w.print(convertIdCamelNoEscape(type.name()));
 					w.print("Codec");
 				}
 			}
@@ -513,7 +514,7 @@ final class JavaBackend implements Backend {
 
 				switch(dfn.typeParameters().get(i)) {
 					case TypeParameter.Type type -> {
-						w.print(convertIdCamel(type.name()));
+						w.print(convertIdCamelNoEscape(type.name()));
 						w.print("Codec");
 					}
 				}
@@ -1197,25 +1198,4 @@ final class JavaBackend implements Backend {
 		return javaPackageName;
 	}
 
-
-	private static String convertIdPascal(String kebab) {
-		return Arrays.stream(kebab.split("-"))
-			.map(segment -> segment.substring(0, 1).toUpperCase(Locale.ROOT) + segment.substring(1))
-			.collect(Collectors.joining());
-	}
-
-	private static String convertIdCamel(String kebab) {
-		var pascal = convertIdPascal(kebab);
-		var camel = pascal.substring(0, 1).toLowerCase(Locale.ROOT) + pascal.substring(1);
-
-		if(SourceVersion.isKeyword(camel)) {
-			camel = "_" + camel;
-		}
-
-		return camel;
-	}
-
-	private static String convertIdConst(String kebab) {
-		return kebab.replace("-", "_").toUpperCase(Locale.ROOT);
-	}
 }

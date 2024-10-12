@@ -48,6 +48,7 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
 
     libraryDependencies  ++= Seq(
       "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.2",
+      "dev.argon" %%% "argon-async-util" % "1.1.0-SNAPSHOT",
     ),
     
     Compile / unmanagedSourceDirectories ++= Seq(
@@ -83,7 +84,7 @@ lazy val backend = project.in(file("backend"))
       "org.ow2.asm" % "asm" % "9.7",
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
-      "dev.argon" %%% "argon-async-util" % "1.0.0",
+      "dev.argon" %%% "argon-async-util" % "1.1.0-SNAPSHOT",
       "dev.argon.nobleidl" % "nobleidl-java-compiler" % "0.1.0-SNAPSHOT",
     ),
 

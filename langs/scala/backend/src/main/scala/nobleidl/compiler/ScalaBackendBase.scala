@@ -75,8 +75,8 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
               _ <- write(convertIdPascal(tp.name))
               _ <- constraintType match {
                 case ConstraintType.None => ZIO.unit
-                case ConstraintType.Scala => write(": _root_.nobleidl.core.ErrorWrapper").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
-                case ConstraintType.Java => write("<: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.Scala => write(" <: _root_.java.lang.Throwable: _root_.nobleidl.core.ErrorType").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.Java => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
               }
             yield ()
         }
