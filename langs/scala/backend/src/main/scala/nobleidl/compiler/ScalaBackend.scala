@@ -466,7 +466,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         for
           _ <- write("def ")
           _ <- write(convertIdCamel(m.name))
-          _ <- writeTypeParameters(m.typeParameters, constraintType = ConstraintType.Scala)
+          _ <- writeTypeParameters(m.typeParameters, constraintType = ConstraintType.ScalaMethod)
           _ <- write("(")
 
           _ <- ZIO.foreachDiscard(m.parameters.view.zipWithIndex) { (param, index) =>
@@ -529,7 +529,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               for
                 _ <- write("override def ")
                 _ <- write(convertIdJava(m.name))
-                _ <- writeTypeParameters(m.typeParameters, prefix = "T", constraintType = ConstraintType.Java)
+                _ <- writeTypeParameters(m.typeParameters, prefix = "T", constraintType = ConstraintType.JavaMethod)
                 _ <- write("(")
 
                 parameterWriters = Seq(
@@ -670,7 +670,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               for
                 _ <- write("override def ")
                 _ <- write(convertIdCamel(m.name))
-                _ <- writeTypeParameters(m.typeParameters, prefix = "T", constraintType = ConstraintType.Scala)
+                _ <- writeTypeParameters(m.typeParameters, prefix = "T", constraintType = ConstraintType.ScalaMethod)
                 _ <- write("(")
                 _ <- ZIO.foreachDiscard(m.parameters.view.zipWithIndex) { (param, index) =>
                   for

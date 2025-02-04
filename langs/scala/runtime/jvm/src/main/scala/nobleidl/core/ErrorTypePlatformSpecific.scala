@@ -1,19 +1,8 @@
 package nobleidl.core
 
-import zio.{Cause, FiberId}
-
 import scala.reflect.TypeTest
-import java.util.WeakHashMap
 
-trait ErrorType[E <: Throwable] {
-  given errorTypeTest: TypeTest[Throwable, E]
-}
-
-object ErrorType {
-
-  given [E <: Throwable](using tt: TypeTest[Throwable, E]): ErrorType[E] with
-    override def errorTypeTest: TypeTest[Throwable, E] = tt
-  end given
+trait ErrorTypePlatformSpecific {
 
   private final case class JavaErrorTypeWrapper[E <: Throwable](errorType: ErrorType[E]) extends dev.argon.nobleidl.runtime.ErrorType[E] {
     import errorType.errorTypeTest

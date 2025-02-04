@@ -57,12 +57,14 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
 
   
   protected enum ConstraintType derives CanEqual {
-    case None
-    case Scala
-    case Java
+    case ScalaType
+    case ScalaJSType
+    case ScalaMethod
+    case JavaMethod
+    case ScalaJSMethod
   }
 
-  protected final def writeTypeParameters(tps: Seq[TypeParameter], prefix: String = "", constraintType: ConstraintType = ConstraintType.None): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+  protected final def writeTypeParameters(tps: Seq[TypeParameter], prefix: String = "", constraintType: ConstraintType = ConstraintType.ScalaType): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     (
       for
         _ <- write("[")
@@ -74,9 +76,11 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
               _ <- write(prefix)
               _ <- write(convertIdPascal(tp.name))
               _ <- constraintType match {
-                case ConstraintType.None => ZIO.unit
-                case ConstraintType.Scala => write(" <: _root_.java.lang.Throwable: _root_.nobleidl.core.ErrorType").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
-                case ConstraintType.Java => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.ScalaType => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.ScalaJSType => ZIO.unit
+                case ConstraintType.ScalaMethod => write(" <: _root_.java.lang.Throwable: _root_.nobleidl.core.ErrorType").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.JavaMethod => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+                case ConstraintType.ScalaJSMethod => ZIO.unit
               }
             yield ()
         }

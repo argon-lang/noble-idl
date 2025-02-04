@@ -30,7 +30,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
 
       _ <- write("trait ")
       _ <- write(convertIdPascal(dfn.name.name))
-      _ <- writeTypeParameters(dfn.typeParameters)
+      _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
       _ <- writeln(" extends _root_.scala.scalajs.js.Object {")
       _ <- indent()
       _ <- writeFields(r.fields)
@@ -46,7 +46,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
 
       _ <- write("sealed trait ")
       _ <- write(convertIdPascal(dfn.name.name))
-      _ <- writeTypeParameters(dfn.typeParameters)
+      _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
       _ <- writeln(" {")
       _ <- indent()
       _ <- writeln("val $type: String")
@@ -64,7 +64,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
         for
           _ <- write("trait ")
           _ <- write(convertIdPascal(c.name))
-          _ <- writeTypeParameters(dfn.typeParameters)
+          _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
           _ <- write(" extends ")
           _ <- writeTypeExpr(dfnType)
           _ <- writeln(" {")
@@ -114,7 +114,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
 
       _ <- write("trait ")
       _ <- write(convertIdPascal(dfn.name.name))
-      _ <- writeTypeParameters(dfn.typeParameters)
+      _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
       _ <- writeln(" {")
       _ <- indent()
 
@@ -122,7 +122,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
         for
           _ <- write("def ")
           _ <- write(convertIdCamel(m.name))
-          _ <- writeTypeParameters(m.typeParameters)
+          _ <- writeTypeParameters(m.typeParameters, constraintType = ConstraintType.ScalaJSMethod)
           _ <- write("(")
 
           _ <- ZIO.foreachDiscard(m.parameters.view.zipWithIndex) { (param, index) =>

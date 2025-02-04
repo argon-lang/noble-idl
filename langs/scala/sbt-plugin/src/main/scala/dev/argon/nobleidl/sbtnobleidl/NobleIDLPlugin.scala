@@ -100,6 +100,11 @@ object NobleIDLPlugin extends AutoPlugin {
         (Compile / generateNobleIdl).value
       }.taskValue,
 
+      Compile / resourceGenerators += Def.task {
+        val _ = (Compile / generateNobleIdl).value
+        ((Compile / nobleIdlGeneratedResources).value ** "*.nidl").get()
+      }.taskValue,
+
       Compile / generateNobleIdlScala := true,
       Compile / generateNobleIdlScalaJs := false,
 
