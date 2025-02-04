@@ -4,12 +4,13 @@ use esexpr_text::parser::{simple_identifier, expr};
 
 use nom::{
     IResult,
+	Parser,
     branch::alt,
     character::complete::{alphanumeric1, multispace1},
     bytes::complete::{tag, take_until},
     combinator::{all_consuming, map, not, opt, value, cut},
     multi::{many0, many0_count, separated_list1},
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, terminated},
 };
 
 
@@ -22,7 +23,7 @@ fn skip_ws(input: &str) -> IResult<&str, ()> {
 				comment,
 			))
 		),
-	)(input)
+	).parse(input)
 }
 
 fn comment(input: &str) -> IResult<&str, ()> {
@@ -32,12 +33,12 @@ fn comment(input: &str) -> IResult<&str, ()> {
 			tag("//"),
 			take_until("\n"),
 		),
-	)(input)
+	).parse(input)
 }
 
 
 fn sym(s: &'static str) -> impl Fn(&str) -> IResult<&str, &str> {
-    move |input| preceded(skip_ws, tag(s))(input)
+    move |input| preceded(skip_ws, tag(s)).parse(input)
 }
 
 fn keyword(s: &'static str) -> impl Fn(&str) -> IResult<&str, &str> {
@@ -48,7 +49,7 @@ fn keyword(s: &'static str) -> impl Fn(&str) -> IResult<&str, &str> {
                 tag(s)
             ),
             not(alphanumeric1)
-        )(input)
+        ).parse(input)
     }
 }
 
@@ -56,25 +57,25 @@ fn identifier(input: &str) -> IResult<&str, &str> {
 	preceded(
 		skip_ws,
 		simple_identifier
-	)(input)
+	).parse(input)
 }
 
 
 pub fn definition_file(input: &str) -> IResult<&str, ast::DefinitionFile> {
 	all_consuming(
-		map(tuple((
+		map((
 			package_specifier,
 			many0(import),
 			many0(definition),
 			skip_ws,
-		)), |(package, imports, definitions, _)| {
+		), |(package, imports, definitions, _)| {
 			ast::DefinitionFile {
 				package,
 				imports,
 				definitions,
 			}
 		})
-	)(input)
+	).parse(input)
 }
 
 
@@ -82,14 +83,14 @@ fn package_name(input: &str) -> IResult<&str, ast::PackageName> {
     map(separated_list1(
         sym("."),
         map(identifier, str::to_owned),
-    ), ast::PackageName)(input)
+    ), ast::PackageName).parse(input)
 }
 
 fn qual_name(input: &str) -> IResult<&str, ast::QualifiedName> {
     map(package_name, |mut package_name| {
         let name = package_name.0.pop().unwrap();
         ast::QualifiedName(Box::new(package_name), name)
-    })(input)
+    }).parse(input)
 }
 
 fn package_specifier(input: &str) -> IResult<&str, ast::PackageName> {
@@ -102,7 +103,7 @@ fn package_specifier(input: &str) -> IResult<&str, ast::PackageName> {
             Some(pkg) => pkg,
             None => ast::PackageName(vec!()),
         }
-    })(input)
+    }).parse(input)
 }
 
 fn import(input: &str) -> IResult<&str, ast::PackageName> {
@@ -110,19 +111,19 @@ fn import(input: &str) -> IResult<&str, ast::PackageName> {
         keyword("import"),
         package_name,
         sym(";"),
-    )(input)
+    ).parse(input)
 }
 
 fn annotations(input: &str) -> IResult<&str, Vec<ast::Annotation>> {
     many0(
-        map(tuple((
+        map((
             sym("@"),
             cut(identifier),
             cut(sym(":")),
 			skip_ws,
             cut(expr),
-        )), |(_, scope, _, _, value)| ast::Annotation { scope: scope.to_owned(), value })
-    )(input)
+        ), |(_, scope, _, _, value)| ast::Annotation { scope: scope.to_owned(), value })
+    ).parse(input)
 }
 
 
@@ -135,12 +136,12 @@ fn definition(input: &str) -> IResult<&str, ast::Definition> {
         map(extern_type, ast::Definition::ExternType),
         map(interface_def, ast::Definition::Interface),
 		map(exception_type_def, ast::Definition::ExceptionType),
-    ))(input)
+    )).parse(input)
 }
 
 
 fn record_def(input: &str) -> IResult<&str, ast::RecordDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("record"),
         cut(identifier),
@@ -148,34 +149,34 @@ fn record_def(input: &str) -> IResult<&str, ast::RecordDefinition> {
         cut(sym("{")),
         many0(record_field),
         cut(sym("}")),
-    )), |(annotations, _, name, type_parameters, _, fields, _)| {
+    ), |(annotations, _, name, type_parameters, _, fields, _)| {
         ast::RecordDefinition {
             name: name.to_owned(),
             type_parameters,
             fields,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn record_field(input: &str) -> IResult<&str, ast::RecordField> {
-    map(tuple((
+    map((
         annotations,
         identifier,
         cut(sym(":")),
         cut(type_expr),
         cut(sym(";")),
-    )), |(annotations, name, _, field_type, _)| {
+    ), |(annotations, name, _, field_type, _)| {
         ast::RecordField {
             name: name.to_owned(),
             field_type,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn enum_def(input: &str) -> IResult<&str, ast::EnumDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("enum"),
         cut(identifier),
@@ -184,28 +185,28 @@ fn enum_def(input: &str) -> IResult<&str, ast::EnumDefinition> {
         separated_list1(sym(","), enum_case),
         opt(sym(",")),
         cut(sym("}")),
-    )), |(annotations, _, name, type_parameters, _, cases, _, _)| {
+    ), |(annotations, _, name, type_parameters, _, cases, _, _)| {
         ast::EnumDefinition {
             name: name.to_owned(),
             type_parameters,
             cases,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn enum_case(input: &str) -> IResult<&str, ast::EnumCase> {
-    map(tuple((
+    map((
         annotations,
         identifier,
         opt(enum_case_body),
-    )), |(annotations, name, fields)| {
+    ), |(annotations, name, fields)| {
         ast::EnumCase {
             name: name.to_owned(),
             fields: fields.unwrap_or_default(),
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn enum_case_body(input: &str) -> IResult<&str, Vec<ast::RecordField>> {
@@ -213,11 +214,11 @@ fn enum_case_body(input: &str) -> IResult<&str, Vec<ast::RecordField>> {
         sym("{"),
         cut(many0(record_field)),
         cut(sym("}")),
-    )(input)
+    ).parse(input)
 }
 
 fn simple_enum_def(input: &str) -> IResult<&str, ast::SimpleEnumDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("simple"),
         keyword("enum"),
@@ -226,46 +227,46 @@ fn simple_enum_def(input: &str) -> IResult<&str, ast::SimpleEnumDefinition> {
         separated_list1(sym(","), simple_enum_case),
         opt(sym(",")),
         cut(sym("}")),
-    )), |(annotations, _, _, name, _, cases, _, _)| {
+    ), |(annotations, _, _, name, _, cases, _, _)| {
         ast::SimpleEnumDefinition {
             name: name.to_owned(),
             cases,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn simple_enum_case(input: &str) -> IResult<&str, ast::SimpleEnumCase> {
-    map(tuple((
+    map((
         annotations,
         identifier,
-    )), |(annotations, name)| {
+    ), |(annotations, name)| {
         ast::SimpleEnumCase {
             name: name.to_owned(),
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn extern_type(input: &str) -> IResult<&str, ast::ExternTypeDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("extern"),
         keyword("type"),
         cut(identifier),
         type_parameters,
         sym(";"),
-    )), |(annotations, _, _, name, type_parameters, _)| {
+    ), |(annotations, _, _, name, type_parameters, _)| {
         ast::ExternTypeDefinition {
             name: name.to_owned(),
             type_parameters,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn interface_def(input: &str) -> IResult<&str, ast::InterfaceDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("interface"),
         cut(identifier),
@@ -273,18 +274,18 @@ fn interface_def(input: &str) -> IResult<&str, ast::InterfaceDefinition> {
         cut(sym("{")),
         many0(interface_method),
         cut(sym("}")),
-    )), |(annotations, _, name, type_parameters, _, methods, _)| {
+    ), |(annotations, _, name, type_parameters, _, methods, _)| {
         ast::InterfaceDefinition {
             name: name.to_owned(),
             type_parameters,
             methods,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 pub fn interface_method(input: &str) -> IResult<&str, ast::InterfaceMethod> {
-    map(tuple((
+    map((
         annotations,
         identifier,
         type_parameters,
@@ -298,7 +299,7 @@ pub fn interface_method(input: &str) -> IResult<&str, ast::InterfaceMethod> {
 			cut(type_expr),
 		)),
         cut(sym(";")),
-    )), |(annotations, name, type_parameters, _, parameters, _, _, return_type, throws, _)| {
+    ), |(annotations, name, type_parameters, _, parameters, _, _, return_type, throws, _)| {
         ast::InterfaceMethod {
             name: name.to_owned(),
             type_parameters,
@@ -307,7 +308,7 @@ pub fn interface_method(input: &str) -> IResult<&str, ast::InterfaceMethod> {
             return_type,
 			throws,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn method_parameters(input: &str) -> IResult<&str, Vec<ast::InterfaceMethodParameter>> {
@@ -319,39 +320,39 @@ fn method_parameters(input: &str) -> IResult<&str, Vec<ast::InterfaceMethodParam
             ),
             opt(sym(",")),
         ),
-    ), Option::unwrap_or_default)(input)
+    ), Option::unwrap_or_default).parse(input)
 }
 
 fn method_parameter(input: &str) -> IResult<&str, ast::InterfaceMethodParameter> {
-    map(tuple((
+    map((
         annotations,
         identifier,
         cut(sym(":")),
         type_expr,
-    )), |(annotations, name, _, parameter_type)| {
+    ), |(annotations, name, _, parameter_type)| {
         ast::InterfaceMethodParameter {
             name: name.to_owned(),
             parameter_type,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn exception_type_def(input: &str) -> IResult<&str, ast::ExceptionTypeDefinition> {
-    map(tuple((
+    map((
         annotations,
         keyword("exception"),
         cut(identifier),
         keyword("of"),
         type_expr,
         sym(";"),
-    )), |(annotations, _, name, _, information, _)| {
+    ), |(annotations, _, name, _, information, _)| {
         ast::ExceptionTypeDefinition {
             name: name.to_owned(),
             information,
             annotations,
         }
-    })(input)
+    }).parse(input)
 }
 
 fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
@@ -367,12 +368,12 @@ fn type_parameters(input: &str) -> IResult<&str, Vec<ast::TypeParameter>> {
             ),
             cut(sym("]"))
         )
-    ), Option::unwrap_or_default)(input)
+    ), Option::unwrap_or_default).parse(input)
 }
 
 fn type_parameter(input: &str) -> IResult<&str, ast::TypeParameter> {
 	map(
-		tuple((
+		(
 			annotations,
 			identifier,
 			opt(preceded(
@@ -382,20 +383,20 @@ fn type_parameter(input: &str) -> IResult<&str, ast::TypeParameter> {
 					cut(constraint)
 				)
 			))
-		)),
+		),
 		|(annotations, name, constraints)| ast::TypeParameter::Type {
 			name: name.to_owned(),
 			annotations: annotations.into_iter().map(Box::new).collect(),
 			constraints: constraints.unwrap_or_default().into_iter().map(Box::new).collect(),
 		}
-	)(input)
+	).parse(input)
 }
 
 fn constraint(input: &str) -> IResult<&str, ast::TypeParameterTypeConstraint> {
 	map(
 		keyword("exception"),
 		|_| ast::TypeParameterTypeConstraint::Exception
-	)(input)
+	).parse(input)
 }
 
 fn type_expr(input: &str) -> IResult<&str, ast::TypeExpr> {
@@ -405,7 +406,7 @@ fn type_expr(input: &str) -> IResult<&str, ast::TypeExpr> {
 			opt(type_argument_list),
 		),
 		|(name, args)| ast::TypeExpr::UnresolvedName(name, args.unwrap_or_default())
-	)(input)
+	).parse(input)
 }
 
 fn type_argument_list(input: &str) -> IResult<&str, Vec<ast::TypeExpr>> {
@@ -419,7 +420,7 @@ fn type_argument_list(input: &str) -> IResult<&str, Vec<ast::TypeExpr>> {
             opt(sym(","))
         )),
         cut(sym("]")),
-    )(input)
+    ).parse(input)
 }
 
 

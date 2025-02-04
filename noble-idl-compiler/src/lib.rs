@@ -48,7 +48,6 @@ impl NobleIDLPluginExecutor for ProcessPlugin {
 
     fn generate(&self, request: NobleIdlGenerationRequest<Self::LanguageOptions>) -> Result<NobleIdlGenerationResult, Self::Error> {
         use std::process::{Command, Stdio};
-        use esexpr_binary::FixedStringPool;
 
         let mut child = Command::new(&self.plugin_command)
             .args(&self.plugin_arguments)
@@ -60,13 +59,7 @@ impl NobleIDLPluginExecutor for ProcessPlugin {
 
         let model = request.encode_esexpr();
 
-
-        let mut sp = esexpr_binary::StringPoolBuilder::new();
-        sp.add(&model);
-        let mut sp = sp.into_fixed_string_pool();
-
-        esexpr_binary::generate(&mut stdin, &mut FixedStringPool { strings: vec!() }, &sp.clone().encode_esexpr())?;
-        esexpr_binary::generate(&mut stdin, &mut sp, &model)?;
+        esexpr_binary::generate_single(&mut stdin, &model)?;
 
         drop(stdin);
 
@@ -74,7 +67,7 @@ impl NobleIDLPluginExecutor for ProcessPlugin {
 
         let stdout = child.stdout.take().unwrap();
 
-        let mut results = esexpr_binary::parse_embedded_string_pool(stdout)?
+        let mut results = esexpr_binary::parse(stdout)
             .map(|res| -> Result<_, ProcessPluginError> {
                 let res = res?;
                 let res = NobleIdlGenerationResult::decode_esexpr(res)?;
@@ -201,23 +194,16 @@ fn compile_model_serialized(options: &[u8]) -> Vec<u8> {
 
 fn serialize_result(result: NobleIdlCompileModelResult) -> Vec<u8> {
     let result = result.encode_esexpr();
-
-    let mut sp = esexpr_binary::StringPoolBuilder::new();
-    sp.add(&result);
-    let mut sp = sp.into_fixed_string_pool();
-
     let mut buff = Vec::new();
 
-    esexpr_binary::generate(&mut buff, &mut esexpr_binary::FixedStringPool { strings: vec!() }, &sp.clone().encode_esexpr()).unwrap();
-    esexpr_binary::generate(&mut buff, &mut sp, &result).unwrap();
+	esexpr_binary::generate_single(&mut buff, &result).unwrap();
 
     buff
 }
 
 
 fn compile_model_options_ser(options: &[u8]) -> Result<NobleIdlModel, Error<CompileModelError>> {
-    let mut options_vec = esexpr_binary::parse_embedded_string_pool(options)
-        .map_err(CompileModelError::ParseError)?
+    let mut options_vec = esexpr_binary::parse(options)
         .collect::<Result<Vec<_>, _>>()
         .map_err(CompileModelError::ParseError)?;
 

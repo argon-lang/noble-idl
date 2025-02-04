@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-esexpr = "0.1.17"
+esexpr = "0.1.19"
 num-bigint = "0.4.6"
 num-integer = "0.1.46"
 

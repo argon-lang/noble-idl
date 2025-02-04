@@ -1,5 +1,4 @@
 use std::{collections::HashMap, io::{Read, Write}, path::PathBuf, vec};
-use esexpr_binary::FixedStringPool;
 use num_bigint::{BigInt, BigUint, Sign};
 use proc_macro2::TokenStream;
 use quote::{quote, format_ident, ToTokens};
@@ -71,10 +70,9 @@ pub fn emit(request: NobleIdlGenerationRequest<RustLanguageOptions>) -> Result<N
 }
 
 pub fn emit_from_stream<R: Read, W: Write>(input: R, mut output: W) -> Result<(), EmitError> {
-	let mut sp = esexpr_binary::StringPoolBuilder::new();
-	let mut results = Vec::new();
+	let mut gen = esexpr_binary::ExprGenerator::new(&mut output);
 
-	for def in esexpr_binary::parse_embedded_string_pool(input)? {
+	for def in esexpr_binary::parse(input) {
 		let def = def?;
 		let def = ESExprCodec::decode_esexpr(def)?;
 
@@ -82,16 +80,8 @@ pub fn emit_from_stream<R: Read, W: Write>(input: R, mut output: W) -> Result<()
 
 		let res = res.encode_esexpr();
 
-		sp.add(&res);
-		results.push(res);
-	}
 
-	let mut sp = sp.into_fixed_string_pool();
-
-	esexpr_binary::generate(&mut output, &mut FixedStringPool { strings: vec!() }, &sp.clone().encode_esexpr())?;
-
-	for expr in results {
-		esexpr_binary::generate(&mut output, &mut sp, &expr)?;
+		gen.generate(&res)?;
 	}
 
 	Ok(())

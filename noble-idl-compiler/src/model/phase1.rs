@@ -147,7 +147,7 @@ struct ModelChecker<'a, Scope> {
 }
 
 impl <'a, Scope: TypeScope + Copy> ModelChecker<'a, Scope> {
-	fn with_type_parameters<'b>(&'b self, type_parameters: &'b [TypeParameter], owner: TypeParameterOwner) -> ModelChecker<'b, TypeParameterScope<Scope>> {
+	fn with_type_parameters<'b>(&'b self, type_parameters: &'b [TypeParameter], owner: TypeParameterOwner) -> ModelChecker<'b, TypeParameterScope<'b, Scope>> {
 		ModelChecker {
 			scope: TypeParameterScope {
 				parent_scope: self.scope,
