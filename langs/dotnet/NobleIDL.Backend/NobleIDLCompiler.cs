@@ -58,11 +58,10 @@ public sealed class NobleIDLCompiler : IDisposable {
     }
 
     private int ExprToBuffer(Expr expr, out int resultSize) {
-        var stringTable = ESExprBinaryWriter.BuildSymbolTable(expr);
-
         var stream = new MemoryStream();
-        new ESExprBinaryWriter(ImmutableList<string>.Empty, stream).Write(new StringTable.Codec().Encode(stringTable)).Wait();
-        new ESExprBinaryWriter(stringTable.strings.ImmutableList, stream).Write(expr).Wait();
+
+        var writer = new ESExprBinaryWriter(stream);
+        writer.Write(expr).Wait();
         
         var data = stream.ToArray();
         
@@ -83,7 +82,8 @@ public sealed class NobleIDLCompiler : IDisposable {
         Marshal.Copy(addr, data, 0, size);
         
         var stream = new MemoryStream(data);
-        var exprs = ESExprBinaryReader.ReadEmbeddedStringTable(stream).ToListAsync().Result;
+        var reader = new ESExprBinaryReader(stream);
+        var exprs = reader.ReadAll().ToListAsync().AsTask().Result;
 
         if(exprs is [var expr]) {
             return expr;

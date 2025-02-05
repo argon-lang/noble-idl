@@ -60,16 +60,8 @@ function nobleidl_compile_model(options: number, options_size: number): Buffer {
 	}
 }
 
-async function* writeExprWithSP(expr: ESExpr): AsyncIterable<Uint8Array> {
-    const spb = new esxb.StringPoolBuilder();
-    const parts: Uint8Array[] = [];
-
-    for await(const part of esxb.writeExpr(expr, spb.adapter())) {
-        parts.push(part);
-    }
-
-    yield* esxb.writeExpr(esxb.StringPoolEncoded.codec.encode(spb.toStringPool().toEncoded()), new esxb.ArrayStringPool([]));
-    yield* parts;
+function writeExpr(expr: ESExpr): AsyncIterable<Uint8Array> {
+	return esxb.writeExprs([ expr ]);
 }
 
 async function streamToBuffer(data: AsyncIterable<Uint8Array>): Promise<Buffer> {
@@ -106,7 +98,8 @@ async function* singleton(b: Uint8Array): AsyncIterable<Uint8Array> {
 }
 
 async function loadModel(options: NobleIdlCompileModelOptions): Promise<NobleIdlCompileModelResult> {
-    const optionsBuffer = await streamToBuffer(writeExprWithSP(NobleIdlCompileModelOptions.codec.encode(options)));
+    const optionsBuffer = await streamToBuffer(writeExpr(NobleIdlCompileModelOptions.codec.encode(options)));
+
     try {
         const resultBuffer = nobleidl_compile_model(optionsBuffer.ptr, optionsBuffer.size);
         const resultArray = bufferToArray(resultBuffer);
@@ -114,7 +107,7 @@ async function loadModel(options: NobleIdlCompileModelOptions): Promise<NobleIdl
         try {
             let expr: ESExpr | null = null;
 
-            for await(const exprItem of { [Symbol.asyncIterator]() { return esxb.readExprStreamEmbeddedStringPool(singleton(resultArray)); } }) {
+            for await(const exprItem of esxb.readExprStream(singleton(resultArray))) {
                 if(expr !== null) {
                     throw new Error("Extra model found");
                 }

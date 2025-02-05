@@ -27,10 +27,3 @@ tasks.register<JavaExec>("regenerateApi") {
     mainClass = "dev.argon.nobleidl.util.RegenerateApi"
     classpath = java.sourceSets["main"].runtimeClasspath
 }
-
-tasks.register<JavaExec>("createNobleIDLRuntimeOptions") {
-    dependsOn(tasks.withType<JavaCompile>())
-
-    mainClass = "dev.argon.nobleidl.util.CreateNobleIDLRuntimeOptions"
-    classpath = java.sourceSets["main"].runtimeClasspath
-}

@@ -17,13 +17,13 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^22.5.4",
+    "@types/node": "^22.13.1",
     "@types/validate-npm-package-name": "^4.0.2"
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.14",
+    "@argon-lang/esexpr": "^0.1.16",
     "@argon-lang/noble-idl-core": "file:../runtime",
-    "typescript": "^5.5.4",
-    "validate-npm-package-name": "^5.0.1"
+    "typescript": "^5.7.3",
+    "validate-npm-package-name": "^6.0.0"
   }
 }

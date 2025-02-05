@@ -15,9 +15,9 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^22.5.4",
+    "@types/node": "^22.13.1",
     "cpy-cli": "^5.0.0",
-    "typescript": "^5.5.4"
+    "typescript": "^5.7.3"
   },
   "NobleIDL": {
     "inputFiles": [
@@ -28,6 +28,6 @@
     }
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.14"
+    "@argon-lang/esexpr": "^0.1.16"
   }
 }

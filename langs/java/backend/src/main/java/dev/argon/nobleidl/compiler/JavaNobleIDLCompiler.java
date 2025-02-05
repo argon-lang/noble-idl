@@ -175,6 +175,11 @@ public class JavaNobleIDLCompiler {
 		String[] javaLibraryOptions = cmd.getOptionValues("java-library");
 		String[] javaSourceDirOptions = cmd.getOptionValues("java-source");
 
+		if(inputDirOptions == null) {
+			inputDirOptions = new String[] {};
+		}
+
+
 		List<Path> inputFilePaths = new ArrayList<>();
 		for(var dir : inputDirOptions) {
 			var dirPath = Path.of(dir).toAbsolutePath();

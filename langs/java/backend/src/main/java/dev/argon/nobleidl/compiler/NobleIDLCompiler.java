@@ -88,12 +88,10 @@ public class NobleIDLCompiler implements AutoCloseable {
 	}
 
 	private Buffer exprToBuffer(ESExpr expr) throws NobleIDLCompileErrorException {
-		var stringTable = ESExprBinaryWriter.buildSymbolTable(expr);
-
 		var os = new ByteArrayOutputStream();
 		try {
-			(new ESExprBinaryWriter(List.of(), os)).write(StringTable.codec().encode(stringTable));
-			(new ESExprBinaryWriter(stringTable.values(), os)).write(expr);
+			var writer = new ESExprBinaryWriter(os);
+			writer.write(expr);
 		}
 		catch(IOException ex) {
 			throw new NobleIDLCompileErrorException(ex);
@@ -117,10 +115,17 @@ public class NobleIDLCompiler implements AutoCloseable {
 		var is = new ByteArrayInputStream(data);
 		List<ESExpr> exprs;
 		try {
-			exprs = ESExprBinaryReader.readEmbeddedStringTable(is).toList();
+			var reader = new ESExprBinaryReader(is);
+			exprs = reader.readAll().toList();
 		}
-		catch(IOException | SyntaxException ex) {
-			throw new NobleIDLCompileErrorException(ex);
+		catch(RuntimeException ex) {
+			if(ex.getCause() instanceof SyntaxException ex2)
+				throw new NobleIDLCompileErrorException(ex2);
+			else if(ex.getCause() instanceof IOException ex2)
+				throw new NobleIDLCompileErrorException(ex2);
+			else {
+				throw ex;
+			}
 		}
 
 		if(exprs.size() != 1) {

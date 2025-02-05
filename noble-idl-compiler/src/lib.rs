@@ -59,7 +59,8 @@ impl NobleIDLPluginExecutor for ProcessPlugin {
 
         let model = request.encode_esexpr();
 
-        esexpr_binary::generate_single(&mut stdin, &model)?;
+		let mut gen = esexpr_binary::ExprGenerator::new(&mut stdin);
+		gen.generate(&model)?;
 
         drop(stdin);
 
@@ -196,7 +197,8 @@ fn serialize_result(result: NobleIdlCompileModelResult) -> Vec<u8> {
     let result = result.encode_esexpr();
     let mut buff = Vec::new();
 
-	esexpr_binary::generate_single(&mut buff, &result).unwrap();
+	let mut gen = esexpr_binary::ExprGenerator::new(&mut buff);
+	gen.generate(&result).unwrap();
 
     buff
 }
