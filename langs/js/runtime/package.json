@@ -28,6 +28,6 @@
     }
   },
   "dependencies": {
-    "@argon-lang/esexpr": "^0.1.16"
+    "@argon-lang/esexpr": "^0.1.17"
   }
 }
