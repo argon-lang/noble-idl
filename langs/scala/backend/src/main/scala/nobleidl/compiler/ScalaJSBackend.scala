@@ -47,7 +47,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
       _ <- write("sealed trait ")
       _ <- write(convertIdPascal(dfn.name.name))
       _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
-      _ <- writeln(" {")
+      _ <- writeln(" extends _root_.scala.scalajs.js.Object {")
       _ <- indent()
       _ <- writeln("val $type: String")
       _ <- dedent()
@@ -115,7 +115,7 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
       _ <- write("trait ")
       _ <- write(convertIdPascal(dfn.name.name))
       _ <- writeTypeParameters(dfn.typeParameters, constraintType = ConstraintType.ScalaJSType)
-      _ <- writeln(" {")
+      _ <- writeln(" extends _root_.scala.scalajs.js.Object {")
       _ <- indent()
 
       _ <- ZIO.foreachDiscard(iface.methods) { m =>
