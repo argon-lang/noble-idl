@@ -51,7 +51,8 @@ public class JavaNobleIDLCompiler {
 		@NotNull AnnotationProcessorPass processorPass,
 		@NotNull List<@NotNull Path> javaLibraries,
 		@NotNull Path javaOutputDir,
-		@NotNull Path resourceOutputDir
+		@NotNull Path resourceOutputDir,
+		boolean generateGraalJSAdapters
 	) {}
 
 	@FunctionalInterface
@@ -121,7 +122,8 @@ public class JavaNobleIDLCompiler {
 				new JavaLanguageOptions(
 					new PackageMapping(
 						new KeywordMapping<>(packageMapping)
-					)
+					),
+					compilerInput.generateGraalJSAdapters()
 				),
 				inputFiles,
 				librarySourceFiles
@@ -150,10 +152,13 @@ public class JavaNobleIDLCompiler {
 		javaLibrary.setArgs(Option.UNLIMITED_VALUES);
 		options.addOption(javaLibrary);
 
-		Option packageMappingOpt = new Option("j", "java-source", true, "Java source directory");
-		packageMappingOpt.setRequired(false);
-		packageMappingOpt.setArgs(Option.UNLIMITED_VALUES);
-		options.addOption(packageMappingOpt);
+		Option javaSourceDir = new Option("j", "java-source", true, "Java source directory");
+		javaSourceDir.setRequired(false);
+		javaSourceDir.setArgs(Option.UNLIMITED_VALUES);
+		options.addOption(javaSourceDir);
+
+		Option graalJSAdapters = new Option(null, "graal-js-adapters", false, "Enable GraalJS Adapter generation");
+		options.addOption(graalJSAdapters);
 
 		CommandLineParser parser = new DefaultParser();
 		HelpFormatter formatter = new HelpFormatter();
@@ -169,11 +174,12 @@ public class JavaNobleIDLCompiler {
 			return;
 		}
 
-		String[] inputDirOptions = cmd.getOptionValues("input");
-		String outputDirOption = cmd.getOptionValue("output");
-		String resourceOutputDirOption = cmd.getOptionValue("resource-output");
-		String[] javaLibraryOptions = cmd.getOptionValues("java-library");
-		String[] javaSourceDirOptions = cmd.getOptionValues("java-source");
+		String[] inputDirOptions = cmd.getOptionValues(input);
+		String outputDirOption = cmd.getOptionValue(sourceOutput);
+		String resourceOutputDirOption = cmd.getOptionValue(resourceOutput);
+		String[] javaLibraryOptions = cmd.getOptionValues(javaLibrary);
+		String[] javaSourceDirOptions = cmd.getOptionValues(javaSourceDir);
+		boolean graalJSAdaptersFlag = cmd.hasOption(graalJSAdapters);
 
 		if(inputDirOptions == null) {
 			inputDirOptions = new String[] {};
@@ -268,7 +274,8 @@ public class JavaNobleIDLCompiler {
 			processorPass,
 			javaLibraryPaths,
 			Path.of(outputDirOption),
-			Path.of(resourceOutputDirOption)
+			Path.of(resourceOutputDirOption),
+			graalJSAdaptersFlag
 		));
 	}
 

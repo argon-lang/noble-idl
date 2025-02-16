@@ -9,14 +9,11 @@ object JavaIOInterop {
     resultAdapter: JavaAdapter[SA, JA],
     errorType: nobleidl.core.ErrorType[JE],
   )(f: => JA): IO[SE, SA] =
-    import errorType.errorTypeTest
     JavaExecuteIO.runJavaRaw(f)
-      .catchAll {
-        case ex: JE => ZIO.fail(errorAdapter.fromJava(ex))
-        case ex => ZIO.die(ex)
+      .catchAll { ex =>
+          errorType.checkError(ex).fold(ZIO.die(ex))(e => ZIO.fail(errorAdapter.fromJava(e)))
       }
       .map(resultAdapter.fromJava)
-  end runJava
 
   def runJava[SA, JA](
     resultAdapter: JavaAdapter[SA, JA],

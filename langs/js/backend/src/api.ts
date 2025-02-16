@@ -1,8 +1,8 @@
 import * as $esexpr from "@argon-lang/esexpr";
 import * as nobleidl__core from "@argon-lang/noble-idl-core";
 export interface Annotation {
-    scope: nobleidl__core.String;
-    value: nobleidl__core.Esexpr;
+    readonly scope: nobleidl__core.String;
+    readonly value: nobleidl__core.Esexpr;
 }
 export namespace Annotation {
     export const codec: $esexpr.ESExprCodec<Annotation> = $esexpr.lazyCodec(() => $esexpr.recordCodec<Annotation>("annotation", {
@@ -11,23 +11,23 @@ export namespace Annotation {
     }));
 }
 export type Definition = {
-    $type: "record";
-    r: RecordDefinition;
+    readonly $type: "record";
+    readonly r: RecordDefinition;
 } | {
-    $type: "enum";
-    e: EnumDefinition;
+    readonly $type: "enum";
+    readonly e: EnumDefinition;
 } | {
-    $type: "simple-enum";
-    e: SimpleEnumDefinition;
+    readonly $type: "simple-enum";
+    readonly e: SimpleEnumDefinition;
 } | {
-    $type: "extern-type";
-    et: ExternTypeDefinition;
+    readonly $type: "extern-type";
+    readonly et: ExternTypeDefinition;
 } | {
-    $type: "interface";
-    iface: InterfaceDefinition;
+    readonly $type: "interface";
+    readonly iface: InterfaceDefinition;
 } | {
-    $type: "exception-type";
-    ex: ExceptionTypeDefinition;
+    readonly $type: "exception-type";
+    readonly ex: ExceptionTypeDefinition;
 };
 export namespace Definition {
     export const codec: $esexpr.ESExprCodec<Definition> = $esexpr.lazyCodec(() => $esexpr.enumCodec<Definition>({
@@ -40,11 +40,11 @@ export namespace Definition {
     }));
 }
 export interface DefinitionInfo {
-    name: QualifiedName;
-    typeParameters: nobleidl__core.List<TypeParameter>;
-    definition: Definition;
-    annotations: nobleidl__core.List<Annotation>;
-    isLibrary: nobleidl__core.Bool;
+    readonly name: QualifiedName;
+    readonly typeParameters: nobleidl__core.List<TypeParameter>;
+    readonly definition: Definition;
+    readonly annotations: nobleidl__core.List<Annotation>;
+    readonly isLibrary: nobleidl__core.Bool;
 }
 export namespace DefinitionInfo {
     export const codec: $esexpr.ESExprCodec<DefinitionInfo> = $esexpr.lazyCodec(() => $esexpr.recordCodec<DefinitionInfo>("definition-info", {
@@ -56,10 +56,10 @@ export namespace DefinitionInfo {
     }));
 }
 export interface EnumCase {
-    name: nobleidl__core.String;
-    fields: nobleidl__core.List<RecordField>;
-    esexprOptions: nobleidl__core.OptionalField<EsexprEnumCaseOptions>;
-    annotations: nobleidl__core.List<Annotation>;
+    readonly name: nobleidl__core.String;
+    readonly fields: nobleidl__core.List<RecordField>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprEnumCaseOptions>;
+    readonly annotations: nobleidl__core.List<Annotation>;
 }
 export namespace EnumCase {
     export const codec: $esexpr.ESExprCodec<EnumCase> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EnumCase>("enum-case", {
@@ -70,8 +70,8 @@ export namespace EnumCase {
     }));
 }
 export interface EnumDefinition {
-    cases: nobleidl__core.List<EnumCase>;
-    esexprOptions: nobleidl__core.OptionalField<EsexprEnumOptions>;
+    readonly cases: nobleidl__core.List<EnumCase>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprEnumOptions>;
 }
 export namespace EnumDefinition {
     export const codec: $esexpr.ESExprCodec<EnumDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EnumDefinition>("enum-definition", {
@@ -80,8 +80,8 @@ export namespace EnumDefinition {
     }));
 }
 export interface EsexprDecodedFieldValue {
-    name: nobleidl__core.String;
-    value: EsexprDecodedValue;
+    readonly name: nobleidl__core.String;
+    readonly value: EsexprDecodedValue;
 }
 export namespace EsexprDecodedFieldValue {
     export const codec: $esexpr.ESExprCodec<EsexprDecodedFieldValue> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprDecodedFieldValue>("field-value", {
@@ -90,69 +90,69 @@ export namespace EsexprDecodedFieldValue {
     }));
 }
 export type EsexprDecodedValue = {
-    $type: "record";
-    t: TypeExpr;
-    fields: nobleidl__core.List<EsexprDecodedFieldValue>;
+    readonly $type: "record";
+    readonly t: TypeExpr;
+    readonly fields: nobleidl__core.List<EsexprDecodedFieldValue>;
 } | {
-    $type: "enum";
-    t: TypeExpr;
-    caseName: nobleidl__core.String;
-    fields: nobleidl__core.List<EsexprDecodedFieldValue>;
+    readonly $type: "enum";
+    readonly t: TypeExpr;
+    readonly caseName: nobleidl__core.String;
+    readonly fields: nobleidl__core.List<EsexprDecodedFieldValue>;
 } | {
-    $type: "simple-enum";
-    t: TypeExpr;
-    caseName: nobleidl__core.String;
+    readonly $type: "simple-enum";
+    readonly t: TypeExpr;
+    readonly caseName: nobleidl__core.String;
 } | {
-    $type: "optional";
-    t: TypeExpr;
-    elementType: TypeExpr;
-    value: nobleidl__core.OptionalField<EsexprDecodedValue>;
+    readonly $type: "optional";
+    readonly t: TypeExpr;
+    readonly elementType: TypeExpr;
+    readonly value: nobleidl__core.OptionalField<EsexprDecodedValue>;
 } | {
-    $type: "vararg";
-    t: TypeExpr;
-    elementType: TypeExpr;
-    values: nobleidl__core.List<EsexprDecodedValue>;
+    readonly $type: "vararg";
+    readonly t: TypeExpr;
+    readonly elementType: TypeExpr;
+    readonly values: nobleidl__core.List<EsexprDecodedValue>;
 } | {
-    $type: "dict";
-    t: TypeExpr;
-    elementType: TypeExpr;
-    values: nobleidl__core.Dict<EsexprDecodedValue>;
+    readonly $type: "dict";
+    readonly t: TypeExpr;
+    readonly elementType: TypeExpr;
+    readonly values: nobleidl__core.Dict<EsexprDecodedValue>;
 } | {
-    $type: "build-from";
-    t: TypeExpr;
-    fromType: TypeExpr;
-    fromValue: EsexprDecodedValue;
+    readonly $type: "build-from";
+    readonly t: TypeExpr;
+    readonly fromType: TypeExpr;
+    readonly fromValue: EsexprDecodedValue;
 } | {
-    $type: "from-bool";
-    t: TypeExpr;
-    b: nobleidl__core.Bool;
+    readonly $type: "from-bool";
+    readonly t: TypeExpr;
+    readonly b: nobleidl__core.Bool;
 } | {
-    $type: "from-int";
-    t: TypeExpr;
-    i: nobleidl__core.Int;
-    minInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
-    maxInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
+    readonly $type: "from-int";
+    readonly t: TypeExpr;
+    readonly i: nobleidl__core.Int;
+    readonly minInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
+    readonly maxInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
 } | {
-    $type: "from-str";
-    t: TypeExpr;
-    s: nobleidl__core.String;
+    readonly $type: "from-str";
+    readonly t: TypeExpr;
+    readonly s: nobleidl__core.String;
 } | {
-    $type: "from-binary";
-    t: TypeExpr;
-    b: nobleidl__core.Binary;
+    readonly $type: "from-binary";
+    readonly t: TypeExpr;
+    readonly b: nobleidl__core.Binary;
 } | {
-    $type: "from-float32";
-    t: TypeExpr;
-    f: nobleidl__core.F32;
+    readonly $type: "from-float32";
+    readonly t: TypeExpr;
+    readonly f: nobleidl__core.F32;
 } | {
-    $type: "from-float64";
-    t: TypeExpr;
-    f: nobleidl__core.F64;
+    readonly $type: "from-float64";
+    readonly t: TypeExpr;
+    readonly f: nobleidl__core.F64;
 } | {
-    $type: "from-null";
-    t: TypeExpr;
-    level: nobleidl__core.OptionalField<nobleidl__core.Nat>;
-    maxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
+    readonly $type: "from-null";
+    readonly t: TypeExpr;
+    readonly level: nobleidl__core.OptionalField<nobleidl__core.Nat>;
+    readonly maxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
 };
 export namespace EsexprDecodedValue {
     export const codec: $esexpr.ESExprCodec<EsexprDecodedValue> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprDecodedValue>({
@@ -223,7 +223,7 @@ export namespace EsexprDecodedValue {
     }));
 }
 export interface EsexprEnumCaseOptions {
-    caseType: EsexprEnumCaseType;
+    readonly caseType: EsexprEnumCaseType;
 }
 export namespace EsexprEnumCaseOptions {
     export const codec: $esexpr.ESExprCodec<EsexprEnumCaseOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprEnumCaseOptions>("enum-case-options", {
@@ -231,10 +231,10 @@ export namespace EsexprEnumCaseOptions {
     }));
 }
 export type EsexprEnumCaseType = {
-    $type: "constructor";
-    name: nobleidl__core.String;
+    readonly $type: "constructor";
+    readonly name: nobleidl__core.String;
 } | {
-    $type: "inline-value";
+    readonly $type: "inline-value";
 };
 export namespace EsexprEnumCaseType {
     export const codec: $esexpr.ESExprCodec<EsexprEnumCaseType> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprEnumCaseType>({
@@ -250,18 +250,18 @@ export namespace EsexprEnumOptions {
     export const codec: $esexpr.ESExprCodec<EsexprEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprEnumOptions>("enum-options", {}));
 }
 export interface EsexprExternTypeLiterals {
-    allowBool: nobleidl__core.Bool;
-    allowInt: nobleidl__core.Bool;
-    minInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
-    maxInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
-    allowStr: nobleidl__core.Bool;
-    allowBinary: nobleidl__core.Bool;
-    allowFloat32: nobleidl__core.Bool;
-    allowFloat64: nobleidl__core.Bool;
-    allowNull: nobleidl__core.Bool;
-    nullMaxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
-    buildLiteralFrom: nobleidl__core.OptionalField<TypeExpr>;
-    buildLiteralFromAdjustNull: nobleidl__core.Bool;
+    readonly allowBool: nobleidl__core.Bool;
+    readonly allowInt: nobleidl__core.Bool;
+    readonly minInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
+    readonly maxInt: nobleidl__core.OptionalField<nobleidl__core.Int>;
+    readonly allowStr: nobleidl__core.Bool;
+    readonly allowBinary: nobleidl__core.Bool;
+    readonly allowFloat32: nobleidl__core.Bool;
+    readonly allowFloat64: nobleidl__core.Bool;
+    readonly allowNull: nobleidl__core.Bool;
+    readonly nullMaxLevel: nobleidl__core.OptionalField<nobleidl__core.Nat>;
+    readonly buildLiteralFrom: nobleidl__core.OptionalField<TypeExpr>;
+    readonly buildLiteralFromAdjustNull: nobleidl__core.Bool;
 }
 export namespace EsexprExternTypeLiterals {
     export const codec: $esexpr.ESExprCodec<EsexprExternTypeLiterals> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprExternTypeLiterals>("literals", {
@@ -280,11 +280,11 @@ export namespace EsexprExternTypeLiterals {
     }));
 }
 export interface EsexprExternTypeOptions {
-    allowValue: nobleidl__core.Bool;
-    allowOptional: nobleidl__core.OptionalField<TypeExpr>;
-    allowVararg: nobleidl__core.OptionalField<TypeExpr>;
-    allowDict: nobleidl__core.OptionalField<TypeExpr>;
-    literals: EsexprExternTypeLiterals;
+    readonly allowValue: nobleidl__core.Bool;
+    readonly allowOptional: nobleidl__core.OptionalField<TypeExpr>;
+    readonly allowVararg: nobleidl__core.OptionalField<TypeExpr>;
+    readonly allowDict: nobleidl__core.OptionalField<TypeExpr>;
+    readonly literals: EsexprExternTypeLiterals;
 }
 export namespace EsexprExternTypeOptions {
     export const codec: $esexpr.ESExprCodec<EsexprExternTypeOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprExternTypeOptions>("extern-type-options", {
@@ -296,18 +296,18 @@ export namespace EsexprExternTypeOptions {
     }));
 }
 export type EsexprRecordFieldKind = {
-    $type: "positional";
-    mode: EsexprRecordPositionalMode;
+    readonly $type: "positional";
+    readonly mode: EsexprRecordPositionalMode;
 } | {
-    $type: "keyword";
-    name: nobleidl__core.String;
-    mode: EsexprRecordKeywordMode;
+    readonly $type: "keyword";
+    readonly name: nobleidl__core.String;
+    readonly mode: EsexprRecordKeywordMode;
 } | {
-    $type: "dict";
-    elementType: TypeExpr;
+    readonly $type: "dict";
+    readonly elementType: TypeExpr;
 } | {
-    $type: "vararg";
-    elementType: TypeExpr;
+    readonly $type: "vararg";
+    readonly elementType: TypeExpr;
 };
 export namespace EsexprRecordFieldKind {
     export const codec: $esexpr.ESExprCodec<EsexprRecordFieldKind> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprRecordFieldKind>({
@@ -327,7 +327,7 @@ export namespace EsexprRecordFieldKind {
     }));
 }
 export interface EsexprRecordFieldOptions {
-    kind: EsexprRecordFieldKind;
+    readonly kind: EsexprRecordFieldKind;
 }
 export namespace EsexprRecordFieldOptions {
     export const codec: $esexpr.ESExprCodec<EsexprRecordFieldOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprRecordFieldOptions>("field-options", {
@@ -335,13 +335,13 @@ export namespace EsexprRecordFieldOptions {
     }));
 }
 export type EsexprRecordKeywordMode = {
-    $type: "required";
+    readonly $type: "required";
 } | {
-    $type: "optional";
-    elementType: TypeExpr;
+    readonly $type: "optional";
+    readonly elementType: TypeExpr;
 } | {
-    $type: "default-value";
-    value: EsexprDecodedValue;
+    readonly $type: "default-value";
+    readonly value: EsexprDecodedValue;
 };
 export namespace EsexprRecordKeywordMode {
     export const codec: $esexpr.ESExprCodec<EsexprRecordKeywordMode> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprRecordKeywordMode>({
@@ -355,7 +355,7 @@ export namespace EsexprRecordKeywordMode {
     }));
 }
 export interface EsexprRecordOptions {
-    constructor: nobleidl__core.String;
+    readonly constructor: nobleidl__core.String;
 }
 export namespace EsexprRecordOptions {
     export const codec: $esexpr.ESExprCodec<EsexprRecordOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprRecordOptions>("record-options", {
@@ -363,10 +363,10 @@ export namespace EsexprRecordOptions {
     }));
 }
 export type EsexprRecordPositionalMode = {
-    $type: "required";
+    readonly $type: "required";
 } | {
-    $type: "optional";
-    elementType: TypeExpr;
+    readonly $type: "optional";
+    readonly elementType: TypeExpr;
 };
 export namespace EsexprRecordPositionalMode {
     export const codec: $esexpr.ESExprCodec<EsexprRecordPositionalMode> = $esexpr.lazyCodec(() => $esexpr.enumCodec<EsexprRecordPositionalMode>({
@@ -377,7 +377,7 @@ export namespace EsexprRecordPositionalMode {
     }));
 }
 export interface EsexprSimpleEnumCaseOptions {
-    name: nobleidl__core.String;
+    readonly name: nobleidl__core.String;
 }
 export namespace EsexprSimpleEnumCaseOptions {
     export const codec: $esexpr.ESExprCodec<EsexprSimpleEnumCaseOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprSimpleEnumCaseOptions>("simple-enum-case-options", {
@@ -390,7 +390,7 @@ export namespace EsexprSimpleEnumOptions {
     export const codec: $esexpr.ESExprCodec<EsexprSimpleEnumOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<EsexprSimpleEnumOptions>("simple-enum-options", {}));
 }
 export interface ExceptionTypeDefinition {
-    information: TypeExpr;
+    readonly information: TypeExpr;
 }
 export namespace ExceptionTypeDefinition {
     export const codec: $esexpr.ESExprCodec<ExceptionTypeDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<ExceptionTypeDefinition>("exception-type-definition", {
@@ -398,7 +398,7 @@ export namespace ExceptionTypeDefinition {
     }));
 }
 export interface ExternTypeDefinition {
-    esexprOptions: nobleidl__core.OptionalField<EsexprExternTypeOptions>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprExternTypeOptions>;
 }
 export namespace ExternTypeDefinition {
     export const codec: $esexpr.ESExprCodec<ExternTypeDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<ExternTypeDefinition>("extern-type-definition", {
@@ -406,7 +406,7 @@ export namespace ExternTypeDefinition {
     }));
 }
 export interface InterfaceDefinition {
-    methods: nobleidl__core.List<InterfaceMethod>;
+    readonly methods: nobleidl__core.List<InterfaceMethod>;
 }
 export namespace InterfaceDefinition {
     export const codec: $esexpr.ESExprCodec<InterfaceDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<InterfaceDefinition>("interface-definition", {
@@ -414,12 +414,12 @@ export namespace InterfaceDefinition {
     }));
 }
 export interface InterfaceMethod {
-    name: nobleidl__core.String;
-    typeParameters: nobleidl__core.List<TypeParameter>;
-    parameters: nobleidl__core.List<InterfaceMethodParameter>;
-    returnType: TypeExpr;
-    throws: nobleidl__core.OptionalField<TypeExpr>;
-    annotations: nobleidl__core.List<Annotation>;
+    readonly name: nobleidl__core.String;
+    readonly typeParameters: nobleidl__core.List<TypeParameter>;
+    readonly parameters: nobleidl__core.List<InterfaceMethodParameter>;
+    readonly returnType: TypeExpr;
+    readonly throws: nobleidl__core.OptionalField<TypeExpr>;
+    readonly annotations: nobleidl__core.List<Annotation>;
 }
 export namespace InterfaceMethod {
     export const codec: $esexpr.ESExprCodec<InterfaceMethod> = $esexpr.lazyCodec(() => $esexpr.recordCodec<InterfaceMethod>("interface-method", {
@@ -432,9 +432,9 @@ export namespace InterfaceMethod {
     }));
 }
 export interface InterfaceMethodParameter {
-    name: nobleidl__core.String;
-    parameterType: TypeExpr;
-    annotations: nobleidl__core.List<Annotation>;
+    readonly name: nobleidl__core.String;
+    readonly parameterType: TypeExpr;
+    readonly annotations: nobleidl__core.List<Annotation>;
 }
 export namespace InterfaceMethodParameter {
     export const codec: $esexpr.ESExprCodec<InterfaceMethodParameter> = $esexpr.lazyCodec(() => $esexpr.recordCodec<InterfaceMethodParameter>("interface-method-parameter", {
@@ -444,8 +444,8 @@ export namespace InterfaceMethodParameter {
     }));
 }
 export interface NobleIdlCompileModelOptions {
-    libraryFiles: nobleidl__core.List<nobleidl__core.String>;
-    files: nobleidl__core.List<nobleidl__core.String>;
+    readonly libraryFiles: nobleidl__core.List<nobleidl__core.String>;
+    readonly files: nobleidl__core.List<nobleidl__core.String>;
 }
 export namespace NobleIdlCompileModelOptions {
     export const codec: $esexpr.ESExprCodec<NobleIdlCompileModelOptions> = $esexpr.lazyCodec(() => $esexpr.recordCodec<NobleIdlCompileModelOptions>("options", {
@@ -454,11 +454,11 @@ export namespace NobleIdlCompileModelOptions {
     }));
 }
 export type NobleIdlCompileModelResult = {
-    $type: "success";
-    model: NobleIdlModel;
+    readonly $type: "success";
+    readonly model: NobleIdlModel;
 } | {
-    $type: "failure";
-    errors: nobleidl__core.List<nobleidl__core.String>;
+    readonly $type: "failure";
+    readonly errors: nobleidl__core.List<nobleidl__core.String>;
 };
 export namespace NobleIdlCompileModelResult {
     export const codec: $esexpr.ESExprCodec<NobleIdlCompileModelResult> = $esexpr.lazyCodec(() => $esexpr.enumCodec<NobleIdlCompileModelResult>({
@@ -471,8 +471,8 @@ export namespace NobleIdlCompileModelResult {
     }));
 }
 export interface NobleIdlGenerationRequest<L> {
-    languageOptions: L;
-    model: NobleIdlModel;
+    readonly languageOptions: L;
+    readonly model: NobleIdlModel;
 }
 export namespace NobleIdlGenerationRequest {
     export function codec<L>(lCodec: $esexpr.ESExprCodec<L>): $esexpr.ESExprCodec<NobleIdlGenerationRequest<L>> { return $esexpr.lazyCodec(() => $esexpr.recordCodec<NobleIdlGenerationRequest<L>>("noble-idl-generation-request", {
@@ -481,7 +481,7 @@ export namespace NobleIdlGenerationRequest {
     })); }
 }
 export interface NobleIdlGenerationResult {
-    generatedFiles: nobleidl__core.List<nobleidl__core.String>;
+    readonly generatedFiles: nobleidl__core.List<nobleidl__core.String>;
 }
 export namespace NobleIdlGenerationResult {
     export const codec: $esexpr.ESExprCodec<NobleIdlGenerationResult> = $esexpr.lazyCodec(() => $esexpr.recordCodec<NobleIdlGenerationResult>("noble-idl-generation-result", {
@@ -489,7 +489,7 @@ export namespace NobleIdlGenerationResult {
     }));
 }
 export interface NobleIdlModel {
-    definitions: nobleidl__core.List<DefinitionInfo>;
+    readonly definitions: nobleidl__core.List<DefinitionInfo>;
 }
 export namespace NobleIdlModel {
     export const codec: $esexpr.ESExprCodec<NobleIdlModel> = $esexpr.lazyCodec(() => $esexpr.recordCodec<NobleIdlModel>("noble-idl-model", {
@@ -497,7 +497,7 @@ export namespace NobleIdlModel {
     }));
 }
 export interface PackageName {
-    parts: nobleidl__core.List<nobleidl__core.String>;
+    readonly parts: nobleidl__core.List<nobleidl__core.String>;
 }
 export namespace PackageName {
     export const codec: $esexpr.ESExprCodec<PackageName> = $esexpr.lazyCodec(() => $esexpr.recordCodec<PackageName>("package-name", {
@@ -505,8 +505,8 @@ export namespace PackageName {
     }));
 }
 export interface QualifiedName {
-    package: PackageName;
-    name: nobleidl__core.String;
+    readonly package: PackageName;
+    readonly name: nobleidl__core.String;
 }
 export namespace QualifiedName {
     export const codec: $esexpr.ESExprCodec<QualifiedName> = $esexpr.lazyCodec(() => $esexpr.recordCodec<QualifiedName>("qualified-name", {
@@ -515,8 +515,8 @@ export namespace QualifiedName {
     }));
 }
 export interface RecordDefinition {
-    fields: nobleidl__core.List<RecordField>;
-    esexprOptions: nobleidl__core.OptionalField<EsexprRecordOptions>;
+    readonly fields: nobleidl__core.List<RecordField>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprRecordOptions>;
 }
 export namespace RecordDefinition {
     export const codec: $esexpr.ESExprCodec<RecordDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<RecordDefinition>("record-definition", {
@@ -525,10 +525,10 @@ export namespace RecordDefinition {
     }));
 }
 export interface RecordField {
-    name: nobleidl__core.String;
-    fieldType: TypeExpr;
-    annotations: nobleidl__core.List<Annotation>;
-    esexprOptions: nobleidl__core.OptionalField<EsexprRecordFieldOptions>;
+    readonly name: nobleidl__core.String;
+    readonly fieldType: TypeExpr;
+    readonly annotations: nobleidl__core.List<Annotation>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprRecordFieldOptions>;
 }
 export namespace RecordField {
     export const codec: $esexpr.ESExprCodec<RecordField> = $esexpr.lazyCodec(() => $esexpr.recordCodec<RecordField>("record-field", {
@@ -539,9 +539,9 @@ export namespace RecordField {
     }));
 }
 export interface SimpleEnumCase {
-    name: nobleidl__core.String;
-    esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumCaseOptions>;
-    annotations: nobleidl__core.List<Annotation>;
+    readonly name: nobleidl__core.String;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumCaseOptions>;
+    readonly annotations: nobleidl__core.List<Annotation>;
 }
 export namespace SimpleEnumCase {
     export const codec: $esexpr.ESExprCodec<SimpleEnumCase> = $esexpr.lazyCodec(() => $esexpr.recordCodec<SimpleEnumCase>("simple-enum-case", {
@@ -551,8 +551,8 @@ export namespace SimpleEnumCase {
     }));
 }
 export interface SimpleEnumDefinition {
-    cases: nobleidl__core.List<SimpleEnumCase>;
-    esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumOptions>;
+    readonly cases: nobleidl__core.List<SimpleEnumCase>;
+    readonly esexprOptions: nobleidl__core.OptionalField<EsexprSimpleEnumOptions>;
 }
 export namespace SimpleEnumDefinition {
     export const codec: $esexpr.ESExprCodec<SimpleEnumDefinition> = $esexpr.lazyCodec(() => $esexpr.recordCodec<SimpleEnumDefinition>("simple-enum-definition", {
@@ -561,13 +561,13 @@ export namespace SimpleEnumDefinition {
     }));
 }
 export type TypeExpr = {
-    $type: "defined-type";
-    name: QualifiedName;
-    args: nobleidl__core.List<TypeExpr>;
+    readonly $type: "defined-type";
+    readonly name: QualifiedName;
+    readonly args: nobleidl__core.List<TypeExpr>;
 } | {
-    $type: "type-parameter";
-    name: nobleidl__core.String;
-    owner: TypeParameterOwner;
+    readonly $type: "type-parameter";
+    readonly name: nobleidl__core.String;
+    readonly owner: TypeParameterOwner;
 };
 export namespace TypeExpr {
     export const codec: $esexpr.ESExprCodec<TypeExpr> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeExpr>({
@@ -582,10 +582,10 @@ export namespace TypeExpr {
     }));
 }
 export type TypeParameter = {
-    $type: "type";
-    name: nobleidl__core.String;
-    constraints: nobleidl__core.List<TypeParameterTypeConstraint>;
-    annotations: nobleidl__core.List<Annotation>;
+    readonly $type: "type";
+    readonly name: nobleidl__core.String;
+    readonly constraints: nobleidl__core.List<TypeParameterTypeConstraint>;
+    readonly annotations: nobleidl__core.List<Annotation>;
 };
 export namespace TypeParameter {
     export const codec: $esexpr.ESExprCodec<TypeParameter> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeParameter>({
@@ -606,7 +606,7 @@ export namespace TypeParameterOwner {
     }));
 }
 export type TypeParameterTypeConstraint = {
-    $type: "exception";
+    readonly $type: "exception";
 };
 export namespace TypeParameterTypeConstraint {
     export const codec: $esexpr.ESExprCodec<TypeParameterTypeConstraint> = $esexpr.lazyCodec(() => $esexpr.enumCodec<TypeParameterTypeConstraint>({

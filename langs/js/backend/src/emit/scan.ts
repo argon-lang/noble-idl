@@ -162,7 +162,13 @@ export class ModuleScanner {
 			typeParameters: this.#buildTypeParameters(method.typeParameters, refContext.typeParameters),
 		};
 
-		for (const p of method.parameters) {
+		for(const tp of method.typeParameters) {
+			if(tp.constraints.some(c => c.$type === "exception")) {
+				this.metadata.needsUtilImport = true;
+			}
+		}
+
+		for(const p of method.parameters) {
 			this.#scanType(p.parameterType, refContext2);
 		}
 		this.#scanType(method.returnType, refContext2);

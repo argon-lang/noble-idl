@@ -14,6 +14,9 @@ dependencies {
     implementation(libs.jetbrains.annotations)
     annotationProcessor(libs.esexpr.generator)
 
+    api(libs.graal.polyglot)
+    api(libs.graal.js)
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -88,6 +91,8 @@ tasks.register("codegenNobleIDL") {
 
         args.add("--resource-output")
         args.add(resOutputDir.toString())
+
+        args.add("--graal-js-adapters")
 
         val runtimeProjModules = objects.fileCollection()
         runtimeProjModules.setFrom(project(":runtime").tasks.jar.get().archiveFile.get().asFile)

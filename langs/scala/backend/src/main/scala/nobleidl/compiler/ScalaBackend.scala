@@ -542,7 +542,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
                         for
                           _ <- write("errorType_")
                           _ <- write(convertIdCamelNoEscape(tp.name))
-                          _ <- write(": _root_.dev.argon.nobleidl.runtime.ErrorType[")
+                          _ <- write(": _root_.dev.argon.nobleidl.runtime.ErrorType[? <:")
                           _ <- adapterWriter.adaptedExprWriter.writeTypeExpr(TypeExpr.TypeParameter(tp.name, TypeParameterOwner.ByMethod), TypePosition.ReturnType)
                           _ <- write("]")
                         yield ()
@@ -1369,7 +1369,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
 
   
   private def convertIdJava(kebab: String): String =
-    dev.argon.nobleidl.compiler.JavaBackendUtils.convertIdCamel(kebab)
+    escapeIdentifier(dev.argon.nobleidl.compiler.JavaBackendUtils.convertIdCamel(kebab))
   
 
   private object AdapterScalaTypeExprWriter extends TypeExprWriter {
@@ -1551,7 +1551,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
         case JavaMappedType.TypeName("long") => write(if boxed then "_root_.java.lang.Long" else "_root_.scala.Long")
         case JavaMappedType.TypeName("float") => write(if boxed then "_root_.java.lang.Float" else "_root_.scala.Float")
         case JavaMappedType.TypeName("double") => write(if boxed then "_root_.java.lang.Double" else "_root_.scala.Double")
-        case JavaMappedType.TypeName("void") => write(if pos == TypePosition.ReturnType then "_root_.scala.Unit" else "_root_.scala.AnyRef")
+        case JavaMappedType.TypeName("void") => write(if pos == TypePosition.ReturnType then "_root_.scala.Unit" else "_root_.dev.argon.nobleidl.runtime.Unit")
         case JavaMappedType.TypeName(name) => write("_root_.") *> write(name)
         case JavaMappedType.Apply(name, args) =>
           for

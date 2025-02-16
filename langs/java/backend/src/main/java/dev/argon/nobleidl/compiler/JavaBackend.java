@@ -12,12 +12,11 @@ import java.io.Writer;
 import java.math.BigInteger;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.lang.model.SourceVersion;
+
 import static dev.argon.nobleidl.compiler.JavaBackendUtils.*;
 
-final class JavaBackend implements Backend {
+public final class JavaBackend implements Backend {
 	public JavaBackend(NobleIdlGenerationRequest<JavaLanguageOptions> options) {
 		this.languageOptions = options.languageOptions();
 		this.model = options.model();
@@ -108,7 +107,7 @@ final class JavaBackend implements Backend {
 
 			w.print("public record ");
 			w.print(convertIdPascal(dfn.name().name()));
-			writeTypeParameters(w, dfn.typeParameters());
+			writeTypeParameters(w, "T_", dfn.typeParameters());
 			writeRecordParameters(w, r.fields());
 			w.println(" {");
 			w.indent();
@@ -116,6 +115,36 @@ final class JavaBackend implements Backend {
 			if(r.esexprOptions().isPresent()) {
 				writeCodecMethod(w, dfn);
 			}
+
+			new JSAdapterWriter(w, dfn) {
+				@Override
+				protected void writeFromJS() throws IOException, NobleIDLCompileErrorException {
+					writeFromJSVars("value_", r.fields());
+					w.print("return new ");
+					writeDefinitionAsType(w, dfn);
+					w.print("(");
+
+					int i = 0;
+					for(var field : r.fields()) {
+						if(i > 0) {
+							w.print(", ");
+						}
+						++i;
+
+						w.print("field_");
+						w.print(convertIdCamelNoEscape(field.name()));
+					}
+
+					w.println(");");
+				}
+
+				@Override
+				protected void writeToJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("var obj = context_.eval(\"js\", \"({})\");");
+					writeToJSAssignments("value_", "obj", r.fields());
+					w.println("return obj;");
+				}
+			}.writeJSAdapter();
 
 			w.dedent();
 			w.println("}");
@@ -138,7 +167,7 @@ final class JavaBackend implements Backend {
 
 			w.print("public sealed interface ");
 			w.print(convertIdPascal(dfn.name().name()));
-			writeTypeParameters(w, dfn.typeParameters());
+			writeTypeParameters(w, "T_", dfn.typeParameters());
 			w.println(" {");
 			w.indent();
 
@@ -160,7 +189,7 @@ final class JavaBackend implements Backend {
 
 				w.print("record ");
 				w.print(convertIdPascal(c.name()));
-				writeTypeParameters(w, dfn.typeParameters());
+				writeTypeParameters(w, "T_", dfn.typeParameters());
 				writeRecordParameters(w, c.fields());
 				w.print(" implements ");
 				w.print(getJavaPackage(dfn.name()._package()));
@@ -173,6 +202,88 @@ final class JavaBackend implements Backend {
 			if(e.esexprOptions().isPresent()) {
 				writeCodecMethod(w, dfn);
 			}
+
+			new JSAdapterWriter(w, dfn) {
+				@Override
+				protected void writeFromJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("return switch(value_.getMember(\"$type\").asString()) {");
+					w.indent();
+
+					for(var c : e.cases()) {
+						w.print("case \"");
+						w.print(StringEscapeUtils.escapeJava(c.name()));
+						w.println("\" -> {");
+						w.indent();
+
+						writeFromJSVars("value_", c.fields());
+						w.print("yield new ");
+						w.print(getJavaPackage(dfn.name()._package()));
+						w.print(".");
+						w.print(convertIdPascal(dfn.name().name()));
+						w.print(".");
+						w.print(convertIdPascal(c.name()));
+						writeTypeParametersAsArguments(w, dfn.typeParameters());
+						w.print("(");
+
+						int i = 0;
+						for(var field : c.fields()) {
+							if(i > 0) {
+								w.print(", ");
+							}
+							++i;
+
+							w.print("field_");
+							w.print(convertIdCamelNoEscape(field.name()));
+						}
+
+						w.println(");");
+
+						w.dedent();
+						w.println("}");
+					}
+
+					w.println("case java.lang.String name -> throw new java.lang.IllegalArgumentException(\"Invalid enum value: \" + name);");
+
+					w.dedent();
+					w.println("};");
+
+
+				}
+
+				@Override
+				protected void writeToJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("var obj = context_.eval(\"js\", \"({})\");");
+
+					w.println("switch(value_) {");
+					w.indent();
+
+					for(var c : e.cases()) {
+						w.print("case ");
+						w.print(getJavaPackage(dfn.name()._package()));
+						w.print(".");
+						w.print(convertIdPascal(dfn.name().name()));
+						w.print(".");
+						w.print(convertIdPascal(c.name()));
+						writeTypeParametersAsArguments(w, dfn.typeParameters());
+						w.println(" value2 -> {");
+						w.indent();
+
+						w.print("obj.putMember(\"$type\", \"");
+						w.print(StringEscapeUtils.escapeJava(c.name()));
+						w.println("\");");
+
+						writeToJSAssignments("value2", "obj", c.fields());
+
+						w.dedent();
+						w.println("}");
+					}
+
+					w.dedent();
+					w.println("}");
+
+					w.println("return obj;");
+				}
+			}.writeJSAdapter();
 
 			w.dedent();
 			w.println("}");
@@ -218,6 +329,46 @@ final class JavaBackend implements Backend {
 				writeCodecMethod(w, dfn);
 			}
 
+			new JSAdapterWriter(w, dfn) {
+				@Override
+				protected void writeFromJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("return switch(value_.asString()) {");
+					w.indent();
+
+					for(var c : e.cases()) {
+						w.print("case \"");
+						w.print(StringEscapeUtils.escapeJava(c.name()));
+						w.print("\" -> ");
+						writeDefinitionAsType(w, dfn);
+						w.print(".");
+						w.print(convertIdConst(c.name()));
+						w.println(";");
+					}
+
+					w.println("case java.lang.String name -> throw new java.lang.IllegalArgumentException(\"Invalid enum value: \" + name);");
+
+					w.dedent();
+					w.println("};");
+				}
+
+				@Override
+				protected void writeToJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("return context_.asValue(switch(value_) {");
+					w.indent();
+
+					for(var c : e.cases()) {
+						w.print("case ");
+						w.print(convertIdConst(c.name()));
+						w.print(" -> \"");
+						w.print(StringEscapeUtils.escapeJava(c.name()));
+						w.println("\";");
+					}
+
+					w.dedent();
+					w.println("});");
+				}
+			}.writeJSAdapter();
+
 			w.dedent();
 			w.println("}");
 		});
@@ -231,69 +382,337 @@ final class JavaBackend implements Backend {
 
 			w.print("public interface ");
 			w.print(convertIdPascal(dfn.name().name()));
-			writeTypeParameters(w, dfn.typeParameters());
+			writeTypeParameters(w, "T_", dfn.typeParameters());
 			w.println(" {");
 			w.indent();
 
 			for(var m : iface.methods()) {
-				writeTypeParameters(w, m.typeParameters());
-				if(!m.typeParameters().isEmpty()) {
-					w.print(" ");
+				writeMethodSignature(w, m);
+				w.println(";");
+			}
+
+			new JSAdapterWriter(w, dfn) {
+				@Override
+				protected void writeFromJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("{");
+					w.indent();
+
+					if(!dfn.typeParameters().isEmpty()) {
+						w.println("@java.lang.SuppressWarnings(\"unchecked\")");
+					}
+					writeDefinitionAsType(w, dfn);
+					w.print(" obj = (");
+					writeDefinitionAsType(w, dfn);
+					w.println(")dev.argon.nobleidl.runtime.graaljsInterop.ObjectWrapUtil.getJavaObject(context_, value_);");
+					w.println("if(obj != null) return obj;");
+
+					w.dedent();
+					w.println("}");
+
+					w.print("class ");
+					w.print(convertIdPascal(dfn.name().name()));
+					w.print("_Impl implements ");
+					writeDefinitionAsType(w, dfn);
+					w.println(", dev.argon.nobleidl.runtime.graaljsInterop.WrappedJavaScriptObject {");
+					w.indent();
+
+					w.println("@java.lang.Override");
+					w.println("public org.graalvm.polyglot.Value _getAsJSValue() {");
+					w.indent();
+					w.println("return value_;");
+					w.dedent();
+					w.println("}");
+
+					for(var m : iface.methods()) {
+						w.println("@java.lang.Override");
+						w.print("public ");
+						writeMethodSignature(w, m);
+						w.println(" {");
+						w.indent();
+
+						if(!(typeExprToJava(m.returnType()) instanceof JavaTypeExpr.VoidType)) {
+							w.print("return ");
+						}
+
+						w.print("dev.argon.nobleidl.runtime.graaljsInterop.CallUtil.callJSFunction(context_, executor_, ");
+						writeAdapterExpr(m.returnType());
+						w.print(", ");
+
+						if(m._throws().isPresent()) {
+							var exType = m._throws().get();
+
+							switch(exType) {
+								case TypeExpr.DefinedType dt -> {
+									w.print("\"");
+									w.print(getExceptionTypeName(dt.name()));
+									w.print("\", ");
+									writeAdapterExpr(exType);
+									w.print(", ");
+								}
+								case TypeExpr.TypeParameter tp -> {}
+							}
+						}
+
+						w.println("() ->");
+						w.indent();
+
+
+						w.print("value_.invokeMember(\"");
+						w.print(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(m.name())));
+						w.print("\"");
+						for(var tp : m.typeParameters()) {
+							switch(tp) {
+								case TypeParameter.Type type -> {
+									if(!type.constraints().stream().anyMatch(c -> switch(c) {
+										case TypeParameterTypeConstraint.Exception() -> true;
+									})) {
+										continue;
+									}
+
+									w.print(", dev.argon.nobleidl.runtime.graaljsInterop.ErrorTypeAdapter.toJS(context_, executor_, errorType_");
+									w.print(convertIdCamelNoEscape(type.name()));
+									w.print(")");
+								}
+							}
+						}
+
+						for(var p : m.parameters()) {
+							w.print(", ");
+							writeAdapterExpr(p.parameterType());
+							w.print(".toJS(context_, executor_, ");
+							w.print(convertIdCamel(p.name()));
+							w.print(")");
+						}
+
+						w.println(")");
+
+
+						w.dedent();
+						w.println(");");
+
+
+						w.dedent();
+						w.println("}");
+					}
+
+					w.dedent();
+					w.println("}");
+
+					w.println("return new ");
+					w.print(convertIdPascal(dfn.name().name()));
+					w.print("_Impl();");
 				}
 
-				writeReturnType(w, m.returnType());
-				w.print(" ");
-				w.print(convertIdCamel(m.name()));
-				w.print("(");
+				@Override
+				protected void writeToJS() throws IOException, NobleIDLCompileErrorException {
+					w.println("{");
+					w.indent();
 
-				boolean needsComma = false;
+					if(!dfn.typeParameters().isEmpty()) {
+						w.println("@java.lang.SuppressWarnings(\"unchecked\")");
+					}
+					w.print("org.graalvm.polyglot.Value obj = dev.argon.nobleidl.runtime.graaljsInterop.ObjectWrapUtil.getJSObject(value_);");
+					w.println("if(obj != null) return obj;");
 
-				for(var tp : m.typeParameters()) {
-					switch(tp) {
-						case TypeParameter.Type typeParam -> {
-							if(typeParam.constraints().stream().noneMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
-								continue;
+					w.dedent();
+					w.println("}");
+
+
+					w.println("var obj = context_.eval(\"js\", \"({})\");");
+					w.println("dev.argon.nobleidl.runtime.graaljsInterop.ObjectWrapUtil.putJavaObject(context_, obj, value_);");
+
+					for(var m : iface.methods()) {
+
+						var methodParamTypeConv = new TypeExprConverter() {
+							@Override
+							JavaTypeExpr typeExprToJava(TypeExpr t) throws NobleIDLCompileErrorException {
+								if(t instanceof TypeExpr.TypeParameter tp && tp.owner() == TypeParameterOwner.BY_METHOD) {
+									var typeParamDef = m.typeParameters().stream().filter(p -> switch(p) {
+										case TypeParameter.Type tpt -> tpt.name().equals(tp.name());
+									}).findFirst().orElseThrow();
+
+									switch(typeParamDef) {
+										case TypeParameter.Type tpt -> {
+											if(tpt.constraints().stream().anyMatch(c -> switch(c) {
+												case TypeParameterTypeConstraint.Exception() -> true;
+											})) {
+												return new JavaTypeExpr.NormalType(Optional.of("java.lang"), "Throwable", List.of());
+											}
+											else {
+												return new JavaTypeExpr.NormalType(Optional.of("org.graalvm.polyglot"), "Value", List.of());
+											}
+										}
+									}
+								}
+								else {
+									return super.typeExprToJava(t);
+								}
 							}
+						};
 
-							if(needsComma) {
+
+						w.print("obj.putMember(\"");
+						w.print(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(m.name())));
+						w.println("\", (org.graalvm.polyglot.proxy.ProxyExecutable)(arguments -> {");
+						w.indent();
+
+						int argumentsIndex = 0;
+
+						for(var tp : m.typeParameters()) {
+							switch(tp) {
+								case TypeParameter.Type type -> {
+									if(!type.constraints().stream().anyMatch(c -> switch(c) {
+										case TypeParameterTypeConstraint.Exception() -> true;
+									})) {
+										continue;
+									}
+
+									w.print("var errorType_");
+									w.print(convertIdCamelNoEscape(type.name()));
+									w.print(" = dev.argon.nobleidl.runtime.graaljsInterop.ErrorTypeAdapter.fromJS(context_, executor_, arguments[");
+									w.print(Integer.toString(argumentsIndex));
+									w.println("]);");
+
+									++argumentsIndex;
+								}
+							}
+						}
+
+						for(var p : m.parameters()) {
+							w.print("var arg_");
+							w.print(convertIdCamel(p.name()));
+							w.print(" = ");
+							writeAdapterExpr(p.parameterType(), methodParamTypeConv);
+							w.print(".fromJS(context_, executor_, arguments[");
+							w.print(Integer.toString(argumentsIndex));
+							w.println("]);");
+
+							++argumentsIndex;
+						}
+
+
+						w.print("return dev.argon.nobleidl.runtime.graaljsInterop.CallUtil.callJavaFunction(context_, executor_, ");
+						writeAdapterExpr(m.returnType(), methodParamTypeConv);
+						w.print(", ");
+
+						if(m._throws().isPresent()) {
+							var exType = m._throws().get();
+
+							switch(exType) {
+								case TypeExpr.DefinedType _ -> {
+									typeExprToJava(exType).writeStaticMethod(w, "class");
+									w.print(", ");
+									writeAdapterExpr(exType, methodParamTypeConv);
+									w.print(", ");
+								}
+								case TypeExpr.TypeParameter _ -> {}
+							}
+						}
+
+						w.print("() -> value_.");
+						w.print(convertIdCamel(m.name()));
+						w.print("(");
+
+						argumentsIndex = 0;
+						for(var tp : m.typeParameters()) {
+							switch(tp) {
+								case TypeParameter.Type type -> {
+									if(!type.constraints().stream().anyMatch(c -> switch(c) {
+										case TypeParameterTypeConstraint.Exception() -> true;
+									})) {
+										continue;
+									}
+
+									if(argumentsIndex > 0) {
+										w.print(", ");
+									}
+
+									w.print("errorType_");
+									w.print(convertIdCamelNoEscape(type.name()));
+
+									++argumentsIndex;
+								}
+							}
+						}
+
+						for(var p : m.parameters()) {
+							if(argumentsIndex > 0) {
 								w.print(", ");
 							}
-							needsComma = true;
 
-							w.print("dev.argon.nobleidl.runtime.ErrorType<");
-							writeTypeExpr(w, new TypeExpr.TypeParameter(typeParam.name(), TypeParameterOwner.BY_METHOD));
-							w.print("> errorType_");
-							w.print(convertIdCamelNoEscape(typeParam.name()));
+							w.print("arg_");
+							w.print(convertIdCamel(p.name()));
+
+							++argumentsIndex;
 						}
-					}
-				}
 
-				for(var param : m.parameters()) {
+						w.println("));");
+
+						w.dedent();
+						w.println("}));");
+					}
+
+					w.println("return obj;");
+				}
+			}.writeJSAdapter();
+
+			w.dedent();
+			w.println("}");
+		});
+	}
+
+	private void writeMethodSignature(CodeWriter w, InterfaceMethod m) throws IOException, NobleIDLCompileErrorException {
+		writeTypeParameters(w, "M_", m.typeParameters());
+		if(!m.typeParameters().isEmpty()) {
+			w.print(" ");
+		}
+
+		writeReturnType(w, m.returnType());
+		w.print(" ");
+		w.print(convertIdCamel(m.name()));
+		w.print("(");
+
+		boolean needsComma = false;
+
+		for(var tp : m.typeParameters()) {
+			switch(tp) {
+				case TypeParameter.Type typeParam -> {
+					if(typeParam.constraints().stream().noneMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
+						continue;
+					}
+
 					if(needsComma) {
 						w.print(", ");
 					}
 					needsComma = true;
 
-					writeTypeExpr(w, param.parameterType());
-					w.print(" ");
-					w.print(convertIdCamel(param.name()));
+					w.print("dev.argon.nobleidl.runtime.ErrorType<? extends ");
+					writeTypeExpr(w, new TypeExpr.TypeParameter(typeParam.name(), TypeParameterOwner.BY_METHOD));
+					w.print("> errorType_");
+					w.print(convertIdCamelNoEscape(typeParam.name()));
 				}
-
-				w.print(")");
-
-				w.print(" throws java.lang.InterruptedException");
-				var throwsClause = m._throws().orElse(null);
-				if(throwsClause != null) {
-					w.print(", ");
-					writeTypeExpr(w, throwsClause);
-				}
-
-				w.println(";");
 			}
+		}
 
-			w.dedent();
-			w.println("}");
-		});
+		for(var param : m.parameters()) {
+			if(needsComma) {
+				w.print(", ");
+			}
+			needsComma = true;
+
+			writeTypeExpr(w, param.parameterType());
+			w.print(" ");
+			w.print(convertIdCamel(param.name()));
+		}
+
+		w.print(")");
+
+		w.print(" throws java.lang.InterruptedException");
+		var throwsClause = m._throws().orElse(null);
+		if(throwsClause != null) {
+			w.print(", ");
+			writeTypeExpr(w, throwsClause);
+		}
 	}
 
 
@@ -305,7 +724,7 @@ final class JavaBackend implements Backend {
 
 			w.print("public class ");
 			w.print(convertIdPascal(dfn.name().name()));
-			w.println(" extends java.lang.Exception {");
+			w.println(" extends dev.argon.nobleidl.runtime.NobleIDLException {");
 			w.indent();
 
 			w.print("public ");
@@ -355,6 +774,24 @@ final class JavaBackend implements Backend {
 			writeTypeExpr(w, ex.information());
 			w.println(" information;");
 
+			new JSAdapterWriter(w, dfn) {
+				@Override
+				protected void writeFromJS() throws IOException, NobleIDLCompileErrorException {
+					w.print("return new ");
+					writeDefinitionAsType(w, dfn);
+					w.print("(");
+					writeAdapterExpr(ex.information());
+					w.println(".fromJS(context_, executor_, value_.getMember(\"information\")), value_.getMember(\"message\").asString(), dev.argon.nobleidl.runtime.graaljsInterop.ExceptionUtil.unwrapJSException(value_.getMember(\"cause\")));");
+				}
+
+				@Override
+				protected void writeToJS() throws IOException, NobleIDLCompileErrorException {
+					w.print("return context_.eval(\"js\", \"(info, message, cause) => { const e = new globalThis.Error(message ?? undefined, { cause: cause ?? undefined }); e.information = info; return e; }\").execute(");
+					writeAdapterExpr(ex.information());
+					w.println(".toJS(context_, executor_, value_.information), value_.getMessage(), dev.argon.nobleidl.runtime.graaljsInterop.ExceptionUtil.wrapJSException(context_, value_.getCause()));");
+				}
+			}.writeJSAdapter();
+
 			w.dedent();
 			w.println("}");
 		});
@@ -364,7 +801,7 @@ final class JavaBackend implements Backend {
 
 
 
-	private void writeTypeParameters(CodeWriter w, List<TypeParameter> typeParameters) throws IOException {
+	private void writeTypeParameters(CodeWriter w, String prefix, List<TypeParameter> typeParameters) throws IOException {
 		if(!typeParameters.isEmpty()) {
 			w.print("<");
 			for(int i = 0; i < typeParameters.size(); ++i) {
@@ -374,6 +811,7 @@ final class JavaBackend implements Backend {
 
 				switch(typeParameters.get(i)) {
 					case TypeParameter.Type tp -> {
+						w.print(prefix);
 						w.print(convertIdPascal(tp.name()));
 						if(tp.constraints().stream().anyMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
 							w.print(" extends java.lang.Throwable");
@@ -395,6 +833,7 @@ final class JavaBackend implements Backend {
 
 				switch(typeParameters.get(i)) {
 					case TypeParameter.Type tp -> {
+						w.print("T_");
 						w.print(convertIdPascal(tp.name()));
 					}
 				}
@@ -462,14 +901,11 @@ final class JavaBackend implements Backend {
 	private void writeCodecMethod(CodeWriter w, DefinitionInfo dfn) throws IOException, NobleIDLCompileErrorException {
 		w.print("public static ");
 		if(!dfn.typeParameters().isEmpty()) {
-			writeTypeParameters(w, dfn.typeParameters());
+			writeTypeParameters(w, "M_", dfn.typeParameters());
 			w.print(" ");
 		}
 		w.print("dev.argon.esexpr.ESExprCodec<");
-		w.print(getJavaPackage(dfn.name()._package()));
-		w.print(".");
-		w.print(convertIdPascal(dfn.name().name()));
-		writeTypeParametersAsArguments(w, dfn.typeParameters());
+		writeDefinitionAsType(w, dfn);
 		w.print("> codec(");
 
 		for(int i = 0; i < dfn.typeParameters().size(); ++i) {
@@ -527,6 +963,205 @@ final class JavaBackend implements Backend {
 
 		w.dedent();
 		w.println("}");
+	}
+
+	private abstract class JSAdapterWriter {
+		public JSAdapterWriter(CodeWriter w, DefinitionInfo dfn) {
+			this.w = w;
+			this.dfn = dfn;
+		}
+
+		private final CodeWriter w;
+		private final DefinitionInfo dfn;
+
+
+		protected abstract void writeFromJS() throws IOException, NobleIDLCompileErrorException;
+		protected abstract void writeToJS() throws IOException, NobleIDLCompileErrorException;
+
+		public final void writeJSAdapter() throws IOException, NobleIDLCompileErrorException {
+			if(!languageOptions.generateGraalJSAdapters()) {
+				return;
+			}
+
+			w.print("public static ");
+			if(!dfn.typeParameters().isEmpty()) {
+				writeTypeParameters(w, "T_", dfn.typeParameters());
+				w.print(" ");
+			}
+			w.print("dev.argon.nobleidl.runtime.graaljsInterop.JSAdapter<");
+			writeDefinitionAsType(w, dfn);
+			w.print("> jsAdapter(");
+
+			for(int i = 0; i < dfn.typeParameters().size(); ++i) {
+				if(i > 0) {
+					w.print(", ");
+				}
+
+				switch(dfn.typeParameters().get(i)) {
+					case TypeParameter.Type type -> {
+						if(type.constraints().stream().anyMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
+							w.print("dev.argon.nobleidl.runtime.ErrorType<? extends T_");
+							w.print(convertIdPascal(type.name()));
+							w.print("> errorType_");
+							w.print(convertIdCamelNoEscape(type.name()));
+						}
+						else {
+							w.print("dev.argon.nobleidl.runtime.graaljsInterop.JSAdapter<T_");
+							w.print(convertIdPascal(type.name()));
+							w.print("> adapter_");
+							w.print(convertIdCamelNoEscape(type.name()));
+						}
+					}
+				}
+			}
+
+			w.println(") {");
+			w.indent();
+
+			w.println("return new dev.argon.nobleidl.runtime.graaljsInterop.JSAdapter<>() {");
+			w.indent();
+
+			w.println("@java.lang.Override");
+			w.print("public ");
+			writeDefinitionAsType(w, dfn);
+			w.println(" fromJS(org.graalvm.polyglot.Context context_, dev.argon.nobleidl.runtime.graaljsInterop.JSExecutor executor_, org.graalvm.polyglot.Value value_) {");
+			w.indent();
+			writeFromJS();
+			w.dedent();
+			w.println("}");
+
+			w.println("@java.lang.Override");
+			w.print("public org.graalvm.polyglot.Value toJS(org.graalvm.polyglot.Context context_, dev.argon.nobleidl.runtime.graaljsInterop.JSExecutor executor_, ");
+			writeDefinitionAsType(w, dfn);
+			w.println(" value_) {");
+			w.indent();
+			writeToJS();
+			w.dedent();
+			w.println("}");
+
+
+			w.dedent();
+			w.println("};");
+
+			w.dedent();
+			w.println("}");
+		}
+
+		protected final void writeFromJSVars(String valueName, List<RecordField> fields) throws IOException, NobleIDLCompileErrorException {
+			for(var field : fields) {
+				w.print("var field_");
+				w.print(convertIdCamelNoEscape(field.name()));
+				w.print(" = ");
+				writeAdapterExpr(field.fieldType());
+				w.print(".fromJS(context_, executor_, ");
+				w.print(valueName);
+				w.print(".getMember(\"");
+				w.print(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(field.name())));
+				w.println("\"));");
+			}
+		}
+
+		protected final void writeToJSAssignments(String valueName, String objName, List<RecordField> fields) throws IOException, NobleIDLCompileErrorException {
+			for(var field : fields) {
+				w.print(objName);
+				w.print(".putMember(\"");
+				w.print(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(field.name())));
+				w.print("\", ");
+				writeAdapterExpr(field.fieldType());
+				w.print(".toJS(context_, executor_, ");
+				w.print(valueName);
+				w.print(".");
+				w.print(convertIdCamel(field.name()));
+				w.println("()));");
+			}
+		}
+
+		protected final void writeAdapterExpr(TypeExpr t) throws IOException, NobleIDLCompileErrorException {
+			writeAdapterExpr(t, new TypeExprConverter());
+		}
+
+		protected final void writeAdapterExpr(TypeExpr t, TypeExprConverter converter) throws IOException, NobleIDLCompileErrorException {
+			switch(t) {
+				case TypeExpr.DefinedType definedType -> {
+					List<TypeParameter> typeParams = model.definitions().stream()
+						.filter(d -> d.name().equals(definedType.name()))
+						.findFirst()
+						.map(DefinitionInfo::typeParameters)
+						.orElseGet(List::of);
+
+
+
+					converter.ignoreMapping().typeExprToJava(t).boxed().nonReturnType().writeStaticMethod(w, "jsAdapter");
+					w.print("(");
+
+					int i = 0;
+					for(var arg : definedType.args()) {
+						if(i > 0) {
+							w.print(", ");
+						}
+
+
+						if(typeParams.get(i) instanceof TypeParameter.Type tpt && tpt.constraints().stream().anyMatch(c -> c instanceof TypeParameterTypeConstraint.Exception)) {
+							writeErrorType(w, arg);
+						}
+						else {
+							writeAdapterExpr(arg, converter);
+						}
+
+
+						++i;
+					}
+
+					w.print(")");
+				}
+				case TypeExpr.TypeParameter tp -> {
+					switch(tp.owner()) {
+						case BY_TYPE -> {
+							w.print("adapter_");
+							w.print(convertIdCamelNoEscape(tp.name()));
+						}
+						case BY_METHOD -> {
+							w.print("dev.argon.nobleidl.runtime.graaljsInterop.JSAdapter.<");
+							converter.typeExprToJava(t).writeType(w);
+							w.print(">identity()");
+						}
+					}
+
+				}
+			}
+		}
+	}
+
+	private String getExceptionTypeName(QualifiedName name) {
+		var parts = new ArrayList<String>(name._package().parts().size() + 1);
+		parts.addAll(name._package().parts());
+		parts.add(name.name());
+		return String.join(".", parts);
+	}
+
+	private void writeErrorType(CodeWriter w, TypeExpr t) throws IOException, NobleIDLCompileErrorException {
+		switch(t) {
+			case TypeExpr.DefinedType dt -> {
+				w.println("dev.argon.nobleidl.runtime.ErrorType.fromClass(");
+				w.print(getJavaPackage(dt.name()._package()));
+				w.print(".");
+				w.print(convertIdPascal(dt.name().name()));
+				w.print(".class)");
+			}
+
+			case TypeExpr.TypeParameter tp -> {
+				w.print("errorType_");
+				w.print(convertIdCamelNoEscape(tp.name()));
+			}
+		}
+	}
+
+
+	private void writeDefinitionAsType(CodeWriter w, DefinitionInfo dfn) throws IOException, NobleIDLCompileErrorException {
+		w.print(getJavaPackage(dfn.name()._package()));
+		w.print(".");
+		w.print(convertIdPascal(dfn.name().name()));
+		writeTypeParametersAsArguments(w, dfn.typeParameters());
 	}
 
 	private void writeDecodedValue(Writer w, EsexprDecodedValue value) throws IOException, NobleIDLCompileErrorException {
@@ -820,10 +1455,21 @@ final class JavaBackend implements Backend {
 							case LONG -> "long";
 							case FLOAT -> "float";
 							case DOUBLE -> "double";
-							case VOID -> "void";
 						});
 
 						writeArrayParts(w, arrayAnnStack);
+
+						break typeLoop;
+					}
+
+					case VoidType() -> {
+						if(!arrayAnnStack.isEmpty()) {
+							t = t.boxed();
+							continue;
+						}
+
+						writeAnns(w, currentTypeAnn);
+						w.write("void");
 
 						break typeLoop;
 					}
@@ -897,10 +1543,13 @@ final class JavaBackend implements Backend {
 			LONG,
 			FLOAT,
 			DOUBLE,
-			VOID,
-
 			;
 
+
+			@Override
+			public JavaTypeExpr withNotNull() {
+				return this;
+			}
 
 			@Override
 			public void writeStaticMethod(Writer w, String methodName) throws IOException {
@@ -918,7 +1567,6 @@ final class JavaBackend implements Backend {
 					case LONG -> "Long";
 					case FLOAT -> "Float";
 					case DOUBLE -> "Double";
-					case VOID -> "Object";
 				};
 
 				return new NormalType(Optional.of("java.lang"), className, List.of());
@@ -926,12 +1574,31 @@ final class JavaBackend implements Backend {
 
 			@Override
 			public JavaTypeExpr nonReturnType() {
-				if(this == VOID) {
-					return boxed();
-				}
-				else {
-					return this;
-				}
+				return this;
+			}
+
+
+		}
+
+		record VoidType() implements JavaTypeExpr {
+			@Override
+			public JavaTypeExpr withNotNull() {
+				return this;
+			}
+
+			@Override
+			public void writeStaticMethod(Writer w, String methodName) throws IOException {
+				throw new IllegalStateException();
+			}
+
+			@Override
+			public JavaTypeExpr boxed() {
+				return new NormalType(Optional.of("dev.argon.nobleidl.runtime"), "Unit", List.of());
+			}
+
+			@Override
+			public JavaTypeExpr nonReturnType() {
+				return boxed();
 			}
 		}
 
@@ -1036,156 +1703,206 @@ final class JavaBackend implements Backend {
 
 
 	private JavaTypeExpr typeExprToJava(TypeExpr t) throws NobleIDLCompileErrorException {
-		return typeExprToJava(t, false);
+		var converter = new TypeExprConverter();
+		return converter.typeExprToJava(t);
 	}
 
 	private JavaTypeExpr typeExprToJava(TypeExpr t, boolean ignoreMapping) throws NobleIDLCompileErrorException {
-		return switch(t) {
-			case TypeExpr.DefinedType(var name, var args) -> {
-				var mappedType = ignoreMapping ? null : getMappedType(name).orElse(null);
-				if(mappedType == null) {
-					var packageName = Optional.of(getJavaPackage(name._package())).filter(pn -> !pn.isEmpty());
-					var className = convertIdPascal(name.name());
-					var javaArgs = new ArrayList<JavaTypeExpr>();
-					for(var arg : args) {
-						javaArgs.add(typeExprToJava(arg, false).boxed());
-					}
-					yield new JavaTypeExpr.NormalType(packageName, className, javaArgs);
-				}
-				else {
-					var typeParamMap = getTypeParameterMapping(t);
-					yield mappedTypeToJava(typeParamMap, mappedType);
-				}
-			}
-			case TypeExpr.TypeParameter(var name, _) -> new JavaTypeExpr.NormalType(Optional.empty(), convertIdPascal(name), List.of());
-		};
+		var converter = new TypeExprConverter();
+		if(ignoreMapping) converter = converter.ignoreMapping();
+		return converter.typeExprToJava(t);
 	}
 
-	private JavaTypeExpr mappedTypeToJava(Map<String, TypeExpr> typeParameters, JavaMappedType mappedType) throws NobleIDLCompileErrorException {
-		return switch(mappedType) {
-			case JavaMappedType.TypeName(var name) -> {
-				var primType = getPrimitiveType(name);
-				if(primType.isPresent()) {
-					yield primType.get();
-				}
-				else {
-					yield getJavaType(name, List.of());
-				}
-			}
+	private class TypeExprConverter implements Cloneable {
 
-			case JavaMappedType.Annotated(var t, var ann) ->
-				new JavaTypeExpr.Annotated(ann, mappedTypeToJava(typeParameters, t));
+		public TypeExprConverter() {}
 
-			case JavaMappedType.Apply(var name, var args) -> {
-				var javaArgs = new ArrayList<JavaTypeExpr>(args.size());
-				for(var arg : args) {
-					javaArgs.add(mappedTypeToJava(typeParameters, arg).boxed());
-				}
+		protected boolean ignoreMapping = false;
 
-				yield getJavaType(name, javaArgs);
-			}
-
-			case JavaMappedType.TypeParameter(var name) -> {
-				var t = typeParameters.get(name);
-				if(t == null) {
-					throw new NobleIDLCompileErrorException("Invalid type parameter: " + name);
-				}
-
-				yield typeExprToJava(t);
-			}
-
-			case JavaMappedType.Array(var elementType) ->
-				new JavaTypeExpr.ArrayType(mappedTypeToJava(typeParameters, elementType));
-		};
-	}
-
-	private JavaTypeExpr.NormalType getJavaType(String className, List<JavaTypeExpr> args) {
-		var lastDot = className.lastIndexOf('.');
-		if(lastDot >= 0) {
-			return new JavaTypeExpr.NormalType(Optional.of(className.substring(0, lastDot)), className.substring(lastDot + 1), args);
-		}
-		else {
-			return new JavaTypeExpr.NormalType(Optional.empty(), className, args);
-		}
-
-	}
-
-	private Optional<JavaTypeExpr.PrimitiveType> getPrimitiveType(String name) {
-		return switch(name) {
-			case "boolean" -> Optional.of(JavaTypeExpr.PrimitiveType.BOOLEAN);
-			case "char" -> Optional.of(JavaTypeExpr.PrimitiveType.CHAR);
-			case "byte" -> Optional.of(JavaTypeExpr.PrimitiveType.BYTE);
-			case "short" -> Optional.of(JavaTypeExpr.PrimitiveType.SHORT);
-			case "int" -> Optional.of(JavaTypeExpr.PrimitiveType.INT);
-			case "long" -> Optional.of(JavaTypeExpr.PrimitiveType.LONG);
-			case "float" -> Optional.of(JavaTypeExpr.PrimitiveType.FLOAT);
-			case "double" -> Optional.of(JavaTypeExpr.PrimitiveType.DOUBLE);
-			case "void" -> Optional.of(JavaTypeExpr.PrimitiveType.VOID);
-			default -> Optional.empty();
-		};
-	}
-
-
-	private Map<String, TypeExpr> getTypeParameterMapping(TypeExpr t) throws NobleIDLCompileErrorException {
-		return switch(t) {
-			case TypeExpr.DefinedType(var name, var args) -> {
-				var dfn = model.definitions()
-					.stream()
-					.filter(d -> d.name().equals(name))
-					.findFirst();
-
-				if(dfn.isEmpty()) {
-					throw new NobleIDLCompileErrorException("Could not find definition: " + name);
-				}
-
-				var typeParameters = dfn.get().typeParameters();
-
-				if(typeParameters.size() != args.size()) {
-					throw new NobleIDLCompileErrorException("Type parameter mismatch");
-				}
-
-				Map<String, TypeExpr> map = new HashMap<>();
-				for(int i = 0; i < typeParameters.size(); ++i) {
-					switch(typeParameters.get(i)) {
-						case TypeParameter.Type type ->
-							map.put(type.name(), args.get(i));
-					}
-				}
-				yield map;
-			}
-			case TypeExpr.TypeParameter(_, _) -> Map.of();
-		};
-	}
-
-	private Optional<JavaMappedType> getMappedType(QualifiedName name) throws NobleIDLCompileErrorException {
-		var javaAnns = model.definitions()
-			.stream()
-			.filter(dfn -> dfn.name().equals(name))
-			.findFirst()
-			.stream()
-			.filter(dfn -> dfn.definition() instanceof Definition.ExternType)
-			.flatMap(dfn -> dfn.annotations().stream())
-			.filter(ann -> ann.scope().equals("java"))
-			.toList();
-
-		for(var javaAnn : javaAnns) {
-			JavaAnnExternType etAnn;
+		@Override
+		public TypeExprConverter clone() {
 			try {
-				etAnn = JavaAnnExternType.codec().decode(javaAnn.value());
+				return (TypeExprConverter)super.clone();
+			} catch(CloneNotSupportedException e) {
+				throw new RuntimeException(e);
 			}
-			catch(DecodeException e) {
-				throw new NobleIDLCompileErrorException("Could not decode extern type annotation: " + javaAnn.value(), e);
-			}
-
-			if(!(etAnn instanceof JavaAnnExternType.MappedTo mappedTo)) {
-				continue;
-			}
-
-			return Optional.of(mappedTo.javaType());
 		}
 
-		return Optional.empty();
+		public final TypeExprConverter ignoreMapping() {
+			var other = clone();
+			other.ignoreMapping = true;
+			return other;
+		}
+
+
+		JavaTypeExpr typeExprToJava(TypeExpr t) throws NobleIDLCompileErrorException {
+			return switch(t) {
+				case TypeExpr.DefinedType(var name, var args) -> {
+					var mappedType = ignoreMapping ? null : getMappedType(name).orElse(null);
+					if(mappedType == null) {
+						var packageName = Optional.of(getJavaPackage(name._package())).filter(pn -> !pn.isEmpty());
+						var className = convertIdPascal(name.name());
+						var javaArgs = new ArrayList<JavaTypeExpr>();
+
+						var argConverter = clone();
+						argConverter.ignoreMapping = false;
+						for(var arg : args) {
+							javaArgs.add(argConverter.typeExprToJava(arg).boxed());
+						}
+						yield new JavaTypeExpr.NormalType(packageName, className, javaArgs);
+					}
+					else {
+						var typeParamMap = getTypeParameterMapping(t);
+						yield mappedTypeToJava(typeParamMap, mappedType);
+					}
+				}
+				case TypeExpr.TypeParameter(var name, var owner) -> {
+					String prefix = switch(owner) {
+						case BY_TYPE -> "T_";
+						case BY_METHOD -> "M_";
+					};
+					yield new JavaTypeExpr.NormalType(Optional.empty(), prefix + convertIdPascal(name), List.of());
+				}
+			};
+		}
+
+		protected JavaTypeExpr typeArgToJava(QualifiedName name, int index, TypeExpr arg) throws NobleIDLCompileErrorException {
+			var argConverter = clone();
+			argConverter.ignoreMapping = false;
+			return argConverter.typeExprToJava(arg).boxed();
+		}
+
+		private Optional<JavaMappedType> getMappedType(QualifiedName name) throws NobleIDLCompileErrorException {
+			var javaAnns = model.definitions()
+				.stream()
+				.filter(dfn -> dfn.name().equals(name))
+				.findFirst()
+				.stream()
+				.filter(dfn -> dfn.definition() instanceof Definition.ExternType)
+				.flatMap(dfn -> dfn.annotations().stream())
+				.filter(ann -> ann.scope().equals("java"))
+				.toList();
+
+			for(var javaAnn : javaAnns) {
+				JavaAnnExternType etAnn;
+				try {
+					etAnn = JavaAnnExternType.codec().decode(javaAnn.value());
+				}
+				catch(DecodeException e) {
+					throw new NobleIDLCompileErrorException("Could not decode extern type annotation: " + javaAnn.value(), e);
+				}
+
+				if(!(etAnn instanceof JavaAnnExternType.MappedTo mappedTo)) {
+					continue;
+				}
+
+				return Optional.of(mappedTo.javaType());
+			}
+
+			return Optional.empty();
+		}
+
+		private JavaTypeExpr mappedTypeToJava(Map<String, TypeExpr> typeParameters, JavaMappedType mappedType) throws NobleIDLCompileErrorException {
+			return switch(mappedType) {
+				case JavaMappedType.TypeName(var name) -> {
+					var primType = getPrimitiveType(name);
+					if(primType.isPresent()) {
+						yield primType.get();
+					}
+					else if(name.equals("void")) {
+						yield new JavaTypeExpr.VoidType();
+					}
+					else {
+						yield getJavaType(name, List.of());
+					}
+				}
+
+				case JavaMappedType.Annotated(var t, var ann) ->
+					new JavaTypeExpr.Annotated(ann, mappedTypeToJava(typeParameters, t));
+
+				case JavaMappedType.Apply(var name, var args) -> {
+					var javaArgs = new ArrayList<JavaTypeExpr>(args.size());
+					for(var arg : args) {
+						javaArgs.add(mappedTypeToJava(typeParameters, arg).boxed());
+					}
+
+					yield getJavaType(name, javaArgs);
+				}
+
+				case JavaMappedType.TypeParameter(var name) -> {
+					var t = typeParameters.get(name);
+					if(t == null) {
+						throw new NobleIDLCompileErrorException("Invalid type parameter: " + name);
+					}
+
+					yield typeExprToJava(t);
+				}
+
+				case JavaMappedType.Array(var elementType) ->
+					new JavaTypeExpr.ArrayType(mappedTypeToJava(typeParameters, elementType));
+			};
+		}
+
+		private JavaTypeExpr.NormalType getJavaType(String className, List<JavaTypeExpr> args) {
+			var lastDot = className.lastIndexOf('.');
+			if(lastDot >= 0) {
+				return new JavaTypeExpr.NormalType(Optional.of(className.substring(0, lastDot)), className.substring(lastDot + 1), args);
+			}
+			else {
+				return new JavaTypeExpr.NormalType(Optional.empty(), className, args);
+			}
+		}
+
+		private Optional<JavaTypeExpr.PrimitiveType> getPrimitiveType(String name) {
+			return switch(name) {
+				case "boolean" -> Optional.of(JavaTypeExpr.PrimitiveType.BOOLEAN);
+				case "char" -> Optional.of(JavaTypeExpr.PrimitiveType.CHAR);
+				case "byte" -> Optional.of(JavaTypeExpr.PrimitiveType.BYTE);
+				case "short" -> Optional.of(JavaTypeExpr.PrimitiveType.SHORT);
+				case "int" -> Optional.of(JavaTypeExpr.PrimitiveType.INT);
+				case "long" -> Optional.of(JavaTypeExpr.PrimitiveType.LONG);
+				case "float" -> Optional.of(JavaTypeExpr.PrimitiveType.FLOAT);
+				case "double" -> Optional.of(JavaTypeExpr.PrimitiveType.DOUBLE);
+				default -> Optional.empty();
+			};
+		}
+
+		private Map<String, TypeExpr> getTypeParameterMapping(TypeExpr t) throws NobleIDLCompileErrorException {
+			return switch(t) {
+				case TypeExpr.DefinedType(var name, var args) -> {
+					var dfn = model.definitions()
+						.stream()
+						.filter(d -> d.name().equals(name))
+						.findFirst();
+
+					if(dfn.isEmpty()) {
+						throw new NobleIDLCompileErrorException("Could not find definition: " + name);
+					}
+
+					var typeParameters = dfn.get().typeParameters();
+
+					if(typeParameters.size() != args.size()) {
+						throw new NobleIDLCompileErrorException("Type parameter mismatch");
+					}
+
+					Map<String, TypeExpr> map = new HashMap<>();
+					for(int i = 0; i < typeParameters.size(); ++i) {
+						switch(typeParameters.get(i)) {
+							case TypeParameter.Type type ->
+								map.put(type.name(), args.get(i));
+						}
+					}
+					yield map;
+				}
+				case TypeExpr.TypeParameter(_, _) -> Map.of();
+			};
+		}
+
 	}
+
+
+
+
 
 
 

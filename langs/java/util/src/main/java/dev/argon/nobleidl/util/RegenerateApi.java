@@ -26,7 +26,8 @@ public class RegenerateApi {
 						new KeywordMapping<>(Map.of(
 							"nobleidl.core", "dev.argon.nobleidl.runtime"
 						))
-					)
+					),
+					false
 				),
 				List.of(coreLib),
 				List.of()
@@ -43,7 +44,8 @@ public class RegenerateApi {
 							"nobleidl.compiler.api", "dev.argon.nobleidl.compiler.api",
 							"nobleidl.compiler.api.java", "dev.argon.nobleidl.compiler.api.java"
 						))
-					)
+					),
+					false
 				),
 				List.of(compilerApi, javaAnns),
 				List.of(coreLib)

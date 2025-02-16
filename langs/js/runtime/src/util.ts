@@ -1,27 +1,35 @@
 
 
-export type PromiseWithErrror<A, _E extends Error> = Promise<A>;
+export type PromiseWithErrror<A, _E> = Promise<A>;
 
 
-export interface ErrorChecker<E extends Error> {
-	isInstance(x: Error): x is E;
+export type NobleIdlError<Name extends string> = Error & {
+	readonly [ErrorChecker.nobleidlErrorTypeSymbol]: Name;
+	readonly information: unknown;
+}
+
+
+export interface ErrorChecker<E> {
+	isInstance(x: unknown): x is E;
 }
 
 export namespace ErrorChecker {
-	export function fromConstructor<E extends Error>(ctor: new(...args: unknown[]) => E): ErrorChecker<E> {
-		return new ErrorCheckerImpl<E>(ctor);
+	export const nobleidlErrorTypeSymbol: unique symbol = Symbol.for("nobleidl-error-type");
+
+	export function fromTypeName<Name extends string, E extends NobleIdlError<Name>>(name: Name): ErrorChecker<E> {
+		return new ErrorCheckerImpl<Name, E>(name);
 	}
 }
 
-class ErrorCheckerImpl<E extends Error> implements ErrorChecker<E> {
-	constructor(ctor: new(...args: unknown[]) => E) {
-		this.#ctor = ctor;
+class ErrorCheckerImpl<Name extends string, E extends NobleIdlError<Name>> implements ErrorChecker<E> {
+	constructor(name: Name) {
+		this.#errorType = name;
 	}
 
-	readonly #ctor: new(...args: unknown[]) => E;
+	readonly #errorType: string;
 
 
 	isInstance(x: Error): x is E {
-		return x instanceof this.#ctor;
+		return ErrorChecker.nobleidlErrorTypeSymbol in x && x.name === this.#errorType;
 	}
 }

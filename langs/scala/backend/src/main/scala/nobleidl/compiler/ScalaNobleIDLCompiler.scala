@@ -29,6 +29,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
 
     javaAdapters: Boolean = false,
     jsAdapters: Boolean = false,
+    graaljsAdapters: Boolean = false,
 
     inputDirs: Seq[Path] = Seq(),
     javaSourceDirs: Seq[Path] = Seq(),
@@ -66,6 +67,8 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
             .action((_, c) => c.copy(javaAdapters = true)),
           opt[Unit]("js-adapters")
             .action((_, c) => c.copy(jsAdapters = true)),
+          opt[Unit]("graal-js-adapters")
+            .action((_, c) => c.copy(graaljsAdapters = true)),
           opt[Seq[Path]]('i', "input")
             .minOccurs(1)
             .unbounded()
@@ -221,6 +224,7 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
   val platformRunners: Seq[PlatformRunner] = Seq(
     ScalaPlatformRunner,
     ScalaJSPlatformRunner,
+    JavaPlatformRunner,
   )
 
   trait PlatformRunner {
@@ -332,10 +336,15 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
           dev.argon.esexpr.KeywordMapping(
             (libRes.javaPackageMapping ++ currentLibRes.javaPackageMapping).asJava
           )
-        )
+        ),
+        config.graaljsAdapters
       )
 
-    override protected def createBackend(request: NobleIdlGenerationRequest[JavaLanguageOptions]): Backend = ???
+    override protected def createBackend(request: NobleIdlGenerationRequest[JavaLanguageOptions]): Backend =
+      WrappedJavaBackend(dev.argon.nobleidl.compiler.JavaBackend(
+        NobleIdlGenerationRequest.javaAdapter(nobleidl.core.JavaAdapter.identity)
+          .toJava(request)
+      ))
   }
 
   object ScalaJSPlatformRunner extends PlatformRunner {

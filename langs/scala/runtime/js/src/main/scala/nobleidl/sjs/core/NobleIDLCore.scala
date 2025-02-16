@@ -1,6 +1,7 @@
 package nobleidl.sjs.core
 
 import scala.scalajs.js
+import scala.scalajs.js.annotation.JSName
 import scala.scalajs.js.typedarray.Uint8Array
 
 type Esexpr = esexpr.sjs.ESExpr
@@ -22,10 +23,7 @@ type F64 = scala.Double
 
 type Unit = scala.Unit
 type List[A] = js.Array[A]
-type Option[A] = OptionSome[A] | Null
-trait OptionSome[A] extends js.Object {
-  val value: A
-}
+type Option[A] = esexpr.sjs.Option[A]
 type OptionalField[A] = js.UndefOr[A]
 type Dict[A] = js.Map[String, A]
 

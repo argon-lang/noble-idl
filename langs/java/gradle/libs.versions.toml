@@ -5,6 +5,7 @@ jawawasm = "0.1.0"
 esexpr = "0.2.1"
 apache-commons-text = "1.12.0"
 asm = "9.7"
+graal = "24.1.2"
 
 [libraries]
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version = "junit-jupiter" }
@@ -16,3 +17,6 @@ apache-commons-text = { module = "org.apache.commons:commons-text", version.ref 
 apache-commons-cli = { module = "commons-cli:commons-cli", version = "1.8.0" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version = "24.0.0" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+
+graal-polyglot = { module = "org.graalvm.polyglot:polyglot", version.ref = "graal" }
+graal-js = { module = "org.graalvm.polyglot:js-community", version.ref = "graal" }

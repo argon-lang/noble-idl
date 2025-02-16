@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.SourceDirectorySet;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 import org.jetbrains.annotations.NotNull;
 
@@ -24,10 +25,16 @@ import java.util.stream.Collectors;
 
 public class NobleIDLCodeGenTask extends DefaultTask {
 
+	private final Property<Boolean> generateGraalJSAdapters = getProject().getObjects().property(Boolean.class);
 	private final ConfigurableFileCollection inputFiles = getProject().getObjects().fileCollection();
 	private final DirectoryProperty javaOutputDir = getProject().getObjects().directoryProperty();
 	private final DirectoryProperty resourceOutputDir = getProject().getObjects().directoryProperty();
 	private final Configuration classpath = getProject().getConfigurations().getByName("compileClasspath");
+
+	@Input
+	public Property<Boolean> getGenerateGraalJSAdapters() {
+		return generateGraalJSAdapters;
+	}
 
 	@InputFiles
 	public ConfigurableFileCollection getInputFiles() {
@@ -63,7 +70,8 @@ public class NobleIDLCodeGenTask extends DefaultTask {
 			this::runProcessor,
 			getClasspath().getFiles().stream().map(File::toPath).toList(),
 			javaOutputDir,
-			resourceOutputDir
+			resourceOutputDir,
+			generateGraalJSAdapters.getOrElse(false)
 		));
 	}
 

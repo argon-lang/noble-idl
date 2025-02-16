@@ -47,8 +47,8 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
     Compile / packageBin / packageOptions += Package.ManifestAttributes("Automatic-Module-Name" -> "dev.argon.nobleidl.core.scala"),
 
     libraryDependencies  ++= Seq(
-      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.4",
-      "dev.argon" %%% "argon-async-util" % "1.1.0-SNAPSHOT",
+      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.5-SNAPSHOT",
+      "dev.argon" %%% "argon-async-util" % "1.3.0",
     ),
     
     Compile / unmanagedSourceDirectories ++= Seq(
@@ -81,7 +81,7 @@ lazy val backend = project.in(file("backend"))
 
       "com.github.scopt" %%% "scopt" % "4.1.0",
       "org.apache.commons" % "commons-text" % "1.12.0",
-      "org.ow2.asm" % "asm" % "9.7",
+      "org.ow2.asm" % "asm" % "9.7.1",
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
       "dev.argon" %%% "argon-async-util" % "1.2.0",
@@ -137,9 +137,11 @@ val nidl_test = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).
 
         s.log.info(s"Generating sources from NobleIDL schema in ${outDir}")
 
+        val javaExe = (javaHome.value.getOrElse(file(sys.props("java.home"))) / "bin" / "java").toString
+
         IO.createDirectory(outDir)
         val exitCode = Process(
-          Seq("java") ++
+          Seq(javaExe) ++
             javaArgs ++
             Seq(
               "-cp",
@@ -211,5 +213,7 @@ lazy val sbtPlugin = project.in(file("sbt-plugin"))
       "-language:existentials",
       "-language:implicitConversions",
     ),
+
+    libraryDependencies += "dev.argon.esexpr" % "esexpr-generator" % "0.2.1",
   )
 

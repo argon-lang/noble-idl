@@ -467,7 +467,7 @@ class ModEmitter {
 	#emitEnumCase(c: EnumCase): ts.TypeNode {
 		return ts.factory.createTypeLiteralNode([
 			ts.factory.createPropertySignature(
-				undefined,
+				[ ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword) ],
 				"$type",
 				undefined,
 				ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(c.name)),
@@ -543,41 +543,93 @@ class ModEmitter {
 	#emitExceptionType(def: DefinitionInfo, ex: ExceptionTypeDefinition): ts.Node[] {
 		const infoType = this.#emitTypeExpr(ex.information);
 
+		const typeName = convertIdPascal(def.name.name);
 
-		const errorClass = ts.factory.createClassDeclaration(
-			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
-			convertIdPascal(def.name.name),
-			[],
-			[
-				ts.factory.createHeritageClause(
-					ts.SyntaxKind.ExtendsKeyword,
-					[
-						ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier("Error"), undefined)
-					],
+		const baseErrorChecker = ts.factory.createPropertyAccessExpression(
+			ts.factory.createIdentifier("$util"),
+			"ErrorChecker"
+		);
+
+		const errorNameLiteral = ts.factory.createStringLiteral([ ...def.name.package.parts, def.name.name ].join("."));
+
+		const errorSymbol = ts.factory.createComputedPropertyName(
+			ts.factory.createPropertyAccessExpression(
+				baseErrorChecker,
+				"nobleidlErrorTypeSymbol"
+			)
+		);
+
+		const exceptionType = ts.factory.createTypeAliasDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], // export
+			typeName,
+			undefined,
+			ts.factory.createIntersectionTypeNode([
+				ts.factory.createTypeReferenceNode(
+					ts.factory.createQualifiedName(
+						ts.factory.createIdentifier("globalThis"),
+						"Error"
+					)
 				),
+				ts.factory.createTypeLiteralNode([
+					ts.factory.createPropertySignature(
+						undefined,
+						errorSymbol,
+						undefined,
+						ts.factory.createLiteralTypeNode(errorNameLiteral),
+					),
+					ts.factory.createPropertySignature(
+						undefined,
+						"information",
+						undefined,
+						infoType,
+					)
+				])
+			])
+		);
+
+		const errorChecker = ts.factory.createVariableStatement(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			ts.factory.createVariableDeclarationList(
+				[
+					ts.factory.createVariableDeclaration(
+						"errorChecker",
+						undefined,
+						undefined,
+						ts.factory.createCallExpression(
+							ts.factory.createPropertyAccessExpression(baseErrorChecker, "fromTypeName"),
+							[
+								ts.factory.createLiteralTypeNode(errorNameLiteral),
+								ts.factory.createTypeReferenceNode(typeName),
+							],
+							[errorNameLiteral]
+						)
+					)
+				],
+				ts.NodeFlags.Const,
+			)
+		);
+
+
+		const errorImplClass = ts.factory.createClassDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], // export
+			typeName + "$Impl",
+			undefined,
+			[
+				ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+					ts.factory.createExpressionWithTypeArguments(
+						ts.factory.createPropertyAccessExpression(
+							ts.factory.createIdentifier("globalThis"),
+							"Error"
+						),
+						[]
+					),
+				])
 			],
 			[
-				// information property
-				ts.factory.createPropertyDeclaration(
-					[ts.factory.createModifier(ts.SyntaxKind.PublicKeyword)],
-					"information",
-					undefined,
-					infoType,
-					undefined,
-				),
-
-				// Constructor
 				ts.factory.createConstructorDeclaration(
 					undefined,
 					[
-						ts.factory.createParameterDeclaration(
-							undefined,
-							undefined,
-							"information",
-							undefined,
-							infoType,
-							undefined,
-						),
+						ts.factory.createParameterDeclaration(undefined, undefined, "information", undefined, infoType),
 						ts.factory.createParameterDeclaration(
 							undefined,
 							undefined,
@@ -586,8 +638,7 @@ class ModEmitter {
 							ts.factory.createUnionTypeNode([
 								ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
 								ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
-							]),
-							undefined,
+							])
 						),
 						ts.factory.createParameterDeclaration(
 							undefined,
@@ -595,39 +646,113 @@ class ModEmitter {
 							"options",
 							ts.factory.createToken(ts.SyntaxKind.QuestionToken),
 							ts.factory.createUnionTypeNode([
-								ts.factory.createTypeReferenceNode("ErrorOptions", undefined),
+								ts.factory.createTypeReferenceNode(
+									ts.factory.createQualifiedName(
+										ts.factory.createIdentifier("globalThis"),
+										"ErrorOptions"
+									)
+								),
 								ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
-							]),
-							undefined,
+							])
 						),
 					],
-					ts.factory.createBlock(
-						[
-							ts.factory.createExpressionStatement(
-								ts.factory.createCallExpression(
-									ts.factory.createSuper(),
-									undefined,
-									[
-										ts.factory.createIdentifier("message"),
-										ts.factory.createIdentifier("options"),
-									]
-								)
-							),
-							ts.factory.createExpressionStatement(
-								ts.factory.createBinaryExpression(
-									ts.factory.createPropertyAccessExpression(ts.factory.createThis(), "information"),
-									ts.SyntaxKind.EqualsToken,
-									ts.factory.createIdentifier("information"),
-								),
-							),
-						],
-						true
+					ts.factory.createBlock([
+						ts.factory.createExpressionStatement(ts.factory.createCallExpression(
+							ts.factory.createSuper(),
+							undefined,
+							[ts.factory.createIdentifier("message"), ts.factory.createIdentifier("options")]
+						)),
+						ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
+							ts.factory.createPropertyAccessExpression(ts.factory.createThis(), "information"),
+							ts.SyntaxKind.EqualsToken,
+							ts.factory.createIdentifier("information")
+						))
+					]),
+				),
+				ts.factory.createPropertyDeclaration(
+					[ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+					ts.factory.createComputedPropertyName(
+					ts.factory.createPropertyAccessExpression(
+						ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier("$util"), "ErrorChecker"),
+						"nobleidlErrorTypeSymbol"
 					)
+					),
+					undefined,
+					ts.factory.createLiteralTypeNode(errorNameLiteral),
+					errorNameLiteral,
+				),
+				ts.factory.createPropertyDeclaration(
+					[ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+					"information",
+					undefined,
+					infoType,
+					undefined,
 				),
 			],
 		);
 
-		return [errorClass];
+
+		const createErrorFunction = ts.factory.createFunctionDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			undefined,
+			"createError",
+			undefined,
+			[
+				ts.factory.createParameterDeclaration(undefined, undefined, "information", undefined, infoType),
+				ts.factory.createParameterDeclaration(
+					undefined,
+					undefined,
+					"message",
+					ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+					ts.factory.createUnionTypeNode([
+						ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+						ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
+					])
+				),
+				ts.factory.createParameterDeclaration(
+					undefined,
+					undefined,
+					"options",
+					ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+					ts.factory.createUnionTypeNode([
+						ts.factory.createTypeReferenceNode(
+							ts.factory.createQualifiedName(
+								ts.factory.createIdentifier("globalThis"),
+								"ErrorOptions"
+							)
+						),
+						ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
+					])
+				),
+			],
+			ts.factory.createTypeReferenceNode(typeName),
+			ts.factory.createBlock([
+				ts.factory.createReturnStatement(ts.factory.createNewExpression(
+					ts.factory.createIdentifier(typeName + "$Impl"),
+					undefined,
+					[
+						ts.factory.createIdentifier("information"),
+						ts.factory.createIdentifier("message"),
+						ts.factory.createIdentifier("options"),
+					],
+				)),
+			]),
+		);
+
+
+		const errorNamespace = ts.factory.createModuleDeclaration(
+			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+			ts.factory.createIdentifier(typeName),
+			ts.factory.createModuleBlock([
+				errorChecker,
+				errorImplClass,
+				createErrorFunction
+			]),
+			ts.NodeFlags.Namespace,
+		);
+
+
+		return [ exceptionType, errorNamespace ];
 	}
 
 	#emitTypeParameters(typeParameters: readonly TypeParameter[]): readonly ts.TypeParameterDeclaration[] | undefined {
@@ -661,7 +786,7 @@ class ModEmitter {
 
 	#emitField(field: RecordField): ts.TypeElement {
 		return ts.factory.createPropertySignature(
-			undefined,
+			[ ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword) ],
 			convertIdCamel(field.name),
 			undefined,
 			this.#emitTypeExpr(field.fieldType),
@@ -798,13 +923,34 @@ class ModEmitter {
 			convertIdCamel(method.name),
 			undefined,
 			this.#emitTypeParameters(method.typeParameters),
-			method.parameters.map(p => ts.factory.createParameterDeclaration(
-				undefined,
-				undefined,
-				convertIdCamel(p.name),
-				undefined,
-				this.#emitTypeExpr(p.parameterType),
-			)),
+			[
+				...method.typeParameters
+					.filter(tp => tp.constraints.some(c => c.$type === "exception"))
+					.map(tp => ts.factory.createParameterDeclaration(
+						undefined,
+						undefined,
+						"errorChecker_" + convertIdCamel(tp.name),
+						undefined,
+						ts.factory.createTypeReferenceNode(
+							ts.factory.createQualifiedName(
+								ts.factory.createIdentifier("$util"),
+								"ErrorChecker",
+							),
+							[
+								ts.factory.createTypeReferenceNode(convertIdPascal(tp.name)),
+							],
+						)
+					)),
+
+				...method.parameters.map(p => ts.factory.createParameterDeclaration(
+					undefined,
+					undefined,
+					convertIdCamel(p.name),
+					undefined,
+					this.#emitTypeExpr(p.parameterType),
+				)),
+			]
+			,
 			method.throws === undefined
 				? ts.factory.createTypeReferenceNode("Promise", [
 					this.#emitTypeExpr(method.returnType),

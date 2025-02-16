@@ -183,10 +183,10 @@ trait UnitObjectPlatformSpecific {
   def javaAdapter(): JavaAdapter[Unit, Unit] =
     JavaAdapter.identity
 
-  def javaAdapterBoxed(): JavaAdapter[Unit, AnyRef] =
-    new JavaAdapter[Unit, AnyRef] {
-      override def toJava(s: Unit): AnyRef = new AnyRef()
-      override def fromJava(j: AnyRef): Unit = ()
+  def javaAdapterBoxed(): JavaAdapter[Unit, dev.argon.nobleidl.runtime.Unit] =
+    new JavaAdapter[Unit, dev.argon.nobleidl.runtime.Unit] {
+      override def toJava(s: Unit): dev.argon.nobleidl.runtime.Unit = dev.argon.nobleidl.runtime.Unit.INSTANCE
+      override def fromJava(j: dev.argon.nobleidl.runtime.Unit): Unit = ()
     }
 }
 

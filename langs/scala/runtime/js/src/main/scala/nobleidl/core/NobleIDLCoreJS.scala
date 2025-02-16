@@ -136,22 +136,10 @@ trait OptionObjectPlatformSpecific {
   def jsAdapter[SA, JA](aAdapter: JSAdapter[SA, JA]): JSAdapter[Option[SA], nobleidl.sjs.core.Option[JA]] =
     new JSAdapter[Option[SA], nobleidl.sjs.core.Option[JA]] {
       override def toJS(s: Option[SA]): nobleidl.sjs.core.Option[JA] =
-        s match {
-          case Some(v) =>
-            val ja = aAdapter.toJS(v)
-            new nobleidl.sjs.core.OptionSome[JA] {
-              override val value: JA = ja
-            }
-
-          case _: None.type =>
-            null
-        }
+        esexpr.sjs.Option.fromScalaOption(s.map(aAdapter.toJS))
 
       override def fromJS(j: nobleidl.sjs.core.Option[JA]): Option[SA] =
-        if j eq null then
-          None
-        else
-          Some(aAdapter.fromJS(j.value))
+        esexpr.sjs.Option.toScalaOption(j).map(aAdapter.fromJS)
     }
 }
 

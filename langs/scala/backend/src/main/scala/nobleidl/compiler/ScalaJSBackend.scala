@@ -120,15 +120,18 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
 
       _ <- ZIO.foreachDiscard(iface.methods) { m =>
         for
+          _ <- write("@_root_.scala.scalajs.js.annotation.JSName(\"")
+          _ <- write(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(m.name)))
+          _ <- write("\")")
           _ <- write("def ")
-          _ <- write(convertIdCamel(m.name))
+          _ <- write(convertIdCamelNoEscape(m.name))
           _ <- writeTypeParameters(m.typeParameters, constraintType = ConstraintType.ScalaJSMethod)
           _ <- write("(")
 
           _ <- ZIO.foreachDiscard(m.parameters.view.zipWithIndex) { (param, index) =>
             for
               _ <- write(", ").when(index > 0)
-              _ <- write(convertIdCamel(param.name))
+              _ <- write(convertIdCamelNoEscape(param.name))
               _ <- write(": ")
               _ <- writeTypeExpr(param.parameterType)
             yield ()
@@ -174,8 +177,11 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
   private def writeFields(fields: Seq[RecordField]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
     ZIO.foreachDiscard(fields) { field =>
       for
+        _ <- write("@_root_.scala.scalajs.js.annotation.JSName(\"")
+        _ <- write(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(field.name)))
+        _ <- write("\")")
         _ <- write("val ")
-        _ <- write(convertIdCamel(field.name))
+        _ <- write(convertIdCamelNoEscape(field.name))
         _ <- write(": ")
         _ <- writeTypeExpr(field.fieldType)
         _ <- writeln()

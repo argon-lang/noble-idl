@@ -10,14 +10,14 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    api(project(":backend"))
-}
-
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(22)
     }
+}
+
+dependencies {
+    api(project(":backend"))
 }
 
 

@@ -21,6 +21,15 @@ repositories {
     mavenCentral()
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(22)
+    }
+
+    sourceSets["main"].java.srcDir("src/gen/java")
+    sourceSets["main"].resources.srcDir("build/generated/wasm")
+}
+
 dependencies {
     implementation(libs.jetbrains.annotations)
     implementation(libs.jawawasm.engine)
@@ -30,15 +39,6 @@ dependencies {
     api(libs.esexpr.runtime)
     annotationProcessor(libs.esexpr.generator)
     api(project(":runtime"))
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
-    }
-
-    sourceSets["main"].java.srcDir("src/gen/java")
-    sourceSets["main"].resources.srcDir("build/generated/wasm")
 }
 
 tasks.named<Test>("test") {

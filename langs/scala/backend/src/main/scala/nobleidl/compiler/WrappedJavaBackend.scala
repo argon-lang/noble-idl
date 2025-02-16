@@ -4,7 +4,6 @@ import dev.argon.nobleidl.compiler.Backend.FileGenerator
 import dev.argon.util.async.ZStreamFromWriterCallbackZIO
 import zio.*
 import zio.stream.*
-import java.io.IOException
 
 private[compiler] class WrappedJavaBackend(backend: dev.argon.nobleidl.compiler.Backend) extends Backend {
   import Backend.*

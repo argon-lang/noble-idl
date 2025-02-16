@@ -1,5 +1,4 @@
 use std::collections::{hash_map, HashMap, HashSet};
-
 use esexpr::{DecodeError, ESExprTag};
 use itertools::Itertools;
 use noble_idl_api::NobleIdlModel;
@@ -29,6 +28,8 @@ pub enum CheckError {
     TypeInMultiplePackages(String, Vec<PackageName>),
 
 	InvalidExceptionType(noble_idl_api::TypeExpr),
+    ExceptionTypeParameterNotAllowed(String),
+    ExceptionTypeNotAllowed(noble_idl_api::TypeExpr),
 
     TypeParameterMismatch { expected: usize, actual: usize, },
 
