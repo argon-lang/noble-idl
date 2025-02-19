@@ -1,6 +1,6 @@
 
 
-export type PromiseWithErrror<A, _E> = Promise<A>;
+export type PromiseWithError<A, _E> = Promise<A>;
 
 
 export type NobleIdlError<Name extends string> = Error & {

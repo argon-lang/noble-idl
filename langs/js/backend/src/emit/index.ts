@@ -1,4 +1,4 @@
-import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition, ExceptionTypeDefinition, TypeParameterTypeConstraint } from "../api.js";
+import { type DefinitionInfo, type EnumCase, type EnumDefinition, type InterfaceDefinition, type InterfaceMethod, type NobleIdlGenerationRequest, type NobleIdlGenerationResult, type NobleIdlModel, PackageName, type RecordDefinition, type RecordField, type TypeExpr, type TypeParameter, EsexprDecodedValue, QualifiedName, SimpleEnumDefinition, ExceptionTypeDefinition } from "../api.js";
 
 import * as path from "node:path";
 import * as posixPath from "node:path/posix";
@@ -138,7 +138,7 @@ class ModEmitter {
 		}
 
 		if (mappedPackage.isCurrentPackage) {
-			const fromPath = this.#getPackagePathPart(this.currentPackage) + ".js";
+			const fromPath = posixPath.dirname(this.#getPackagePathPart(this.currentPackage) + ".js");
 			const toPath = this.#getPackagePathPart(packageName) + ".js";
 			return "./" + posixPath.relative(fromPath, toPath);
 		}
@@ -611,7 +611,7 @@ class ModEmitter {
 
 
 		const errorImplClass = ts.factory.createClassDeclaration(
-			[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], // export
+			[],
 			typeName + "$Impl",
 			undefined,
 			[
@@ -623,7 +623,13 @@ class ModEmitter {
 						),
 						[]
 					),
-				])
+				]),
+				ts.factory.createHeritageClause(ts.SyntaxKind.ImplementsKeyword, [
+					ts.factory.createExpressionWithTypeArguments(
+						ts.factory.createIdentifier(typeName),
+						[]
+					),
+				]),
 			],
 			[
 				ts.factory.createConstructorDeclaration(
@@ -760,26 +766,10 @@ class ModEmitter {
 			return undefined;
 		}
 
-		const makeConstraint = (constraints: readonly TypeParameterTypeConstraint[]): ts.TypeNode | undefined => {
-			const constraintTypes = constraints.map(constraint => {
-				switch(constraint.$type) {
-					case "exception":
-						return ts.factory.createTypeReferenceNode("Error");
-				}
-			});
-
-			if(constraintTypes.length === 0) {
-				return undefined;
-			}
-			else {
-				return ts.factory.createUnionTypeNode(constraintTypes);
-			}
-		};
-
 		return typeParameters.map(tp => ts.factory.createTypeParameterDeclaration(
 			undefined,
 			convertIdPascal(tp.name),
-			makeConstraint(tp.constraints),
+			undefined,
 			undefined,
 		));
 	}
@@ -958,7 +948,7 @@ class ModEmitter {
 				: ts.factory.createTypeReferenceNode(
 					ts.factory.createQualifiedName(
 						ts.factory.createIdentifier("$util"),
-						"PromiseWithErrror"
+						"PromiseWithError"
 					),
 					[
 						this.#emitTypeExpr(method.returnType),

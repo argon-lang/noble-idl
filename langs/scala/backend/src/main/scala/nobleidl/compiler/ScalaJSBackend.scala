@@ -122,19 +122,41 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
         for
           _ <- write("@_root_.scala.scalajs.js.annotation.JSName(\"")
           _ <- write(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(m.name)))
-          _ <- write("\")")
+          _ <- writeln("\")")
           _ <- write("def ")
           _ <- write(convertIdCamelNoEscape(m.name))
           _ <- writeTypeParameters(m.typeParameters, constraintType = ConstraintType.ScalaJSMethod)
           _ <- write("(")
 
-          _ <- ZIO.foreachDiscard(m.parameters.view.zipWithIndex) { (param, index) =>
-            for
-              _ <- write(", ").when(index > 0)
-              _ <- write(convertIdCamelNoEscape(param.name))
-              _ <- write(": ")
-              _ <- writeTypeExpr(param.parameterType)
-            yield ()
+          argTasks = Seq(
+            m.typeParameters.view
+              .filter {
+                case tp: TypeParameter.Type =>
+                  tp.constraints.exists { case _: TypeParameterTypeConstraint.Exception => true }
+              }
+              .map {
+                case tp: TypeParameter.Type =>
+                  for
+                    _ <- write("errorChecker_")
+                    _ <- write(convertIdCamelNoEscape(tp.name))
+                    _ <- write(": _root_.nobleidl.sjs.core.ErrorChecker[")
+                    _ <- write(convertIdPascal(tp.name))
+                    _ <- write("]")
+                  yield ()
+              },
+
+            m.parameters.view.map { param =>
+              for
+                _ <- write(convertIdCamelNoEscape(param.name))
+                _ <- write(": ")
+                _ <- writeTypeExpr(param.parameterType)
+              yield ()
+            }
+          ).view.flatten
+            
+          
+          _ <- ZIO.foreachDiscard(argTasks.zipWithIndex) { (task, index) =>
+            write(", ").when(index > 0) *> task
           }
 
           _ <- write("): _root_.scala.scalajs.js.Promise[")
@@ -153,22 +175,39 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
       _ <- write("package ")
       _ <- getScalaPackage(dfn.name.`package`).flatMap(writeln)
 
+      _ <- write("trait ")
+      _ <- write(convertIdPascal(dfn.name.name))
+      _ <- write(" extends _root_.scala.scalajs.js.Error with _root_.nobleidl.sjs.core.NobleIdlError[\"")
+      _ <- write(StringEscapeUtils.escapeJava(getExceptionTypeName(dfn.name)))
+      _ <- writeln("\"] {")
+      _ <- indent()
+      
+      _ <- write("override val information: ")
+      _ <- writeTypeExpr(ex.information)
+      _ <- writeln()
+      
+      _ <- dedent()
+      _ <- writeln("}")
+
       _ <- writeln("@_root_.scala.scalajs.js.native")
       _ <- write("@_root_.scala.scalajs.js.annotation.JSImport(\"")
       importPath <- getPackageImport(dfn.name.`package`)
       _ <- write(StringEscapeUtils.escapeJava(importPath).nn)
       _ <- writeln("\")")
-      _ <- write("class ")
+      _ <- write("object ")
       _ <- write(convertIdPascal(dfn.name.name))
-      _ <- writeln("(")
+      _ <- writeln(" extends _root_.scala.scalajs.js.Object {")
       _ <- indent()
-      _ <- write("val information: ")
+      _ <- write("val errorChecker: _root_.nobleidl.sjs.core.ErrorChecker[")
+      _ <- writeTypeExpr(definitionAsType(dfn))
+      _ <- writeln("] = _root_.scala.scalajs.js.native")
+      _ <- write("def createError(information: ")
       _ <- writeTypeExpr(ex.information)
-      _ <- writeln(",")
-      _ <- writeln("message: _root_.scala.scalajs.js.UndefOr[_root_.java.lang.String] = _root_.scala.scalajs.js.undefined,")
-      _ <- writeln("cause: _root_.scala.scalajs.js.UndefOr[_root_.nobleidl.sjs.core.ErrorOptions] = _root_.scala.scalajs.js.undefined,")
+      _ <- write(", message: _root_.scala.scalajs.js.UndefOr[_root_.java.lang.String] = _root_.scala.scalajs.js.undefined, options: _root_.scala.scalajs.js.UndefOr[_root_.nobleidl.sjs.core.ErrorOptions] = _root_.scala.scalajs.js.undefined): ")
+      _ <- writeTypeExpr(definitionAsType(dfn))
+      _ <- writeln(" = _root_.scala.scalajs.js.native")
       _ <- dedent()
-      _ <- writeln(") extends _root_.scala.scalajs.js.Error()")
+      _ <- writeln("}")
     yield ()
 
   private def getPackageImport(packageName: PackageName): ZIO[CodeWriter, NobleIDLCompileErrorException, String] =
@@ -179,9 +218,9 @@ final class ScalaJSBackend(genRequest: NobleIdlGenerationRequest[ScalaJSLanguage
       for
         _ <- write("@_root_.scala.scalajs.js.annotation.JSName(\"")
         _ <- write(StringEscapeUtils.escapeJava(convertIdCamelNoEscape(field.name)))
-        _ <- write("\")")
+        _ <- writeln("\")")
         _ <- write("val ")
-        _ <- write(convertIdCamelNoEscape(field.name))
+        _ <- write(convertIdCamel(field.name))
         _ <- write(": ")
         _ <- writeTypeExpr(field.fieldType)
         _ <- writeln()

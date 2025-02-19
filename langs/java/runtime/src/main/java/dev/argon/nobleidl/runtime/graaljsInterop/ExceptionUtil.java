@@ -12,104 +12,124 @@ import java.util.function.Supplier;
 public class ExceptionUtil {
 	private ExceptionUtil() {}
 
-	public static Value runUnwrappingExceptions(Supplier<Value> f) {
+	static <E, EX extends Throwable> Value unwrapJavaScriptException(Context context, Supplier<Value> f) throws InterruptedException {
 		try {
 			return f.get();
 		}
 		catch(PolyglotException pex) {
-			Throwable ex = unwrapPolyglotException(pex);
-			throw unsafeThrowAs(ex);
-		}
-	}
-
-	public static <E extends Throwable> Value runUnwrappingExceptions(Context context, JSExecutor executor, String errorTypeName, JSAdapter<E> eAdapter, Supplier<Value> f) throws E {
-		try {
-			return f.get();
-		}
-		catch(PolyglotException pex) {
-			Throwable ex = unwrapPolyglotException(context, executor, errorTypeName, eAdapter, pex);
-			throw ExceptionUtil.<E>unsafeThrowAs(ex);
-		}
-	}
-
-	private static Throwable unwrapPolyglotException(PolyglotException ex) {
-		if(ex.isHostException()) {
-			return ex.asHostException();
-		}
-
-		var jsError = ex.getGuestObject();
-		if(jsError == null) {
-			return ex;
-		}
-
-		return unwrapJSException(jsError);
-	}
-
-	private static <E extends Throwable> Throwable unwrapPolyglotException(Context context, JSExecutor executor, String errorTypeName, JSAdapter<E> eAdapter, PolyglotException ex) {
-		if(ex.isHostException()) {
-			return ex.asHostException();
-		}
-
-		var jsError = ex.getGuestObject();
-		if(jsError == null) {
-			return ex;
-		}
-
-		var checkError = context.eval("js", "(errorName, e) => { const sym = Symbol.for('nobleidl-error-type'); return e instanceof Error && sym in e && e[sym] == errorName");
-		if(checkError.execute(errorTypeName, jsError).asBoolean()) {
-			return eAdapter.fromJS(context, executor, jsError);
-		}
-
-		return unwrapJSException(jsError);
-	}
-
-	public static Throwable unwrapJSException(Value value) {
-		if(value == null || value.isNull()) {
-			return null;
-		}
-
-		if(value.isHostObject() && value.<Object>asHostObject() instanceof Throwable ex) {
-			return ex;
-		}
-
-		try {
-			return value.throwException();
-		}
-		catch(Throwable ex) {
-			return ex;
-		}
-	}
-
-	public static Value wrapJSException(Context context, Throwable ex) {
-		if(ex instanceof PolyglotException pex) {
-			Value obj = pex.getGuestObject();
-			if(obj != null) {
-				return obj;
+			if(pex.isHostException()) {
+				throw unsafeThrowAs(pex.asHostException());
 			}
+
+			Value guestObj = pex.getGuestObject();
+			if(guestObj != null) {
+				throw unsafeThrowAs(valueToThrowable(context, guestObj));
+			}
+
+			throw pex;
+		}
+	}
+
+	static <E, EX extends Throwable> Value unwrapJavaScriptException(Context context, JSExecutor executor, JSAdapter<E> adapter, ErrorType<E, ? extends EX> errorType, Value errorChecker, Supplier<Value> f) throws InterruptedException, EX {
+		try {
+			return f.get();
+		}
+		catch(PolyglotException pex) {
+			if(pex.isHostException()) {
+				throw unsafeThrowAs(pex.asHostException());
+			}
+
+			Value guestObj = pex.getGuestObject();
+			if(guestObj != null) {
+				throw unsafeThrowAs(valueToThrowable(context, executor, adapter, errorType, errorChecker, guestObj));
+			}
+
+			throw pex;
+		}
+	}
+
+	public static Value throwableToValue(Context context, Throwable ex) {
+		if(ex instanceof PolyglotException pex) {
+			if(pex.isHostException()) {
+				return throwableToValue(context, pex.asHostException());
+			}
+
+			Value guestObj = pex.getGuestObject();
+			if(guestObj != null) {
+				return guestObj;
+			}
+
 		}
 
 		return context.asValue(ex);
 	}
 
-	public static <A, E extends Throwable> A getFutureResult(Future<A> future) throws InterruptedException, E {
-		try {
-			return future.get();
+	static <E, EX extends Throwable> Value throwableToValue(Context context, JSExecutor executor, JSAdapter<E> adapter, ErrorType<E, EX> errorType, Throwable ex) throws InterruptedException {
+		E e = errorType.tryFromThrowable(ex);
+		if(e != null) {
+			return adapter.toJS(context, executor, e);
 		}
-		catch(ExecutionException ex) {
-			if(ex.getCause() == null) {
-				throw ExceptionUtil.<E>unsafeThrowAs(ex);
+
+		if(ex instanceof PolyglotException pex) {
+			if(pex.isHostException()) {
+				return throwableToValue(context, pex.asHostException());
 			}
 
-			throw ExceptionUtil.<E>unsafeThrowAs(ex.getCause());
+			Value guestObj = pex.getGuestObject();
+			if(guestObj != null) {
+				return guestObj;
+			}
+
+		}
+
+		return context.asValue(ex);
+	}
+
+	public static Throwable valueToThrowable(Context context, Value error) {
+		if(error.isHostObject() && error.<Object>asHostObject() instanceof Throwable ex) {
+			return ex;
+		}
+
+		if(error.isException()) {
+			try {
+				return error.throwException();
+			}
+			catch(Throwable ex) {
+				return ex;
+			}
+		}
+
+		try {
+			return context.eval("js", "ex => { throw ex; }").execute(error).throwException();
+		}
+		catch(Throwable ex) {
+			return ex;
 		}
 	}
 
-	public static <A, E extends Throwable> A getFutureResultUnchecked(Future<A> future) {
+	static <E, EX extends Throwable> Throwable valueToThrowable(Context context, JSExecutor executor, JSAdapter<E> adapter, ErrorType<E, EX> errorType, Value errorChecker, Value error) throws InterruptedException {
+		if(errorChecker.invokeMember("isInstance", error).asBoolean()) {
+			return errorType.toThrowable(adapter.fromJS(context, executor, error));
+		}
+
+		if(error.isHostObject() && error.<Object>asHostObject() instanceof Throwable ex) {
+			return ex;
+		}
+
+		if(error.isException()) {
+			try {
+				return error.throwException();
+			}
+			catch(Throwable ex) {
+				return ex;
+			}
+		}
+
 		try {
-			return getFutureResult(future);
+			return context.eval("js", "ex => { throw ex; }").execute(error).throwException();
 		}
 		catch(Throwable ex) {
-			throw ExceptionUtil.<RuntimeException>unsafeThrowAs(ex);
+			return ex;
 		}
 	}
 

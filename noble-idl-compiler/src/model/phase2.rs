@@ -22,7 +22,7 @@ pub fn run(definitions: &HashMap<QualifiedName, api::DefinitionInfo>) -> Result<
 			definition_name,
 		};
 
-		checker.check_type_parameters(TypeParamOwner::Type(def.definition.as_ref()), &def.type_parameters)?;
+		checker.check_type_parameters(TypeParamOwner::Type, &def.type_parameters)?;
 
 		match &*def.definition {
 			api::Definition::Record(rec) => checker.check_record(rec)?,
@@ -81,8 +81,8 @@ impl <'a, ParentScope: TypeScope<'a> + Copy> TypeScope<'a> for TypeParameterScop
 }
 
 
-enum TypeParamOwner<'a> {
-	Type(&'a api::Definition),
+enum TypeParamOwner {
+	Type,
 	Method,
 }
 
@@ -129,7 +129,6 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 
 	fn check_fields(&self, _case_name: Option<&str>, fields: &[Box<api::RecordField>]) -> Result<(), CheckError> {
 		for field in fields {
-			self.check_non_exception_type(&field.field_type)?;
 			self.check_type(&field.field_type)?;
 		}
 
@@ -148,11 +147,9 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 			inner.check_type_parameters(TypeParamOwner::Method, &method.type_parameters)?;
 
 			for param in &method.parameters {
-				inner.check_non_exception_type(&param.parameter_type)?;
 				inner.check_type(&param.parameter_type)?;
 			}
 
-			inner.check_non_exception_type(&method.return_type)?;
 			inner.check_type(&method.return_type)?;
 
 			if let Some(throws_type) = method.throws.as_deref() {
@@ -165,31 +162,7 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 		Ok(())
 	}
 
-	fn check_type_parameters(&self, owner: TypeParamOwner, params: &[Box<api::TypeParameter>]) -> Result<(), CheckError> {
-		let allow_exception = match owner {
-			TypeParamOwner::Type(api::Definition::Interface(..)) => true,
-			TypeParamOwner::Method => true,
-			_ => false,
-		};
-
-		for tp in params.iter().map(Box::as_ref) {
-			match tp {
-				TypeParameter::Type { name, constraints, .. } => {
-					let mut is_exception = false;
-
-					for c in constraints.iter().map(Box::as_ref) {
-						match c {
-							TypeParameterTypeConstraint::Exception => { is_exception = true; },
-						}
-					}
-
-					if !allow_exception && is_exception {
-						return Err(CheckError::ExceptionTypeParameterNotAllowed(name.clone()));
-					}
-				},
-			}
-		}
-
+	fn check_type_parameters(&self, _owner: TypeParamOwner, _params: &[Box<api::TypeParameter>]) -> Result<(), CheckError> {
 		Ok(())
 	}
 
@@ -202,14 +175,6 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 	fn check_exception_type(&self, t: &api::TypeExpr) -> Result<(), CheckError> {
 		if !self.is_exception_type(t)? {
 			return Err(CheckError::InvalidExceptionType(t.clone()))
-		}
-
-		Ok(())
-	}
-
-	fn check_non_exception_type(&self, t: &api::TypeExpr) -> Result<(), CheckError> {
-		if self.is_exception_type(t)? {
-			return Err(CheckError::ExceptionTypeNotAllowed(t.clone()));
 		}
 
 		Ok(())
@@ -273,9 +238,6 @@ impl <'a, Scope: TypeScope<'a> + Copy + 'a> ModelChecker<'a, Scope> {
 
 				if is_exception_param {
 					self.check_exception_type(arg)?;
-				}
-				else {
-					self.check_non_exception_type(arg)?;
 				}
 			},
 		}

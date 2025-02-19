@@ -5,4 +5,5 @@ module dev.argon.nobleidl.runtime {
 
 	exports dev.argon.nobleidl.runtime;
 	exports dev.argon.nobleidl.runtime.graaljsInterop;
+	exports dev.argon.nobleidl.runtime.util;
 }

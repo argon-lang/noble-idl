@@ -12,4 +12,16 @@ public interface JSAdapter<T> {
 		return new IdentityJSAdapter<>();
 	}
 
+	static JSAdapter<Value> VALUE_ADAPTER = new JSAdapter<Value>() {
+		@Override
+		public Value fromJS(Context context, JSExecutor executor, Value value) {
+			return value;
+		}
+
+		@Override
+		public Value toJS(Context context, JSExecutor executor, Value value) {
+			return value;
+		}
+	};
+
 }

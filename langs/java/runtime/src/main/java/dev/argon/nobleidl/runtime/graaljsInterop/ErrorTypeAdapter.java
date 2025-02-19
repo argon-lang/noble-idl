@@ -1,78 +1,64 @@
 package dev.argon.nobleidl.runtime.graaljsInterop;
 
 import dev.argon.nobleidl.runtime.ErrorType;
-import dev.argon.nobleidl.runtime.NobleIDLException;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
+import org.jetbrains.annotations.Nullable;
 
 public class ErrorTypeAdapter {
 	private ErrorTypeAdapter() {}
 
-	public static ErrorType<?> fromJS(Context context, JSExecutor executor, Value jsErrorChecker) {
-		var obj = ObjectWrapUtil.getJavaObject(context, jsErrorChecker);
-		if(obj != null) {
-			return (ErrorType<?>)obj;
-		}
-
-		class ErrorTypeImpl implements ErrorType<Throwable>, WrappedJavaScriptObject {
+	public static ErrorType<Value, Throwable> fromJS(Context context, JSExecutor executor, Value jsErrorChecker) {
+		return new ErrorType<Value, Throwable>() {
 			@Override
-			public Value _getAsJSValue() {
-				return jsErrorChecker;
-			}
-
-			@Override
-			public Throwable tryFromThrowable(Throwable ex) {
-				if(!(ex instanceof PolyglotException pex)) {
-					return null;
-				}
-
-				return ExceptionUtil.getFutureResultUnchecked(executor.runOnJSThread(() -> {
-					Throwable javaException;
-					Value jsError;
-					if(pex.isHostException()) {
-						javaException = pex.asHostException();
-						jsError = context.asValue(javaException);
-					}
-					else {
-						javaException = pex;
-						jsError = pex.getGuestObject();
-					}
-
-					if(jsError == null) {
-						return null;
-					}
+			public @Nullable Value tryFromObject(Object obj) throws InterruptedException {
+				return executor.runOnJSThreadWithoutError(() -> {
+					Value jsError = new IdentityJSAdapter<>().toJS(context, executor, obj);
 
 					if(!jsErrorChecker.invokeMember("isInstance", jsError).asBoolean()) {
 						return null;
 					}
 
-					return javaException;
-				}));
+					return jsError;
+				}).get();
 			}
-		}
 
-		return new ErrorTypeImpl();
+			@Override
+			public @Nullable Value tryFromThrowable(Throwable ex) throws InterruptedException {
+				return executor.runOnJSThreadWithoutError(() -> {
+					Value jsError = ExceptionUtil.throwableToValue(context, ex);
+
+					if(!jsErrorChecker.invokeMember("isInstance", jsError).asBoolean()) {
+						return null;
+					}
+
+					return jsError;
+				}).get();
+			}
+
+			@Override
+			public Throwable toThrowable(Value error) throws InterruptedException {
+				return executor.runOnJSThreadWithoutError(() -> {
+					return ExceptionUtil.valueToThrowable(context, error);
+				}).get();
+			}
+		};
 	}
 
-	public static <E extends Throwable> Value toJS(Context context, JSExecutor executor, ErrorType<E> errorType) {
+	public static <T, E extends Throwable> Value toJS(Context context, JSExecutor executor, ErrorType<T, E> errorType) {
 		var obj = ObjectWrapUtil.getJSObject(errorType);
 		if(obj != null) {
 			return obj;
 		}
 
 
-		var isInstance = new ProxyExecutable() {
-			@Override
-			public Object execute(Value... arguments) {
-				var e = arguments[0];
-				return e.isHostObject() && e.asHostObject() instanceof Throwable ex && errorType.isError(ex);
-			}
-		};
+		var isInstance = CallUtil.makeJavaScriptFunction(arguments -> {
+			var e = arguments[0];
+			return errorType.objectIsError(new IdentityJSAdapter<>().fromJS(context, executor, e));
+		});
 
-		var errorChecker = context.eval("js", "isInstance => ({ isInstance })").execute(isInstance);
-		ObjectWrapUtil.putJavaObject(context, obj, errorChecker);
-		return errorChecker;
+		return context.eval("js", "isInstance => ({ isInstance })").execute(isInstance);
 	}
 }

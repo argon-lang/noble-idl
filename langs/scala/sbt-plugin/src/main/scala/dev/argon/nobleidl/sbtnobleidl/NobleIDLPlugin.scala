@@ -166,7 +166,7 @@ object NobleIDLPlugin extends AutoPlugin {
 
               if(!task.call()) {
                 val errors: String = diagnostics.getDiagnostics.asScala.map(diag => diag.toString).mkString(java.lang.System.lineSeparator)
-                throw new RuntimeException("Noble IDL Annotation processing failure" + java.lang.System.lineSeparator + errors)
+                throw new RuntimeException("ESExpr Annotation processing failure" + java.lang.System.lineSeparator + errors)
               }
             }
 

@@ -61,6 +61,7 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
     case ScalaJSType
     case ScalaMethod
     case JavaMethod
+    case JavaTypeErrorParam
     case ScalaJSMethod
   }
 
@@ -71,24 +72,75 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
 
         _ <- ZIO.foreachDiscard(tps.zipWithIndex) {
           case (tp: TypeParameter.Type, index) =>
-            for
-              _ <- write(", ").when(index > 0)
-              _ <- write(prefix)
-              _ <- write(convertIdPascal(tp.name))
-              _ <- constraintType match {
-                case ConstraintType.ScalaType => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
-                case ConstraintType.ScalaJSType => ZIO.unit
-                case ConstraintType.ScalaMethod => write(" <: _root_.java.lang.Throwable: _root_.nobleidl.core.ErrorType").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
-                case ConstraintType.JavaMethod => write(" <: _root_.java.lang.Throwable").when(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
-                case ConstraintType.ScalaJSMethod => ZIO.unit
-              }
-            yield ()
+            write(", ").whenDiscard(index > 0) *>
+              writeTypeParameter(tp, prefix, constraintType)
         }
 
         _ <- write("]")
       yield ()
-      ).when(tps.nonEmpty).unit
+    ).whenDiscard(tps.nonEmpty)
+    
+  protected final def writeJavaMethodTypeParameters(typeTypeParams: Seq[TypeParameter], methodTypeParams: Seq[TypeParameter]): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    (
+      for
+        _ <- write("[")
 
+        _ <- ZIO.foreachDiscard(
+          Seq(
+            typeTypeParams
+              .filter {
+                case tpt: TypeParameter.Type =>
+                  tpt.constraints.exists { case _: TypeParameterTypeConstraint.Exception => true }
+              }
+              .map { tp =>
+                writeTypeParameter(tp, "E", ConstraintType.JavaTypeErrorParam)
+              },
+
+            methodTypeParams
+              .map { tp =>
+                writeTypeParameter(tp, "T", ConstraintType.JavaMethod)
+              }
+          ).view.flatten.zipWithIndex
+        ) {
+          case (action, index) =>
+            write(", ").whenDiscard(index > 0) *>
+              action
+        }
+
+        _ <- write("]")
+      yield ()
+    ).whenDiscard(
+      methodTypeParams.nonEmpty ||
+        typeTypeParams
+          .exists {
+            case tpt: TypeParameter.Type =>
+              tpt.constraints.exists { case _: TypeParameterTypeConstraint.Exception => true }
+          }
+    )
+
+  protected def writeTypeParameter(tp: TypeParameter, prefix: String, constraintType: ConstraintType): ZIO[CodeWriter, NobleIDLCompileErrorException, Unit] =
+    tp match {
+      case tp: TypeParameter.Type =>
+        for
+          _ <- write(prefix)
+          _ <- write(convertIdPascal(tp.name))
+          _ <- constraintType match {
+            case ConstraintType.ScalaType => ZIO.unit
+            case ConstraintType.ScalaJSType => ZIO.unit
+            case ConstraintType.ScalaMethod => write(": _root_.nobleidl.core.ErrorType").whenDiscard(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+            case ConstraintType.JavaMethod =>
+              (
+                write(", E") *>
+                  write(convertIdPascal(tp.name)) *>
+                  write(" <: _root_.java.lang.Throwable")
+                ).whenDiscard(tp.constraints.contains(TypeParameterTypeConstraint.Exception()))
+
+            case ConstraintType.JavaTypeErrorParam => write(" <: _root_.java.lang.Throwable")
+            case ConstraintType.ScalaJSMethod => ZIO.unit
+          }
+        yield ()
+    }
+  
   protected def definitionAsType(dfn: DefinitionInfo): TypeExpr.DefinedType =
     TypeExpr.DefinedType(
       dfn.name,
@@ -131,7 +183,7 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
         for
           _ <- write("[")
           _ <- ZIO.foreachDiscard(args.view.zipWithIndex) { (arg, index) =>
-            write(", ").when(index > 0) *>
+            write(", ").whenDiscard(index > 0) *>
               writeTypeExpr(arg, TypePosition.TypeArgument)
           }
           _ <- write("]")
@@ -166,6 +218,10 @@ abstract class ScalaBackendBase private[compiler] extends Backend {
       packageMapping.get(packageName)
         .toRight { NobleIDLCompileErrorException("Unmapped package: " + packageName.display) }
     )
+
+  protected def getExceptionTypeName(name: QualifiedName): String =
+    (name.`package`.parts :+ name.name).mkString(".")
+
 
   protected final def convertIdPascal(kebab: String): String =
     kebab.split("-")

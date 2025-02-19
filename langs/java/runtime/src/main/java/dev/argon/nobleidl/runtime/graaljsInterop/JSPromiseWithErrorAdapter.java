@@ -1,6 +1,7 @@
 package dev.argon.nobleidl.runtime.graaljsInterop;
 
 import dev.argon.nobleidl.runtime.ErrorType;
+import dev.argon.nobleidl.runtime.FutureWithError;
 import dev.argon.nobleidl.runtime.FutureWithoutError;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.PolyglotException;
@@ -8,16 +9,17 @@ import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
-public class JSPromiseAdapter<T> {
-	public JSPromiseAdapter(JSAdapter<T> tAdapter) {
+public class JSPromiseWithErrorAdapter<T, E> {
+	public JSPromiseWithErrorAdapter(JSAdapter<T> tAdapter, JSAdapter<E> eAdapter) {
 		this.tAdapter = tAdapter;
+		this.eAdapter = eAdapter;
 	}
 
 	private final JSAdapter<T> tAdapter;
+	private final JSAdapter<E> eAdapter;
 
-	public FutureWithoutError<T> fromJS(Context context, JSExecutor executor, Value value) throws InterruptedException {
+	public <EX extends Throwable> FutureWithError<T, EX> fromJS(Context context, JSExecutor executor, ErrorType<E, ? extends EX> errorType, Value errorChecker, Value value) {
 		var future = new CompletableFuture<T>();
 
 		value.invokeMember("then",
@@ -41,7 +43,14 @@ public class JSPromiseAdapter<T> {
 						throw new IllegalArgumentException("Expected one argument for then reject callback");
 					}
 
-					Throwable ex = ExceptionUtil.valueToThrowable(context, arguments[0]);
+					Throwable ex;
+					try {
+						ex = ExceptionUtil.valueToThrowable(context, executor, eAdapter, errorType, errorChecker, arguments[0]);
+					}
+					catch(Throwable ex2) {
+						ex = ex2;
+					}
+
 					future.completeExceptionally(ex);
 
 					return context.eval("js", "void 0");
@@ -49,10 +58,10 @@ public class JSPromiseAdapter<T> {
 			}
 		);
 
-		return FutureWithoutError.fromFutureUnsafe(future);
+		return FutureWithError.fromFutureUnsafe(future);
 	}
 
-	public Value toJS(Context context, JSExecutor executor, FutureWithoutError<T> value) {
+	public <EX extends Throwable> Value toJS(Context context, JSExecutor executor, ErrorType<E, ? extends EX> errorType, FutureWithError<T, EX> value) {
 		return context.eval("js", "executor => new Promise(executor)").execute(
 			new ProxyExecutable() {
 				@Override
@@ -64,20 +73,20 @@ public class JSPromiseAdapter<T> {
 					Value resolve = arguments[0];
 					Value reject = arguments[1];
 
-					executor.offloadJavaWithoutError(() -> {
+					executor.offloadJavaWithError(() -> {
 						T javaValue;
 						try {
 							javaValue = value.get();
 						}
 						catch(Throwable ex) {
 							executor.runOnJSThreadWithoutError(() -> {
-								reject.executeVoid(ExceptionUtil.throwableToValue(context, ex));
+								reject.executeVoid(ExceptionUtil.throwableToValue(context, executor, eAdapter, errorType, ex));
 								return null;
 							}).get();
 							return null;
 						}
 
-						executor.runOnJSThreadWithoutError(() -> {
+						executor.runOnJSThreadWithError(() -> {
 							Value jsValue = tAdapter.toJS(context, executor, javaValue);
 							resolve.executeVoid(jsValue);
 							return null;
