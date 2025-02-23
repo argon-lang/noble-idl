@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import scala.sys.process.Process
 
 
-val zioVersion = "2.1.9"
+val zioVersion = "2.1.15"
 
 ThisBuild / organization := "dev.argon.nobleidl"
 ThisBuild / version := "0.1.0-SNAPSHOT"
@@ -18,7 +18,7 @@ ThisBuild / evictionErrorLevel := Level.Warn
 publish / skip := true
 
 val buildSettings = Seq(
-  scalaVersion := "3.5.1",
+  scalaVersion := "3.6.3",
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",
     "-release", "22",
@@ -80,7 +80,7 @@ lazy val backend = project.in(file("backend"))
       "dev.zio" %%% "zio-test-sbt" % zioVersion % "test",
 
       "com.github.scopt" %%% "scopt" % "4.1.0",
-      "org.apache.commons" % "commons-text" % "1.12.0",
+      "org.apache.commons" % "commons-text" % "1.13.0",
       "org.ow2.asm" % "asm" % "9.7.1",
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
@@ -104,7 +104,7 @@ val util = project.in(file("util"))
 val nidl_test = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).in(file("test"))
   .dependsOn(runtime)
   .jvmSettings(
-    libraryDependencies += "org.jetbrains" % "annotations" % "24.0.0",
+    libraryDependencies += "org.jetbrains" % "annotations" % "26.0.2",
 
     Compile / unmanagedJars += file("../java/test/build/libs/test.jar")
   )

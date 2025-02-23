@@ -12,7 +12,7 @@ trait ErrorType[E] {
 }
 
 object ErrorType extends ErrorTypePlatformSpecific {  
-  given fromTypeTest[E <: Throwable](using tt: TypeTest[Any, E]): ErrorType[E] with
+  given fromTypeTest: [E <: Throwable] => (tt: TypeTest[Any, E]) => ErrorType[E]:
     override def checkObject(o: Any): Option[E] =
       o.asInstanceOf[Matchable] match {
         case o: E => Some(o)
@@ -26,7 +26,7 @@ object ErrorType extends ErrorTypePlatformSpecific {
       }
   end fromTypeTest
 
-  given fromTypeTestThrowable[E <: Throwable](using tt: TypeTest[Throwable, E]): ErrorType[E] =
+  given fromTypeTestThrowable: [E <: Throwable] => (tt: TypeTest[Throwable, E]) => ErrorType[E] =
     fromTypeTest(using new TypeTest[Any, E] {
       override def unapply(x: Any): Option[x.type & E] =
         summon[TypeTest[Any, Throwable]].unapply(x) match {

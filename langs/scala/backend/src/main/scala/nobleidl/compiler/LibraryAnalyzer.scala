@@ -57,14 +57,14 @@ object LibraryAnalyzer {
 
   private class WrappedError(val cause: Cause[Error]) extends Exception
 
-  private given ErrorWrapper[Error] with {
+  private given ErrorWrapper[Error]:
     override type EX = WrappedError
 
     override def exceptionTypeTest: TypeTest[Any, WrappedError] = summon
 
     override def wrap(error: Cause[Error]): WrappedError = WrappedError(error)
     override def unwrap(ex: WrappedError): Cause[Error] = ex.cause
-  }
+  end given
 
   private def scanLibrary(platform: String)(lib: Path): IO[Error, LibraryResults] =
     ZStream.fromJavaStream(Files.walk(lib))

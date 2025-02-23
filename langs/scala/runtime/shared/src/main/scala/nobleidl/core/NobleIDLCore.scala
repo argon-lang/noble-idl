@@ -25,8 +25,8 @@ final case class Binary(val array: IArray[Byte]) extends AnyVal derives CanEqual
 object Binary extends BinaryObjectPlatformSpecific {
   def fromBinary(b: IArray[Byte]): Binary = Binary(b)
 
-  given ESExprCodec[Binary] with
-    val innerCodec = summon[ESExprCodec[IArray[Byte]]]
+  given ESExprCodec[Binary]:
+    private val innerCodec = summon[ESExprCodec[IArray[Byte]]]
     
     override lazy val tags: Set[ESExprTag] =
       innerCodec.tags
