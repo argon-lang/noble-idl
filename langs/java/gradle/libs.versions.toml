@@ -8,8 +8,9 @@ asm = "9.7"
 graal = "24.1.2"
 
 [libraries]
-junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version = "junit-jupiter" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.1" }
+easymock = { module = "org.easymock:easymock", version = "5.5.0" }
 esexpr-generator = { module = "dev.argon.esexpr:esexpr-generator" , version.ref = "esexpr" }
 esexpr-runtime = { module = "dev.argon.esexpr:esexpr-java-runtime" , version.ref = "esexpr" }
 jawawasm-engine = { module = "dev.argon.jawawasm:wasm-engine", version.ref = "jawawasm" }

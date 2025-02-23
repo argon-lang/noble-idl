@@ -19,8 +19,9 @@ public class CallUtil {
 		}).get().get();
 	}
 
-	public static <T, E, EX extends Throwable> T callJSFunction(Context context, JSExecutor executor, JSAdapter<T> tAdapter, JSAdapter<E> eAdapter, ErrorType<E, ? extends EX> errorType, Value errorChecker, Supplier<Value> f) throws EX, InterruptedException {
+	public static <T, E, EX extends Throwable> T callJSFunction(Context context, JSExecutor executor, JSAdapter<T> tAdapter, JSAdapter<E> eAdapter, ErrorType<E, ? extends EX> errorType, Supplier<Value> errorCheckerSupplier, Supplier<Value> f) throws EX, InterruptedException {
 		return executor.runOnJSThreadWithError(() -> {
+			Value errorChecker = errorCheckerSupplier.get();
 			Value jsPromise = ExceptionUtil.unwrapJavaScriptException(context, executor, eAdapter, errorType, errorChecker, f);
 			return new JSPromiseWithErrorAdapter<>(tAdapter, eAdapter).fromJS(context, executor, errorType, errorChecker, jsPromise);
 		}).get().get();

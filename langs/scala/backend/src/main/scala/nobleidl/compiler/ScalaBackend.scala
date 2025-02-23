@@ -266,7 +266,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               for
                 _ <- write("case \"")
                 _ <- write(StringEscapeUtils.escapeJava(c.name).nn)
-                _ <- writeln(" \" =>")
+                _ <- writeln("\" =>")
                 _ <- indent()
 
                 _ <- write("new ")
@@ -294,7 +294,7 @@ final class ScalaBackend(genRequest: NobleIdlGenerationRequest[ScalaLanguageOpti
               yield ()
             }
 
-            _ <- writeln("case _ => throw new _root_.scala.MatchError(j_value)")
+            _ <- writeln("case _ => throw new _root_.scala.MatchError(\"Unexpected enum case: \" + j_value)")
 
             _ <- dedent()
             _ <- writeln("}")

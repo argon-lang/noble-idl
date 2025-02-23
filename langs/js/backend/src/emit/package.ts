@@ -20,10 +20,10 @@ export function decodePackageNameStr(name: string): PackageName {
 
 export function getPackageIdStr(name: PackageName | string): string {
 	if (typeof name === "object") {
-		return getPackageIdStr(getPackageNameStr(name));
+		name = getPackageNameStr(name);
 	}
 
-	return name.replace(".", "__").replace("-", "_");
+	return name.replaceAll(".", "__").replaceAll("-", "_");
 }
 
 

@@ -17,7 +17,8 @@ dependencies {
     api(libs.graal.polyglot)
     api(libs.graal.js)
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.easymock)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -32,6 +33,8 @@ java {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+
+    testLogging.showStandardStreams = true
 }
 
 tasks.register("codegenNobleIDL") {

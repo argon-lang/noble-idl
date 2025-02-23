@@ -23,7 +23,7 @@ public final class List {
 		return new JSAdapter<>() {
 			@Override
 			public java.util.List<A> fromJS(Context context, JSExecutor executor, Value value) {
-				java.util.List<A> l = new ArrayList<>();
+				java.util.List<A> l = new ArrayList<>((int)value.getArraySize());
 
 				Value iter = value.getIterator();
 				while(iter.hasIteratorNextElement()) {
@@ -37,7 +37,11 @@ public final class List {
 
 			@Override
 			public Value toJS(Context context, JSExecutor executor, java.util.List<A> value) {
-				return context.eval("js", "Array.from").execute(value);
+				var arr = context.eval("js", "[]");
+				for(var a : value) {
+					arr.invokeMember("push", aAdapter.toJS(context, executor, a));
+				}
+				return arr;
 			}
 		};
 	}

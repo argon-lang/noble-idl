@@ -49,6 +49,10 @@ public class ExceptionUtil {
 	}
 
 	public static Value throwableToValue(Context context, Throwable ex) {
+		if(ex == null) {
+			return context.asValue(null);
+		}
+
 		if(ex instanceof PolyglotException pex) {
 			if(pex.isHostException()) {
 				return throwableToValue(context, pex.asHostException());
@@ -86,6 +90,10 @@ public class ExceptionUtil {
 	}
 
 	public static Throwable valueToThrowable(Context context, Value error) {
+		if(error == null) {
+			return null;
+		}
+
 		if(error.isHostObject() && error.<Object>asHostObject() instanceof Throwable ex) {
 			return ex;
 		}

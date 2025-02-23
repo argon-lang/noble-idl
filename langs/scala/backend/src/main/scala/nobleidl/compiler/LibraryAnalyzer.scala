@@ -60,7 +60,7 @@ object LibraryAnalyzer {
   private given ErrorWrapper[Error] with {
     override type EX = WrappedError
 
-    override def exceptionTypeTest: TypeTest[Throwable, WrappedError] = summon
+    override def exceptionTypeTest: TypeTest[Any, WrappedError] = summon
 
     override def wrap(error: Cause[Error]): WrappedError = WrappedError(error)
     override def unwrap(ex: WrappedError): Cause[Error] = ex.cause
@@ -176,6 +176,17 @@ object LibraryAnalyzer {
                       case _ =>
                     }
                 }
+
+              case "Lnobleidl/sjs/core/NobleIDLScalaJSImport;" =>
+                new AnnotationVisitor(Opcodes.ASM9) {
+                  override def visit(name: String, value: Any): Unit =
+                    (name, value.asInstanceOf[Matchable]) match {
+                      case ("value", value: String) =>
+                        sjsImport = Some(value)
+
+                      case _ =>
+                    }
+                }
                 
               case _ => null
             }
@@ -193,7 +204,10 @@ object LibraryAnalyzer {
           scalaPackageMapping = makeMap(scalaIdlPackage),
           javaPackageMapping = makeMap(javaIdlPackage),
           scalaJSPackageMapping = makeMap(sjsIdlPackage),
-          scalaJSImportMapping = Map.empty,
+          scalaJSImportMapping = (sjsIdlPackage, sjsImport) match {
+            case (Some(idlPackage), Some(jsImport)) => Map(idlPackage -> jsImport)
+            case _ => Map()
+          },
           sourceFiles = Seq()
         )
       }

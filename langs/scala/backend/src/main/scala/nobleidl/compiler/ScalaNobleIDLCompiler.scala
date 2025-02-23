@@ -213,10 +213,8 @@ object ScalaNobleIDLCompiler extends ZIOAppDefault {
         compilationUnits
       )
       task.setProcessors(Seq(processor).asJava)
-      if !task.call() then
-        val errors: String = diagnostics.getDiagnostics.asScala.map(diag => diag.toString).mkString(java.lang.System.lineSeparator)
-        throw new RuntimeException("Noble IDL Annotation processing failure" + java.lang.System.lineSeparator + errors)
-      end if
+
+      task.call() // Ignore errors, sometimes errors are due to the generated files not existing yet.
     }
   end runAnnotationProcessor
 

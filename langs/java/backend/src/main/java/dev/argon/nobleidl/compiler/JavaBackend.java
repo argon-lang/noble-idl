@@ -449,14 +449,14 @@ public final class JavaBackend implements Backend {
 								case TypeExpr.DefinedType dt -> {
 									w.print("dev.argon.nobleidl.runtime.ErrorType.fromClass(");
 									typeExprToJava(exType).nonReturnType().writeType(w);
-									w.print(".class), dev.argon.nobleidl.runtime.graaljsInterop.ErrorChecker.forErrorName(context_, \"");
+									w.print(".class), () -> dev.argon.nobleidl.runtime.graaljsInterop.ErrorChecker.forErrorName(context_, \"");
 									w.print(StringEscapeUtils.escapeJava(getExceptionTypeName(dt.name())));
 									w.print("\"), ");
 								}
 								case TypeExpr.TypeParameter tp -> {
 									w.print("errorType_");
 									w.print(convertIdCamelNoEscape(tp.name()));
-									w.print(", dev.argon.nobleidl.runtime.graaljsInterop.ErrorTypeAdapter.toJS(context_, executor_, errorType_");
+									w.print(", () -> dev.argon.nobleidl.runtime.graaljsInterop.ErrorTypeAdapter.toJS(context_, executor_, errorType_");
 									w.print(convertIdCamelNoEscape(tp.name()));
 									w.print("), ");
 								}
@@ -508,9 +508,9 @@ public final class JavaBackend implements Backend {
 					w.dedent();
 					w.println("}");
 
-					w.println("return new ");
+					w.print("return new ");
 					w.print(convertIdPascal(dfn.name().name()));
-					w.print("_Impl();");
+					w.println("_Impl();");
 				}
 
 				@Override

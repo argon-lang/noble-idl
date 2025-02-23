@@ -70,7 +70,6 @@ extern type i32;
 
 @esexpr:(derive-codec)
 @esexpr:(literals allow-int: #true min-int: 0 max-int: 4294967295)
-@java:(mapped-to "int")
 @java:(mapped-to (annotated "int" "dev.argon.esexpr.Unsigned"))
 @csharp:(mapped-to (member (global "System") "UInt32"))
 extern type u32;
