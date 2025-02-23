@@ -62,12 +62,44 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
 lazy val runtimeJVM = runtime.jvm
 lazy val runtimeJS = runtime.js
 
-lazy val backend = project.in(file("backend"))
+lazy val compilerApi = project.in(file("compiler-api"))
   .dependsOn(runtimeJVM)
   .settings(
     buildSettings,
 
+    libraryDependencies += "dev.argon.nobleidl" % "nobleidl-java-compiler" % "0.1.0-SNAPSHOT",
+
+    name := "nobleidl-scala-compiler-api",
+  )
+
+
+lazy val compilerBackend = project.in(file("compiler-backend"))
+  .dependsOn(runtimeJVM, compilerApi)
+  .settings(
+    buildSettings,
+
     Compile / unmanagedSourceDirectories += baseDirectory.value / "src/gen/scala",
+
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio" % zioVersion,
+      "dev.zio" %%% "zio-streams" % zioVersion,
+      "dev.zio" %%% "zio-interop-cats" % "23.1.0.3",
+
+      "dev.zio" %%% "zio-test" % zioVersion % "test",
+      "dev.zio" %%% "zio-test-sbt" % zioVersion % "test",
+
+      "org.apache.commons" % "commons-text" % "1.13.0",
+    ),
+
+    name := "nobleidl-scala-compiler-backend",
+  )
+
+lazy val compiler = project.in(file("compiler"))
+  .dependsOn(runtimeJVM, compilerApi, compilerBackend)
+  .settings(
+    buildSettings,
 
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
 
@@ -85,14 +117,13 @@ lazy val backend = project.in(file("backend"))
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
       "dev.argon" %%% "argon-async-util" % "2.0.0-SNAPSHOT",
-      "dev.argon.nobleidl" % "nobleidl-java-compiler" % "0.1.0-SNAPSHOT",
     ),
 
     name := "nobleidl-scala-compiler",
   )
 
 val util = project.in(file("util"))
-  .dependsOn(backend)
+  .dependsOn(compiler)
   .settings(
     buildSettings,
     publish / skip := true,
@@ -127,7 +158,7 @@ val nidl_test = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Full).
       val sourceDirs = (Compile / unmanagedSourceDirectories).value
 
       val javaArgs = javaOptions.value
-      val generatorCP = (backend / Compile / fullClasspath).value.map(_.data.toString).mkString(File.pathSeparator)
+      val generatorCP = (compiler / Compile / fullClasspath).value.map(_.data.toString).mkString(File.pathSeparator)
       val depCP = (Compile / dependencyClasspath).value
 
       val f = FileFunction.cached(s.cacheDirectory / "generate-nobleidl") { (in: Set[File]) =>
