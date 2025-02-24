@@ -47,8 +47,8 @@ lazy val runtime = crossProject(JVMPlatform, JSPlatform).crossType(CrossType.Ful
     Compile / packageBin / packageOptions += Package.ManifestAttributes("Automatic-Module-Name" -> "dev.argon.nobleidl.core.scala"),
 
     libraryDependencies  ++= Seq(
-      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.1.6-SNAPSHOT",
-      "dev.argon" %%% "argon-async-util" % "2.0.0-SNAPSHOT",
+      "dev.argon.esexpr" %%% "esexpr-scala-runtime" % "0.2.0",
+      "dev.argon" %%% "argon-async-util" % "2.0.0",
     ),
     
     Compile / unmanagedSourceDirectories ++= Seq(
@@ -116,7 +116,7 @@ lazy val compiler = project.in(file("compiler"))
       "org.ow2.asm" % "asm" % "9.7.1",
 
       "dev.argon.jawawasm" % "wasm-engine" % "0.1.0",
-      "dev.argon" %%% "argon-async-util" % "2.0.0-SNAPSHOT",
+      "dev.argon" %%% "argon-async-util" % "2.0.0",
     ),
 
     name := "nobleidl-scala-compiler",

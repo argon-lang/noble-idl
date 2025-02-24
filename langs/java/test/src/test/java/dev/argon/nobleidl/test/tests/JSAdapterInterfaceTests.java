@@ -2,6 +2,7 @@ package dev.argon.nobleidl.test.tests;
 
 import dev.argon.nobleidl.example.DoSomething;
 
+import org.graalvm.polyglot.PolyglotException;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.easymock.EasyMock.*;
@@ -53,6 +54,23 @@ public class JSAdapterInterfaceTests extends JSAdapterTestBase {
 			BigInteger.valueOf(15),
 			javaValue.add(BigInteger.TEN, BigInteger.TWO)
 		);
+	}
+
+	@Test
+	void throwFromJS() throws InterruptedException {
+		var jsValue = js(
+			"""
+				({
+					async toStr(value) { return "A"; },
+					async run(n) { throw new Error("Test Error"); },
+					async add(a, b) { return 15; },
+				})
+				"""
+		);
+
+		var javaValue = runJsThread(() -> DoSomething.jsAdapter().fromJS(context, executor, jsValue));
+
+		assertThrows(PolyglotException.class, () -> javaValue.run(BigInteger.TEN));
 	}
 
 }

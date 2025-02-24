@@ -28,7 +28,14 @@ public class JSPromiseAdapter<T> {
 						throw new IllegalArgumentException("Expected one argument for then resolve callback");
 					}
 
-					T javaValue = tAdapter.fromJS(context, executor, arguments[0]);
+					T javaValue;
+					try {
+						javaValue = tAdapter.fromJS(context, executor, arguments[0]);
+					}
+					catch(Throwable ex) {
+						future.completeExceptionally(ex);
+						return context.eval("js", "void 0");
+					}
 					future.complete(javaValue);
 
 					return context.eval("js", "void 0");
@@ -78,7 +85,14 @@ public class JSPromiseAdapter<T> {
 						}
 
 						executor.runOnJSThreadWithoutError(() -> {
-							Value jsValue = tAdapter.toJS(context, executor, javaValue);
+							Value jsValue;
+							try {
+								jsValue = tAdapter.toJS(context, executor, javaValue);
+							}
+							catch(Throwable ex) {
+								reject.executeVoid(ex);
+								return null;
+							}
 							resolve.executeVoid(jsValue);
 							return null;
 						}).get();
